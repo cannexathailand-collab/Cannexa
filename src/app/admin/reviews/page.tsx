@@ -1,8 +1,7 @@
 import {approvers} from "@/lib/accounts";
 import {requireAdminPage} from "@/lib/auth";
-import {commissionPeriod} from "@/lib/commission-month";
+import {commissionReport} from "@/lib/commission-report";
 import {CommissionMonthSelect} from "@/app/commission-month-select";
-import {db} from "@/lib/db";
 
 const money = (satang: number) => (satang / 100).toLocaleString("th-TH", {
  style: "currency",
@@ -11,23 +10,12 @@ const money = (satang: number) => (satang / 100).toLocaleString("th-TH", {
 
 export default async function Reviews({searchParams}: {searchParams: Promise<{month?: string}>}) {
  await requireAdminPage(approvers);
- const [affiliates, rows] = await Promise.all([db.affiliate.findMany({
-  orderBy: {name: "asc"},
-  include: {accounts: {where: {role: "employee"}, select: {username: true}, orderBy: {username: "asc"}}},
- }), db.commission.findMany({
-  where: { OR: [
-   {status: "Approved", conversion: {status: "VERIFIED_NEW_FRIEND"}},
-   {status: "Paid"},
-  ] },
-  orderBy: [{conversion: {verifiedAt: {sort: "desc", nulls: "last"}}}, {conversion: {createdAt: "desc"}}],
-  include: {conversion: {select: {affiliateId: true, verifiedAt: true, createdAt: true}}},
- })]);
- const {month, months, entries} = commissionPeriod(rows, (await searchParams).month);
- const groups = Map.groupBy(entries, row => row.conversion.affiliateId);
+ const {affiliates, groups, month, months} = await commissionReport((await searchParams).month);
 
  return <>
   <h1>จ่ายค่าคอมมิชชัน</h1>
   <CommissionMonthSelect month={month} months={months}/>
+  <a className="button secondary" href={"/api/admin/review/export?month="+month}>ส่งออก CSV</a>
   {!affiliates.length && <p>ยังไม่มี Affiliate</p>}
   {affiliates.map(({id, name, code, accounts}) => {
    const items = groups.get(id) ?? [];
