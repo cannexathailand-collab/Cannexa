@@ -2,9 +2,8 @@ import {NextRequest,NextResponse} from "next/server";
 import {consume} from "@/lib/oauth";
 import {exchange} from "@/lib/line";
 import {recordLogin} from "@/lib/tracking";
-import {userKey,signToken,sha} from "@/lib/crypto";
+import {userKey,sha} from "@/lib/crypto";
 import {baseUrl,mockMode} from "@/lib/config";
-import {cookieOptions} from "@/lib/auth";
 import {db} from "@/lib/db";
 import {lineSettings} from "@/lib/line-settings";
 export async function GET(req:NextRequest){
@@ -19,9 +18,9 @@ export async function GET(req:NextRequest){
   if(!connection||connection.revision!==(a.lineRevision??"environment"))throw new Error("LINE configuration changed");
   const result=await exchange(code,a.verifier,a.nonce,connection.settings);
   const changed=req.nextUrl.searchParams.get("friendship_status_changed");
-  const c=await recordLogin(a.clickId,userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?result.userId:connection.settings.botId+":"+result.userId),result.friendFlag,changed==="true"?true:changed==="false"?false:null);
-  const res=NextResponse.redirect(baseUrl()+"/result");
-  res.cookies.set("customer_result",signToken({id:c.id,exp:Date.now()+3600000}),{...cookieOptions,maxAge:3600});
+  await recordLogin(a.clickId,userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?result.userId:connection.settings.botId+":"+result.userId),result.friendFlag,changed==="true"?true:changed==="false"?false:null);
+  const chatUrl="https://line.me/R/oaMessage/"+encodeURIComponent(connection.settings.basicId);
+  const res=NextResponse.redirect(chatUrl);
   res.cookies.delete("oauth_"+sha(state).slice(0,16));return res;
  }catch{
   if(clickId)await db.click.update({where:{id:clickId},data:{loginResult:"FAILED"}});
