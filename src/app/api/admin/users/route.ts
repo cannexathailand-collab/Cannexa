@@ -1,3 +1,4 @@
+import {metaAdCode} from "@/lib/meta-ad";
 import {randomBytes,randomUUID} from "node:crypto";
 import {NextResponse} from "next/server";
 import {z} from "zod";
@@ -20,8 +21,10 @@ export async function POST(req:Request){
   const active=form.get("active")==="on";
   const salt=randomBytes(32).toString("hex");
   const credential=password?{salt,hash:passwordHash(password,salt)}:undefined;
+
   const values={role,affiliateId:role==="employee"?affiliateId:null,active,version:randomUUID()};
   await transaction(async tx=>{
+   if(role==="employee"&&(await tx.affiliate.findUnique({where:{id:affiliateId},select:{code:true}}))?.code===metaAdCode)throw new Error("Reserved Meta ad link");
    if(edit)await tx.userAccount.update({where:{username},data:{...values,...credential}});
    else if(credential)await tx.userAccount.create({data:{username,...values,...credential}});
    await tx.auditLog.create({data:{actor,action:edit?"USER_UPDATED":"USER_CREATED",entityId:username,details:{role,active,passwordReset:!!credential}}});

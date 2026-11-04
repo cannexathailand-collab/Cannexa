@@ -1,3 +1,4 @@
+import {metaAdCode} from "@/lib/meta-ad";
 import {NextRequest,NextResponse} from "next/server";
 import {metaClickId} from "@/lib/meta";
 import {db} from "@/lib/db";
@@ -16,7 +17,7 @@ export async function GET(req:NextRequest,{params}:{params:Promise<{code:string}
  if(!link)return new Response("ไม่พบลิงก์ หรือ Affiliate ถูกระงับ",{status:404});
  if(!await limit("tracking:"+link.id,5000))return new Response("ลองใหม่ภายหลัง",{status:429});
  const state=random(),browser=random(),verifier=random(),nonce=random();
- const click=await db.click.create({data:{metaFbc:mock?null:await metaClickId(req.nextUrl.searchParams.get("fbclid")),affiliateId:link.affiliateId,linkId:link.id,source:mockMode()?"MOCK":"LINE",oauth:{create:{lineRevision:connection?.revision,stateHash:sha(state),browserHash:sha(browser),verifier,nonce,expiresAt:new Date(Date.now()+600000)}}}});
+ const click=await db.click.create({data:{metaFbc:mock||code!==metaAdCode?null:await metaClickId(req.nextUrl.searchParams.get("fbclid")),affiliateId:link.affiliateId,linkId:link.id,source:mockMode()?"MOCK":"LINE",oauth:{create:{lineRevision:connection?.revision,stateHash:sha(state),browserHash:sha(browser),verifier,nonce,expiresAt:new Date(Date.now()+600000)}}}});
  const target=mockMode()?baseUrl()+"/mock?state="+state:authorizationUrl(state,nonce,verifier,connection?.settings);
  const res=NextResponse.redirect(target);
  res.cookies.set("oauth_"+sha(state).slice(0,16),browser,{...cookieOptions,maxAge:600});

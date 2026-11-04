@@ -1,3 +1,4 @@
+import {metaAdCode} from "@/lib/meta-ad";
 import {managers} from "@/lib/accounts";
 import {NextRequest,NextResponse} from "next/server";
 import {admin,sameOrigin} from "@/lib/auth";
@@ -9,6 +10,7 @@ export async function POST(req:NextRequest){
  try{await admin(managers);await sameOrigin();const f=await req.formData();const data=input.parse({id:f.get("id")||undefined,code:f.get("code"),name:f.get("name"),notes:f.get("notes")??"",rateSatang:Math.round(Number(f.get("rate"))*100),active:f.get("active")==="on"});
  await transaction(async tx=>{
   const {id,...values}=data;const before=id?await tx.affiliate.findUniqueOrThrow({where:{id}}):null;
+  if(before?.code===metaAdCode)throw new Error("Reserved Meta ad link");
   const row=id?await tx.affiliate.update({where:{id},data:values}):await tx.affiliate.create({data:{...values,link:{create:{}}}});
   await tx.auditLog.create({data:{actor:"admin",action:id?"AFFILIATE_UPDATED":"AFFILIATE_CREATED",entityId:row.id,details:{before:before?{code:before.code,name:before.name,active:before.active,rateSatang:before.rateSatang}:null,after:values}}});
  });

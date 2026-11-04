@@ -19,7 +19,7 @@ function harness(){
  $queryRawUnsafe:async()=>[],
  click:{findUniqueOrThrow:async({where}:Row)=>clicks.find(c=>c.id===where.id),update:async({where,data}:Row)=>Object.assign(clicks.find(c=>c.id===where.id)!,data)},
  conversion:{
- findUnique:async({where,include}:Row)=>{const c=conversions.find(c=>c.userKey===where.userKey);return c?(include?{...c,affiliate:{active:true},click:clicks.find(x=>x.id===c.clickId),commission:commissions.find(x=>x.conversionId===c.id)??null}:c):null;},
+ findUnique:async({where,include}:Row)=>{const c=conversions.find(c=>c.userKey===where.userKey);return c?(include?{...c,affiliate:clicks.find(x=>x.id===c.clickId)?.affiliate,click:clicks.find(x=>x.id===c.clickId),commission:commissions.find(x=>x.conversionId===c.id)??null}:c):null;},
  findUniqueOrThrow:async({where}:Row)=>{const c=conversions.find(c=>c.id===where.id)!;return {...c,click:clicks.find(x=>x.id===c.clickId),affiliate:{active:true},commission:commissions.find(x=>x.conversionId===c.id)??null};},
  create:async({data}:Row)=>{assert.ok(!conversions.some(c=>c.userKey===data.userKey),"unique user");const c={...data,id:"conversion-"+conversions.length,createdAt:new Date()};conversions.push(c);return c;},
  update:async({where,data}:Row)=>Object.assign(conversions.find(c=>c.id===where.id)!,data)
@@ -122,4 +122,13 @@ test("unconfigured real LINE flow returns 503 before creating a click",async()=>
   assert.equal(response.status,503);
   assert.ok((await response.text()).includes("LINE OA"));
  }finally{db.lineConnection.findUnique=originalConnection;for(const k of keys){if(previous[k]===undefined)delete process.env[k];else process.env[k]=previous[k];}}
+});
+
+test("Meta ad friend is verified without creating employee commission",async()=>{
+ const h=harness();
+ h.clicks[0].affiliate.code="meta-ad";
+ await recordLogin("click-a","ad-user",true,true);
+ await webhook({id:"ad-follow",key:"ad-user",type:"follow",at:new Date(h.clicks[0].loginAt.getTime()-1),unblocked:false});
+ assert.equal(h.conversions[0].status,"VERIFIED_NEW_FRIEND");
+ assert.equal(h.commissions.length,0);
 });

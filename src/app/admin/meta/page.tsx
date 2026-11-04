@@ -1,3 +1,5 @@
+import {metaAdCode} from "@/lib/meta-ad";
+import {baseUrl, mockMode} from "@/lib/config";
 import {db} from "@/lib/db";
 import {metaDatasetPattern, metaSettings} from "@/lib/meta";
 import {requireAdminPage} from "@/lib/auth";
@@ -6,6 +8,8 @@ export default async function MetaPixelSettings({searchParams}: {searchParams: P
  await requireAdminPage(["owner"]);
  const {status} = await searchParams;
  const connection = await db.metaConnection.findUnique({where: {id: "default"}});
+ const friends = await db.conversion.count({where:{affiliate:{code:metaAdCode},source:mockMode()?"MOCK":"LINE",status:"VERIFIED_NEW_FRIEND"}});
+ const adUrl = baseUrl()+"/r/"+metaAdCode;
  const configured = connection && metaSettings();
  return <section className="card">
   <h1>Meta Pixel</h1>
@@ -19,6 +23,9 @@ export default async function MetaPixelSettings({searchParams}: {searchParams: P
    </label>
    <button type="submit">บันทึก Pixel</button>
   </form>
+  <h2>ลิงก์สำหรับโฆษณา Meta</h2>
+  <p><a href={adUrl}>{adUrl}</a></p>
+  <p>เพื่อนใหม่ที่ยืนยันแล้วจากลิงก์นี้ <strong>{friends} คน</strong></p>
   <p>ตั้งค่า Access Token และเวอร์ชัน Graph API ใน Environment Variables ของ Vercel</p>
   <a className="button secondary" href="https://business.facebook.com/events_manager2/">เปิด Meta Events Manager</a>
  </section>;

@@ -14,7 +14,7 @@ test("employee report scopes the query to one affiliate and separates approved f
  const original=db.affiliate.findMany;
  t.after(()=>{db.affiliate.findMany=original;});
  db.affiliate.findMany=(async(args:Parameters<typeof original>[0])=>{
-  assert.deepEqual(args?.where,{id:"staff-affiliate"});
+  assert.deepEqual(args?.where,{id:"staff-affiliate",code:{not:"meta-ad"}});
   return [{id:"staff-affiliate",code:"A",name:"Staff",active:true,clicks:[],conversions:[
    {friendFlag:true,status:"VERIFIED_NEW_FRIEND",commission:{status:"Approved",amountSatang:500}},
    {friendFlag:true,status:"VERIFIED_NEW_FRIEND",commission:{status:"Paid",amountSatang:200}},

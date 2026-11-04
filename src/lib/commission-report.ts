@@ -1,8 +1,10 @@
+import {metaAdCode} from "@/lib/meta-ad";
 import {db} from "./db";
 import {commissionPeriod} from "./commission-month";
 
 export async function commissionReport(requestedMonth?: string) {
  const [affiliates, rows] = await Promise.all([db.affiliate.findMany({
+  where: {code: {not: metaAdCode}},
   orderBy: {name: "asc"},
   include: {accounts: {where: {role: "employee"}, select: {username: true}, orderBy: {username: "asc"}}},
  }), db.commission.findMany({

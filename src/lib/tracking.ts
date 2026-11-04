@@ -1,3 +1,4 @@
+import {metaAdCode} from "./meta-ad";
 import {transaction,userLock} from "./db";
 import {sendMetaFriend} from "./meta";
 import {classify} from "./policy";
@@ -13,7 +14,7 @@ async function confirmNewFriend(tx:Prisma.TransactionClient,key:string){
  if(!events.some(e=>e.type==="follow"&&e.isUnblocked===false&&e.eventAt>=c.click.createdAt&&e.eventAt<=c.click.loginAt!))return;
  const reason="LINE ยืนยันการเพิ่มเพื่อนระหว่างเข้าสู่ระบบและมี Webhook ตรงกัน";
  const verified=await tx.conversion.update({where:{id:c.id},data:{status:"VERIFIED_NEW_FRIEND",verifiedAt:new Date(),reason,history:{create:{status:"VERIFIED_NEW_FRIEND",reason}}}});
- await tx.commission.create({data:{conversionId:c.id,amountSatang:c.rateSatang,status:"Approved"}});
+ if(c.affiliate.code!==metaAdCode)await tx.commission.create({data:{conversionId:c.id,amountSatang:c.rateSatang,status:"Approved"}});
  return {verified, meta:c.source==="LINE"&&c.click.metaFbc&&verified.verifiedAt?{id:verified.id,verifiedAt:verified.verifiedAt,fbc:c.click.metaFbc}:null};
 }
 export async function recordLogin(clickId:string,key:string,friendFlag:boolean|null,changed:boolean|null){
