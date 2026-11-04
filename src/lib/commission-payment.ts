@@ -1,8 +1,8 @@
 import {transaction} from "./db";
 
-export async function markAffiliatePaid(ids: string[], reason: string, actor: string) {
- if (!ids.length || reason.trim().length < 20 || reason.length > 3000) {
-  throw new Error("กรุณาระบุอ้างอิงการจ่ายอย่างน้อย 20 ตัวอักษร");
+export async function markAffiliatePaid(ids: string[], actor: string) {
+ if (!ids.length) {
+  throw new Error("ไม่มีรายการค้างจ่าย");
  }
  const uniqueIds = [...new Set(ids)];
  await transaction(async tx => {
@@ -28,7 +28,7 @@ export async function markAffiliatePaid(ids: string[], reason: string, actor: st
   if (result.count !== pending.length) throw new Error("รายการเปลี่ยนแปลง กรุณาเปิดหน้าค่าคอมใหม่");
   await tx.auditLog.create({data: {
    actor, action: "COMMISSION_PAID_BATCH", entityId: first.affiliateId,
-   details: {reason, commissionIds, amountSatang: pending.reduce((sum, row) => sum + row.amountSatang, 0)},
+   details: {commissionIds, amountSatang: pending.reduce((sum, row) => sum + row.amountSatang, 0)},
   }});
  });
 }

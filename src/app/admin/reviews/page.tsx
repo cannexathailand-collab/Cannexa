@@ -40,7 +40,6 @@ export default async function Reviews({searchParams}: {searchParams: Promise<{mo
     {pending.length > 0 && <form action="/api/admin/review" method="post">
      <input type="hidden" name="month" value={month}/>
      {pending.map(item => <input key={item.id} type="hidden" name="commissionId" value={item.id}/>)}
-     <label>อ้างอิงการจ่าย<input name="reason" required minLength={20} maxLength={3000}/></label>
      <button name="action" value="paid-batch">บันทึกว่าจ่ายยอดค้างเดือนที่เลือกแล้ว</button>
     </form>}
    </section>;
