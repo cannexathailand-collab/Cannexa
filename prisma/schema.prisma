@@ -1,0 +1,128 @@
+generator client {
+ provider = "prisma-client-js"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+ directUrl = env("DIRECT_URL")
+}
+enum TrackingStatus {
+ CLICKED
+ LOGIN_SUCCESS
+ VERIFIED_FRIEND
+ VERIFIED_NEW_FRIEND
+ EXISTING_FRIEND
+ UNBLOCKED
+ NOT_FRIEND
+ PENDING_REVIEW
+ REJECTED
+}
+enum CommissionStatus {
+ Pending
+ Approved
+ Paid
+ Rejected
+}
+model Affiliate {
+ id String @id @default(cuid())
+ code String @unique
+ name String
+ notes String @default("")
+ active Boolean @default(true)
+ rateSatang Int @default(500)
+ createdAt DateTime @default(now())
+ link TrackingLink?
+ clicks Click[]
+ conversions Conversion[]
+}
+model TrackingLink {
+ id String @id @default(cuid())
+ affiliateId String @unique
+ affiliate Affiliate @relation(fields:[affiliateId], references:[id])
+ clicks Click[]
+}
+model Click {
+ id String @id @default(cuid())
+ affiliateId String
+ affiliate Affiliate @relation(fields:[affiliateId],references:[id])
+ linkId String
+ link TrackingLink @relation(fields:[linkId],references:[id])
+ createdAt DateTime @default(now())
+ userKey String?
+ loginAt DateTime?
+ source String @default("LINE")
+ loginResult String @default("NOT_STARTED")
+ status TrackingStatus @default(CLICKED)
+ oauth OAuthAttempt[]
+ conversion Conversion?
+ @@index([createdAt, affiliateId])
+ @@index([userKey])
+}
+model OAuthAttempt {
+ id String @id @default(cuid())
+ stateHash String @unique
+ browserHash String
+ verifier String
+ nonce String
+ clickId String
+ click Click @relation(fields:[clickId],references:[id])
+ expiresAt DateTime
+ consumedAt DateTime?
+}
+model Conversion {
+ id String @id @default(cuid())
+ source String @default("LINE")
+ userKey String @unique
+ clickId String @unique
+ click Click @relation(fields:[clickId],references:[id])
+ affiliateId String
+ affiliate Affiliate @relation(fields:[affiliateId],references:[id])
+ friendFlag Boolean?
+ friendshipChanged Boolean?
+ status TrackingStatus @default(PENDING_REVIEW)
+ reason String
+ rateSatang Int
+ createdAt DateTime @default(now())
+ verifiedAt DateTime?
+ commission Commission?
+ history StatusHistory[]
+}
+model StatusHistory {
+ id String @id @default(cuid())
+ conversionId String
+ conversion Conversion @relation(fields:[conversionId],references:[id])
+ status TrackingStatus
+ reason String
+ createdAt DateTime @default(now())
+}
+model WebhookEvent {
+ id String @id
+ userKey String
+ type String
+ eventAt DateTime
+ receivedAt DateTime @default(now())
+ isUnblocked Boolean?
+ @@index([userKey,eventAt])
+}
+model Commission {
+ id String @id @default(cuid())
+ conversionId String @unique
+ conversion Conversion @relation(fields:[conversionId],references:[id])
+ status CommissionStatus @default(Pending)
+ amountSatang Int
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+}
+model AuditLog {
+ id String @id @default(cuid())
+ actor String
+ action String
+ entityId String
+ details Json
+ createdAt DateTime @default(now())
+}
+model RateLimit {
+ key String @id
+ count Int @default(0)
+ expiresAt DateTime
+}

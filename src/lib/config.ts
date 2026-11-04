@@ -1,0 +1,3 @@
+export function env(key:string){const v=process.env[key];if(!v)throw new Error("Missing environment: "+key);return v;}
+export function mockMode(){const on=process.env.MOCK_MODE==="true";if(on&&process.env.NODE_ENV==="production")throw new Error("MOCK_MODE disabled in production");return on;}
+export function baseUrl(){const u=new URL(env("APP_URL"));if(process.env.NODE_ENV==="production"&&u.protocol!=="https:")throw new Error("HTTPS required");return u.origin;}

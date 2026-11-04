@@ -1,0 +1,10 @@
+import {NextRequest,NextResponse} from "next/server";
+import {admin,sameOrigin} from "@/lib/auth";
+import {review} from "@/lib/tracking";
+import {baseUrl} from "@/lib/config";
+export async function POST(req:NextRequest){
+ try{await admin();}catch{return new Response("Unauthorized",{status:401});}await sameOrigin();const f=await req.formData();const action=String(f.get("action"));
+ if(!["approve","reject","paid"].includes(action))return new Response("Invalid action",{status:400});
+ try{await review(String(f.get("id")),action as "approve"|"reject"|"paid",String(f.get("reason")));return NextResponse.redirect(baseUrl()+"/admin/reviews",303);}
+ catch(e){return new Response(e instanceof Error?e.message:"Review failed",{status:409});}
+}
