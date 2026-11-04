@@ -1,3 +1,5 @@
+import {randomUUID, createHash} from "node:crypto";
+import {baseUrl} from "./config";
 import {db} from "./db";
 
 export const metaDatasetPattern = /^\d{1,32}$/;
@@ -21,24 +23,46 @@ export async function sendMetaFriend(event: {id: string; verifiedAt: Date; fbc: 
   const [datasetId, fbc] = event.fbc.split(":");
   const connection = await db.metaConnection.findUnique({where: {id: "default"}});
   if (!fbc || connection?.datasetId !== datasetId) return;
-  const response = await fetch(`https://graph.facebook.com/${settings.version}/${datasetId}/events`, {
+  const response = await postMetaEvent(settings, datasetId, event.id, event.verifiedAt, {fbc}, process.env.META_TEST_EVENT_CODE);
+  if (!response.ok) console.error("Meta friend event rejected", response.status);
+ } catch {
+  console.error("Meta friend event request failed");
+ }
+}
+
+async function postMetaEvent(settings: NonNullable<ReturnType<typeof metaSettings>>, datasetId: string, id: string, at: Date, userData: Record<string,string>, testCode?: string) {
+ return fetch(`https://graph.facebook.com/${settings.version}/${datasetId}/events`, {
    method: "POST",
    headers: {"Content-Type": "application/json", Authorization: `Bearer ${settings.token}`},
    signal: AbortSignal.timeout(2500),
    body: JSON.stringify({
     data: [{
      event_name: "LineFriendAdded",
-     event_id: event.id,
-     event_time: Math.floor(event.verifiedAt.getTime() / 1000),
+     event_id: id,
+     event_time: Math.floor(at.getTime() / 1000),
      action_source: "website",
-     event_source_url: process.env.APP_URL,
-     user_data: {fbc},
+     event_source_url: baseUrl(),
+     user_data: userData,
     }],
-    ...(process.env.META_TEST_EVENT_CODE ? {test_event_code: process.env.META_TEST_EVENT_CODE} : {}),
+    ...(testCode ? {test_event_code: testCode} : {}),
    }),
   });
-  if (!response.ok) console.error("Meta friend event rejected", response.status);
+}
+
+export async function sendMetaTest() {
+ const settings = metaSettings();
+ const testCode = process.env.META_TEST_EVENT_CODE?.trim();
+ if (!settings || !testCode) return "test-missing";
+ const connection = await db.metaConnection.findUnique({where: {id: "default"}});
+ if (!connection) return "test-missing";
+ const id = randomUUID();
+ const externalId = createHash("sha256").update(id).digest("hex");
+ try {
+  const response = await postMetaEvent(settings, connection.datasetId, id, new Date(), {external_id: externalId}, testCode);
+  if (!response.ok) return "test-rejected";
+  const result = await response.json();
+  return result.events_received === 1 ? "test-sent" : "test-rejected";
  } catch {
-  console.error("Meta friend event request failed");
+  return "test-failed";
  }
 }

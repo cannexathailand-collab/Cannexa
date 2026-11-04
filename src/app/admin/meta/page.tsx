@@ -23,6 +23,13 @@ export default async function MetaPixelSettings({searchParams}: {searchParams: P
    </label>
    <button type="submit">บันทึก Pixel</button>
   </form>
+  <form action="/api/admin/meta" method="post">
+   <button name="action" value="test" type="submit">ส่งเหตุการณ์ทดสอบ</button>
+  </form>
+  {status === "test-missing" && <p role="alert">ตั้งค่า Dataset ID, โทเค็น, เวอร์ชัน API และรหัส Test Events ก่อนส่ง</p>}
+  {status === "test-sent" && <p role="status">Meta ตอบรับเหตุการณ์ทดสอบแล้ว เปิด Test Events เพื่อตรวจรายการ</p>}
+  {status === "test-rejected" && <p role="alert">Meta ไม่ตอบรับเหตุการณ์ทดสอบ ตรวจ Dataset ID, โทเค็นและรหัส Test Events</p>}
+  {status === "test-failed" && <p role="alert">ติดต่อ Meta ไม่สำเร็จ ลองใหม่อีกครั้ง</p>}
   <h2>ลิงก์สำหรับโฆษณา Meta</h2>
   <p><a href={adUrl}>{adUrl}</a></p>
   <p>เพื่อนใหม่ที่ยืนยันแล้วจากลิงก์นี้ <strong>{friends} คน</strong></p>
