@@ -31,6 +31,7 @@ model Affiliate {
  active Boolean @default(true)
  rateSatang Int @default(500)
  createdAt DateTime @default(now())
+ accounts UserAccount[]
  link TrackingLink?
  clicks Click[]
  conversions Conversion[]
@@ -132,4 +133,15 @@ model LineConnection {
  id String @id
  encrypted String
  revision String
+}
+
+model UserAccount {
+ username String @id
+ role String
+ salt String
+ hash String
+ version String
+ active Boolean @default(true)
+ affiliateId String?
+ affiliate Affiliate? @relation(fields:[affiliateId],references:[id],onDelete:Restrict)
 }

@@ -1,8 +1,9 @@
+import {office} from "@/lib/accounts";
 import {requireAdminPage} from "@/lib/auth";
 import Link from "next/link";
 import {report} from "@/lib/report";
 export default async function Dashboard({searchParams}:{searchParams:Promise<{period?:string}>}){
- await requireAdminPage();const period=(await searchParams).period??"month";const rows=await report(period);
+ await requireAdminPage(office);const period=(await searchParams).period??"month";const rows=await report(period);
  const sum=(k:"clicks"|"logins"|"friends"|"approved"|"pending"|"rejected"|"commissionSatang")=>rows.reduce((n,r)=>n+r[k],0);
  const max=Math.max(1,...rows.map(r=>r.approved));
  const metrics=[["Affiliate ทั้งหมด",rows.length,"คนในเครือข่าย"],["คลิกลิงก์",sum("clicks"),"จำนวนการเปิดลิงก์"],["LINE Login สำเร็จ",sum("logins"),"นับตาม Click ID ที่ Login สำเร็จ"],["ยืนยันเป็นเพื่อนปัจจุบัน",sum("friends"),"ผู้ใช้ไม่ซ้ำ · ไม่ใช่ยอดเพื่อนใหม่"],["เพื่อนใหม่ที่อนุมัติ",sum("approved"),"ผ่านการตรวจสอบโดยผู้ดูแล"],["รอตรวจสอบ",sum("pending"),"ยังไม่นำไปคิดค่าคอม"],["รายการที่ไม่นับค่าคอม",sum("rejected"),"เพื่อนเดิม / ปลดบล็อก / ปฏิเสธ"],["ค่าคอมรวม","฿"+(sum("commissionSatang")/100).toLocaleString("th-TH"),"ยอด Approved + Paid"]];

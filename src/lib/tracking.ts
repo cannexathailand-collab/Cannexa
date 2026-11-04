@@ -1,7 +1,7 @@
 import {transaction,userLock} from "./db";
 import {classify,mayApprove} from "./policy";
 import type {Prisma} from "@prisma/client";
-async function audit(tx:Prisma.TransactionClient,action:string,id:string,details:Prisma.InputJsonValue){await tx.auditLog.create({data:{actor:"admin",action,entityId:id,details}});}
+async function audit(tx:Prisma.TransactionClient,action:string,id:string,details:Prisma.InputJsonValue,actor:string){await tx.auditLog.create({data:{actor,action,entityId:id,details}});}
 export async function recordLogin(clickId:string,key:string,friendFlag:boolean|null,changed:boolean|null){
  return transaction(async tx=>{
   await userLock(tx,key);
@@ -47,7 +47,7 @@ export async function webhook(event:{id:string;key:string;type:string;at:Date;un
   }
  });
 }
-export async function review(id:string,action:"approve"|"reject"|"paid",reason:string){
+export async function review(id:string,action:"approve"|"reject"|"paid",reason:string,actor="admin"){
  if(reason.trim().length<20)throw new Error("กรุณาระบุเหตุผล/หลักฐานอย่างน้อย 20 ตัวอักษร");
  return transaction(async tx=>{
   const before=await tx.conversion.findUniqueOrThrow({where:{id},include:{commission:true,affiliate:true}});
@@ -68,6 +68,6 @@ export async function review(id:string,action:"approve"|"reject"|"paid",reason:s
    await tx.conversion.update({where:{id},data:{status:"REJECTED",reason,history:{create:{status:"REJECTED",reason}}}});
    await tx.commission.upsert({where:{conversionId:id},create:{conversionId:id,amountSatang:before.rateSatang,status:"Rejected"},update:{status:"Rejected"}});
   }
-  await audit(tx,"COMMISSION_"+action.toUpperCase(),id,{reason,beforeStatus:before.status,beforeCommission:before.commission?.status??"Pending",amountSatang:before.rateSatang});
+  await audit(tx,"COMMISSION_"+action.toUpperCase(),id,{reason,beforeStatus:before.status,beforeCommission:before.commission?.status??"Pending",amountSatang:before.rateSatang},actor);
  });
 }
