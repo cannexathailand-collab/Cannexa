@@ -12,7 +12,7 @@ export default async function AdminLayout({children}:{children:React.ReactNode})
  <Link href="/admin">ภาพรวมระบบ</Link>
  {owner&&<Link href="/admin/users">จัดการผู้ใช้</Link>}
  {manage&&<Link href="/admin/affiliates">จัดการ Affiliate</Link>}
- {approve&&<Link href="/admin/reviews">ค่าคอมมิชชัน</Link>}
+ {approve&&<Link href="/admin/reviews">จ่ายค่าคอมมิชชัน</Link>}
  {owner&&<>
   <Link href="/admin/line">เชื่อมต่อ LINE</Link>
   <Link href="/admin/audit">ประวัติการดำเนินการ</Link>
