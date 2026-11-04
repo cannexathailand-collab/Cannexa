@@ -1,7 +1,20 @@
 import {transaction,userLock} from "./db";
-import {classify,mayApprove} from "./policy";
+import {classify} from "./policy";
 import type {Prisma} from "@prisma/client";
 async function audit(tx:Prisma.TransactionClient,action:string,id:string,details:Prisma.InputJsonValue,actor:string){await tx.auditLog.create({data:{actor,action,entityId:id,details}});}
+async function confirmNewFriend(tx:Prisma.TransactionClient,key:string){
+ const c=await tx.conversion.findUnique({where:{userKey:key},include:{click:true,affiliate:true,commission:true}});
+ if(!c||!c.affiliate.active||c.commission||!["PENDING_REVIEW","NOT_FRIEND"].includes(c.status)||
+    c.friendFlag!==true||c.friendshipChanged!==true||!c.click.loginAt||
+    (c.source==="MOCK"&&process.env.NODE_ENV==="production"))return;
+ const events=await tx.webhookEvent.findMany({where:{userKey:key}});
+ if(events.some(e=>e.type==="unfollow"||e.isUnblocked===true||e.eventAt<c.click.createdAt))return;
+ if(!events.some(e=>e.type==="follow"&&e.isUnblocked===false&&e.eventAt>=c.click.createdAt&&e.eventAt<=c.click.loginAt!))return;
+ const reason="LINE ยืนยันการเพิ่มเพื่อนระหว่างเข้าสู่ระบบและมี Webhook ตรงกัน";
+ const verified=await tx.conversion.update({where:{id:c.id},data:{status:"VERIFIED_NEW_FRIEND",verifiedAt:new Date(),reason,history:{create:{status:"VERIFIED_NEW_FRIEND",reason}}}});
+ await tx.commission.create({data:{conversionId:c.id,amountSatang:c.rateSatang,status:"Approved"}});
+ return verified;
+}
 export async function recordLogin(clickId:string,key:string,friendFlag:boolean|null,changed:boolean|null){
  return transaction(async tx=>{
   await userLock(tx,key);
@@ -14,7 +27,7 @@ export async function recordLogin(clickId:string,key:string,friendFlag:boolean|n
     const events=await tx.webhookEvent.findMany({where:{userKey:key}});
     const origin=await tx.click.findUniqueOrThrow({where:{id:prior.clickId}});
     const decision=classify({friendFlag,changed,priorFriend:events.some(e=>e.type==="follow"&&e.eventAt<origin.createdAt),unblocked:events.some(e=>e.type==="unfollow"||e.isUnblocked===true),follow:events.some(e=>e.type==="follow")});
-    return tx.conversion.update({where:{id:prior.id},data:{friendFlag,friendshipChanged:changed,...decision,history:{create:[...(friendFlag===true?[{status:"VERIFIED_FRIEND" as const,reason:"Friendship API checked again"}]:[]),decision]}}});
+    return tx.conversion.update({where:{id:prior.id},data:{friendFlag,...decision,history:{create:[...(friendFlag===true?[{status:"VERIFIED_FRIEND" as const,reason:"Friendship API checked again"}]:[]),decision]}}});
    }
    return prior;
   }
@@ -23,7 +36,8 @@ export async function recordLogin(clickId:string,key:string,friendFlag:boolean|n
   const history:{status:"LOGIN_SUCCESS"|"VERIFIED_FRIEND"|"NOT_FRIEND"|"UNBLOCKED"|"EXISTING_FRIEND"|"PENDING_REVIEW";reason:string}[]=[{status:"LOGIN_SUCCESS",reason:"ตรวจสอบ ID Token สำเร็จ"}];
   if(friendFlag===true)history.push({status:"VERIFIED_FRIEND",reason:"friendFlag=true ยืนยันเฉพาะสถานะปัจจุบัน"});
   history.push(decision);
-  return tx.conversion.create({data:{source:click.source,userKey:key,clickId,affiliateId:click.affiliateId,rateSatang:click.affiliate.rateSatang,friendFlag,friendshipChanged:changed,...decision,history:{create:history}}});
+  const created=await tx.conversion.create({data:{source:click.source,userKey:key,clickId,affiliateId:click.affiliateId,rateSatang:click.affiliate.rateSatang,friendFlag,friendshipChanged:changed,...decision,history:{create:history}}});
+  return (await confirmNewFriend(tx,key))??created;
  });
 }
 export async function webhook(event:{id:string;key:string;type:string;at:Date;unblocked:boolean|null}){
@@ -44,21 +58,19 @@ export async function webhook(event:{id:string;key:string;type:string;at:Date;un
     if(c.commission.status!=="Paid")await tx.commission.update({where:{id:c.commission.id},data:{status:"Rejected"}});
     await tx.auditLog.create({data:{actor:"webhook",action:c.commission.status==="Paid"?"PAID_RECONCILIATION_REQUIRED":"COMMISSION_REVOKED",entityId:c.id,details:{eventId:event.id,previous:c.commission.status}}});
    }
+  }else{
+   await confirmNewFriend(tx,event.key);
   }
  });
 }
 export async function review(id:string,action:"approve"|"reject"|"paid",reason:string,actor="admin"){
+ if(action==="approve")throw new Error("ระบบนับเพื่อนใหม่จากหลักฐาน LINE อัตโนมัติ");
  if(reason.trim().length<20)throw new Error("กรุณาระบุเหตุผล/หลักฐานอย่างน้อย 20 ตัวอักษร");
  return transaction(async tx=>{
   const before=await tx.conversion.findUniqueOrThrow({where:{id},include:{commission:true,affiliate:true}});
   await userLock(tx,before.userKey);
   if(before.source==="MOCK"&&process.env.NODE_ENV==="production")throw new Error("Cannot pay MOCK data");
-  if(action==="approve"){
-   if(before.commission?.status==="Approved"||before.commission?.status==="Paid")return before;
-   if(!before.affiliate.active||!mayApprove(before.status,before.friendFlag,reason))throw new Error("หลักฐาน/สถานะไม่เข้าเงื่อนไข");
-   await tx.conversion.update({where:{id},data:{status:"VERIFIED_NEW_FRIEND",verifiedAt:new Date(),reason,history:{create:{status:"VERIFIED_NEW_FRIEND",reason}}}});
-   await tx.commission.upsert({where:{conversionId:id},create:{conversionId:id,amountSatang:before.rateSatang,status:"Approved"},update:{status:"Approved"}});
-  }else if(action==="paid"){
+  if(action==="paid"){
    if(before.commission?.status==="Paid")return before;
    if(before.status!=="VERIFIED_NEW_FRIEND"||before.commission?.status!=="Approved")throw new Error("ต้องอนุมัติก่อนจ่าย");
    await tx.commission.update({where:{conversionId:id},data:{status:"Paid"}});
