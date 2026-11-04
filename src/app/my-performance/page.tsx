@@ -18,7 +18,7 @@ export default async function MyPerformance({searchParams}: {searchParams: Promi
  {r?<><p>{r.name} · {r.code}</p><dl>
 
  <dt>เพื่อนใหม่</dt><dd>{r.approved}</dd>
- </dl><CommissionMonthSelect month={month} months={months}/><dl>
+ </dl><CommissionMonthSelect action="/my-performance" month={month} months={months}/><dl>
  <dt>รอจ่าย</dt><dd>฿{amount("Approved").toFixed(2)}</dd>
  <dt>จ่ายแล้ว</dt><dd>฿{amount("Paid").toFixed(2)}</dd></dl></>:<p>ยังไม่ได้ผูกบัญชีกับ Affiliate</p>}
  <Link href="/account/password">เปลี่ยนรหัสผ่าน</Link><form action="/api/admin/logout" method="post"><button>ออกจากระบบ</button></form>

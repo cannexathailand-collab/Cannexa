@@ -14,7 +14,7 @@ export default async function Reviews({searchParams}: {searchParams: Promise<{mo
 
  return <>
   <h1>จ่ายค่าคอมมิชชัน</h1>
-  <CommissionMonthSelect month={month} months={months}/>
+  <CommissionMonthSelect action="/admin/reviews" month={month} months={months}/>
   <a className="button secondary" href={"/api/admin/review/export?month="+month}>ส่งออก CSV</a>
   {!affiliates.length && <p>ยังไม่มี Affiliate</p>}
   {affiliates.map(({id, name, code, accounts}) => {
