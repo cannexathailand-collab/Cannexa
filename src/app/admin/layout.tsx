@@ -10,10 +10,10 @@ export default async function AdminLayout({children}:{children:React.ReactNode})
  const connected=mockMode()?false:!!await lineSettings();
  return <div className="shell"><aside className="sidebar"><Link href="/admin" className="brand"><span className="mark">↗</span> Affiliate OS</Link><div className="muted small" style={{marginTop:10}}>LINE OA · TRACKING SYSTEM</div><nav aria-label="เมนูหลัก">
  <Link href="/admin">ภาพรวมระบบ</Link>
+ {owner&&<Link href="/admin/users">จัดการผู้ใช้</Link>}
  {manage&&<Link href="/admin/affiliates">จัดการ Affiliate</Link>}
  {approve&&<Link href="/admin/reviews">ค่าคอมมิชชัน</Link>}
  {owner&&<>
-  <Link href="/admin/users">จัดการผู้ใช้</Link>
   <Link href="/admin/line">เชื่อมต่อ LINE</Link>
   <Link href="/admin/audit">ประวัติการดำเนินการ</Link>
  </>}
