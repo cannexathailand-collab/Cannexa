@@ -11,7 +11,11 @@ export async function POST(req: Request) {
  const datasetId = String(form.get("datasetId") ?? "").trim();
  const url = new URL("/admin/meta", baseUrl());
  if (form.get("action") === "test") {
-  url.searchParams.set("status", await sendMetaTest());
+  const result = await sendMetaTest();
+  url.searchParams.set("status", result.status);
+  if(result.sentAt) url.searchParams.set("sentAt", result.sentAt);
+  if(result.trace) url.searchParams.set("trace", result.trace);
+  if(result.http) url.searchParams.set("http", result.http);
  } else if (!metaDatasetPattern.test(datasetId)) {
   url.searchParams.set("status", "invalid");
  } else {

@@ -52,17 +52,18 @@ async function postMetaEvent(settings: NonNullable<ReturnType<typeof metaSetting
 export async function sendMetaTest() {
  const settings = metaSettings();
  const testCode = process.env.META_TEST_EVENT_CODE?.trim();
- if (!settings || !testCode) return "test-missing";
+ if (!settings || !testCode) return {status:"test-missing"};
  const connection = await db.metaConnection.findUnique({where: {id: "default"}});
- if (!connection) return "test-missing";
+ if (!connection) return {status:"test-missing"};
+ const sentAt = new Date();
  const id = randomUUID();
  const externalId = createHash("sha256").update(id).digest("hex");
  try {
-  const response = await postMetaEvent(settings, connection.datasetId, id, new Date(), {external_id: externalId}, testCode);
-  if (!response.ok) return "test-rejected";
-  const result = await response.json();
-  return result.events_received === 1 ? "test-sent" : "test-rejected";
+  const response = await postMetaEvent(settings, connection.datasetId, id, sentAt, {external_id: externalId}, testCode);
+  const result = await response.json().catch(() => null);
+  const trace = result?.fbtrace_id ?? result?.error?.fbtrace_id ?? response.headers.get("x-fb-trace-id");
+  return {status: response.ok && result?.events_received === 1 ? "test-sent" : "test-rejected", sentAt: sentAt.toISOString(), trace: typeof trace === "string" && /^[A-Za-z0-9_-]{1,100}$/.test(trace) ? trace : undefined, http: String(response.status)};
  } catch {
-  return "test-failed";
+  return {status:"test-failed", sentAt:sentAt.toISOString()};
  }
 }

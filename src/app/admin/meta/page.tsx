@@ -4,9 +4,9 @@ import {db} from "@/lib/db";
 import {metaDatasetPattern, metaSettings} from "@/lib/meta";
 import {requireAdminPage} from "@/lib/auth";
 
-export default async function MetaPixelSettings({searchParams}: {searchParams: Promise<{status?: string}>}) {
+export default async function MetaPixelSettings({searchParams}: {searchParams: Promise<{status?: string; sentAt?: string; trace?: string; http?: string}>}) {
  await requireAdminPage(["owner"]);
- const {status} = await searchParams;
+ const {status, sentAt, trace, http} = await searchParams;
  const connection = await db.metaConnection.findUnique({where: {id: "default"}});
  const friends = await db.conversion.count({where:{affiliate:{code:metaAdCode},source:mockMode()?"MOCK":"LINE",status:"VERIFIED_NEW_FRIEND"}});
  const adUrl = baseUrl()+"/r/"+metaAdCode;
@@ -30,6 +30,7 @@ export default async function MetaPixelSettings({searchParams}: {searchParams: P
   {status === "test-sent" && <p role="status">Meta ตอบรับเหตุการณ์ทดสอบแล้ว เปิด Test Events เพื่อตรวจรายการ</p>}
   {status === "test-rejected" && <p role="alert">Meta ไม่ตอบรับเหตุการณ์ทดสอบ ตรวจ Dataset ID, โทเค็นและรหัส Test Events</p>}
   {status === "test-failed" && <p role="alert">ติดต่อ Meta ไม่สำเร็จ ลองใหม่อีกครั้ง</p>}
+  {sentAt && Number.isFinite(Date.parse(sentAt)) && <p>เวลาส่ง {new Date(sentAt).toLocaleString("th-TH", {timeZone:"Asia/Bangkok"})}{http && <> · HTTP {http}</>}{trace && <> · รหัสอ้างอิง Meta <code>{trace}</code></>}</p>}
   <h2>ลิงก์สำหรับโฆษณา Meta</h2>
   <p><a href={adUrl}>{adUrl}</a></p>
   <p>เพื่อนใหม่ที่ยืนยันแล้วจากลิงก์นี้ <strong>{friends} คน</strong></p>
