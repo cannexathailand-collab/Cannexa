@@ -15,6 +15,7 @@ export default async function AdminLayout({children}:{children:React.ReactNode})
  {approve&&<Link href="/admin/reviews">จ่ายค่าคอมมิชชัน</Link>}
  {owner&&<>
   <Link href="/admin/line">เชื่อมต่อ LINE</Link>
+  <Link href="/admin/meta">Meta Pixel</Link>
   <Link href="/admin/audit">ประวัติการดำเนินการ</Link>
  </>}
  <Link href="/account/password">เปลี่ยนรหัสผ่าน</Link>

@@ -51,6 +51,7 @@ model Click {
  createdAt DateTime @default(now())
  userKey String?
  loginAt DateTime?
+ metaFbc String?
  source String @default("LINE")
  loginResult String @default("NOT_STARTED")
  status TrackingStatus @default(CLICKED)

@@ -1,0 +1,1 @@
+ALTER TABLE "Click" ADD COLUMN "metaFbc" TEXT;
