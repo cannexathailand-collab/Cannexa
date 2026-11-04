@@ -2,10 +2,12 @@ import {cookies} from "next/headers";
 import {db} from "@/lib/db";
 import {readToken} from "@/lib/crypto";
 import {mockMode} from "@/lib/config";
+import {lineSettings} from "@/lib/line-settings";
 export const dynamic="force-dynamic";
 export default async function Result({searchParams}:{searchParams:Promise<{error?:string}>}){
  const {error}=await searchParams;const s=readToken<{id:string;exp:number}>((await cookies()).get("customer_result")?.value??"");
  const c=!error&&s&&s.exp>Date.now()?await db.conversion.findUnique({where:{id:s.id}}):null;
  const mock=mockMode(),friend=c?.friendFlag===true;
- return <main className="center-page"><div className="customer"><div className="check">{c?"✓":"!"}</div>{mock&&<div className="notice">MOCK · ไม่ใช่ผลจาก LINE จริง</div>}<h1>{!c?"ยังทำรายการไม่สำเร็จ":friend?"บันทึกการเชื่อมต่อเรียบร้อย":"บันทึกผล Login แล้ว"}</h1><p className="muted">{!c?"กรุณาสแกน QR บนคูปองเพื่อลองใหม่":friend?"ขอบคุณที่ร่วมกิจกรรม ผลการแนะนำจะผ่านการตรวจสอบอีกครั้ง":"ยังยืนยันสถานะเพื่อนไม่ได้ กรุณาสแกนคูปองอีกครั้ง หรือเปิด LINE OA"}</p>{c&&<p className="small">สถานะการตรวจสอบ: {c.status}</p>}{!mock&&process.env.LINE_OA_BASIC_ID&&<a className="button" href={"https://line.me/R/oaMessage/"+encodeURIComponent(process.env.LINE_OA_BASIC_ID)}>เปิดแชท LINE OA</a>}<p className="small muted"><a href="/privacy">นโยบายความเป็นส่วนตัว</a></p></div></main>;
+ const basicId=!mock?(await lineSettings())?.settings.basicId:null;
+ return <main className="center-page"><div className="customer"><div className="check">{c?"✓":"!"}</div>{mock&&<div className="notice">MOCK · ไม่ใช่ผลจาก LINE จริง</div>}<h1>{!c?"ยังทำรายการไม่สำเร็จ":friend?"บันทึกการเชื่อมต่อเรียบร้อย":"บันทึกผล Login แล้ว"}</h1><p className="muted">{!c?"กรุณาสแกน QR บนคูปองเพื่อลองใหม่":friend?"ขอบคุณที่ร่วมกิจกรรม ผลการแนะนำจะผ่านการตรวจสอบอีกครั้ง":"ยังยืนยันสถานะเพื่อนไม่ได้ กรุณาสแกนคูปองอีกครั้ง หรือเปิด LINE OA"}</p>{c&&<p className="small">สถานะการตรวจสอบ: {c.status}</p>}{!mock&&basicId&&<a className="button" href={"https://line.me/R/oaMessage/"+encodeURIComponent(basicId)}>เปิดแชท LINE OA</a>}<p className="small muted"><a href="/privacy">นโยบายความเป็นส่วนตัว</a></p></div></main>;
 }

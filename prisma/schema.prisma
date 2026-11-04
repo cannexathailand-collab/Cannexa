@@ -60,6 +60,7 @@ model Click {
 }
 model OAuthAttempt {
  id String @id @default(cuid())
+ lineRevision String?
  stateHash String @unique
  browserHash String
  verifier String
@@ -125,4 +126,10 @@ model RateLimit {
  key String @id
  count Int @default(0)
  expiresAt DateTime
+}
+
+model LineConnection {
+ id String @id
+ encrypted String
+ revision String
 }

@@ -1,0 +1,40 @@
+import assert from "node:assert/strict";
+import {test} from "node:test";
+import {db} from "../src/lib/db";
+import {lineSettings} from "../src/lib/line-settings";
+import {saveLineConnection} from "../src/lib/save-line-connection";
+import {POST} from "../src/app/api/admin/line/route";
+
+test("LINE setup validates, encrypts, switches OA and clears without fallback",async t=>{
+ const previous={...process.env};
+ Object.assign(process.env,{APP_URL:"https://example.test",MOCK_MODE:"false",SESSION_SECRET:"test-key-for-line-settings",LINE_LOGIN_CHANNEL_ID:"123456",LINE_LOGIN_CHANNEL_SECRET:"legacy-secret",LINE_MESSAGING_CHANNEL_SECRET:"legacy-messaging",LINE_BOT_USER_ID:"U"+"a".repeat(32),LINE_OA_BASIC_ID:"@legacy"});
+ const originalTx=db.$transaction, originalFind=db.lineConnection.findUnique, originalFetch=globalThis.fetch;
+ let row:{encrypted:string;revision:string}|null=null;
+ let calls=0;
+ t.after(()=>{db.$transaction=originalTx;db.lineConnection.findUnique=originalFind;globalThis.fetch=originalFetch;for(const k of Object.keys(process.env))if(!(k in previous))delete process.env[k];Object.assign(process.env,previous);});
+ db.lineConnection.findUnique=(async()=>row) as typeof originalFind;
+ db.$transaction=(async(fn:(tx:unknown)=>unknown)=>fn({lineConnection:{upsert:async({update}:{update:NonNullable<typeof row>})=>{row=update;}},auditLog:{create:async()=>{}}})) as typeof originalTx;
+ globalThis.fetch=async(url,init)=>{
+  calls++;
+  assert.equal(url,"https://api.line.me/v2/bot/info");
+  const token=new Headers(init?.headers).get("authorization");
+  if(token==="Bearer rejected-token-0000")return new Response(null,{status:401});
+  return Response.json({userId:"U"+(token?.endsWith("b")?"b":"a").repeat(32),basicId:token?.endsWith("b")?"@second":"@first"});
+ };
+ const req=(body:Record<string,string>)=>new Request("https://example.test/api/admin/line",{method:"POST",body:new URLSearchParams(body)});
+ const save=(token:string)=>saveLineConnection(req({token,loginId:"123456",loginSecret:"login-secret-123456",messagingSecret:"messaging-secret-123456"}));
+ assert.equal((await POST(req({action:"disconnect"}))).status,403);
+ assert.equal((await lineSettings())?.settings.basicId,"@legacy");
+ assert.match((await save("test-access-token-a")).headers.get("location")??"",/saved$/);
+ const first=await lineSettings();
+ assert.equal(first?.settings.accessToken,"test-access-token-a");
+ assert.doesNotMatch(JSON.stringify(row),/test-access-token|login-secret|messaging-secret/);
+ assert.match((await save("rejected-token-0000")).headers.get("location")??"",/invalid$/);
+ assert.equal((await lineSettings())?.revision,first?.revision);
+ await save("test-access-token-b");
+ assert.equal((await lineSettings())?.settings.basicId,"@second");
+ assert.notEqual((await lineSettings())?.revision,first?.revision);
+ assert.match((await saveLineConnection(req({action:"disconnect"}))).headers.get("location")??"",/cleared$/);
+ assert.equal(await lineSettings(),null);
+ assert.equal(calls,3);
+});

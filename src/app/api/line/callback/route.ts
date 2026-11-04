@@ -6,6 +6,7 @@ import {userKey,signToken,sha} from "@/lib/crypto";
 import {baseUrl,mockMode} from "@/lib/config";
 import {cookieOptions} from "@/lib/auth";
 import {db} from "@/lib/db";
+import {lineSettings} from "@/lib/line-settings";
 export async function GET(req:NextRequest){
  if(mockMode())return new Response("Real callback disabled in mock mode",{status:409});
  let clickId:string|undefined;
@@ -14,9 +15,11 @@ export async function GET(req:NextRequest){
   const a=await consume(state);clickId=a.clickId;
   if(req.nextUrl.searchParams.has("error"))throw new Error("Login declined");
   const code=req.nextUrl.searchParams.get("code");if(!code)throw new Error("Missing code");
-  const result=await exchange(code,a.verifier,a.nonce);
+  const connection=await lineSettings();
+  if(!connection||connection.revision!==(a.lineRevision??"environment"))throw new Error("LINE configuration changed");
+  const result=await exchange(code,a.verifier,a.nonce,connection.settings);
   const changed=req.nextUrl.searchParams.get("friendship_status_changed");
-  const c=await recordLogin(a.clickId,userKey(result.userId),result.friendFlag,changed==="true"?true:changed==="false"?false:null);
+  const c=await recordLogin(a.clickId,userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?result.userId:connection.settings.botId+":"+result.userId),result.friendFlag,changed==="true"?true:changed==="false"?false:null);
   const res=NextResponse.redirect(baseUrl()+"/result");
   res.cookies.set("customer_result",signToken({id:c.id,exp:Date.now()+3600000}),{...cookieOptions,maxAge:3600});
   res.cookies.delete("oauth_"+sha(state).slice(0,16));return res;
