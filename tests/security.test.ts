@@ -33,7 +33,7 @@ test("session tampering rejected; stable pseudonymous identity",()=>{
 });
 test("PKCE authorization includes state nonce add friend and S256",()=>{
  const u=new URL(authorizationUrl("state1","nonce1","verifier1"));
- for(const [k,v] of Object.entries({state:"state1",nonce:"nonce1",bot_prompt:"aggressive",code_challenge_method:"S256",scope:"openid",code_challenge:challenge("verifier1")}))assert.equal(u.searchParams.get(k),v);
+ for(const [k,v] of Object.entries({state:"state1",nonce:"nonce1",bot_prompt:"aggressive",code_challenge_method:"S256",scope:"openid profile",code_challenge:challenge("verifier1")}))assert.equal(u.searchParams.get(k),v);
 });
 test("CSV formula injection escaped incl whitespace",()=>{assert.ok(csvCell("=SUM(A1)").includes(String.fromCharCode(39)));assert.ok(csvCell("  +cmd").includes(String.fromCharCode(39)));});
 test("LINE Login validates token then friendship; friendship outage fails closed",async()=>{

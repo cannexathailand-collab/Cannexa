@@ -58,7 +58,7 @@ flowchart LR
 - Route Handlers ทำงานบน Node runtime ตามค่าเริ่มต้นของ Next.js รองรับ Vercel
 - OAuth state สุ่ม 256-bit เก็บเฉพาะ hash ผูกกับ cookie ของ browser แยกแต่ละ state รองรับหลายแท็บ อายุ 10 นาที consume ด้วย updateMany compare-and-set เพียงครั้งเดียว
 - ใช้ PKCE S256, nonce และตรวจ ID Token ผ่าน LINE verify endpoint เพิ่มการตรวจ issuer/audience/nonce/expiry/sub ฝั่งเซิร์ฟเวอร์
-- ขอ scope openid เท่านั้น ไม่อ่านโปรไฟล์/ชื่อ/โทรศัพท์/อีเมล ไม่เก็บ access token, refresh token หรือ ID token
+- ขอ scope openid และ profile เพื่อให้ตรวจสถานะเพื่อนผ่าน LINE ได้ ไม่อ่านโปรไฟล์/ชื่อ/โทรศัพท์/อีเมล ไม่เก็บ access token, refresh token หรือ ID token
 - รับ webhook เป็น raw body และตรวจ HMAC-SHA256 ด้วย Messaging Channel Secret ก่อน parse ตรวจ destination ด้วย LINE_BOT_USER_ID
 - ไม่ต้องใช้ Messaging Channel Access Token เพราะ MVP รับ webhook อย่างเดียว ไม่เรียกส่งข้อความ
 - เก็บ LINE User ID เป็น HMAC ด้วย USER_HASH_SECRET เพื่อเชื่อมหลักฐานและป้องกันนับซ้ำ ไม่เก็บ raw LINE User ID
