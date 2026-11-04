@@ -1,13 +1,25 @@
-import {metaSettings} from "@/lib/meta";
+import {db} from "@/lib/db";
+import {metaDatasetPattern, metaSettings} from "@/lib/meta";
 import {requireAdminPage} from "@/lib/auth";
 
-export default async function MetaPixelSettings() {
+export default async function MetaPixelSettings({searchParams}: {searchParams: Promise<{status?: string}>}) {
  await requireAdminPage(["owner"]);
+ const {status} = await searchParams;
+ const connection = await db.metaConnection.findUnique({where: {id: "default"}});
+ const configured = connection && metaSettings();
  return <section className="card">
   <h1>Meta Pixel</h1>
-  <p>ใช้วัดผลโฆษณา Facebook จากเหตุการณ์เพิ่มเพื่อน LINE OA ที่ Cannexa ยืนยันแล้ว</p>
-  <p><strong>สถานะ:</strong> {metaSettings() ? "ตั้งค่าการส่งเหตุการณ์แล้ว" : "ยังไม่เปิดส่งเหตุการณ์ไป Meta"}</p>
-  <p>เตรียม Pixel หรือ Dataset ID และ Conversions API Access Token จาก Meta Events Manager แล้วตั้งค่า META_DATASET_ID, META_ACCESS_TOKEN และ META_GRAPH_VERSION ใน Vercel</p>
+  <p>ส่งเหตุการณ์เมื่อ Cannexa ยืนยันว่าเพิ่มเพื่อน LINE OA สำเร็จจากลิงก์โฆษณา</p>
+  <p><strong>สถานะ:</strong> {configured ? "ตั้งค่าครบ รอทดสอบรับเหตุการณ์ใน Meta" : "ยังตั้งค่าการส่งเหตุการณ์ไม่ครบ"}</p>
+  {status === "saved" && <p role="status">บันทึก Pixel / Dataset ID แล้ว</p>}
+  {status === "invalid" && <p role="alert">กรอก Pixel / Dataset ID เป็นตัวเลขเท่านั้น</p>}
+  <form action="/api/admin/meta" method="post">
+   <label>Pixel / Dataset ID
+    <input name="datasetId" inputMode="numeric" pattern={metaDatasetPattern.source} maxLength={32} defaultValue={connection?.datasetId} required/>
+   </label>
+   <button type="submit">บันทึก Pixel</button>
+  </form>
+  <p>ตั้งค่า Access Token และเวอร์ชัน Graph API ใน Environment Variables ของ Vercel</p>
   <a className="button secondary" href="https://business.facebook.com/events_manager2/">เปิด Meta Events Manager</a>
  </section>;
 }

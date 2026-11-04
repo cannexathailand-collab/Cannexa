@@ -1,0 +1,1 @@
+CREATE TABLE "MetaConnection" ("id" TEXT NOT NULL PRIMARY KEY, "datasetId" TEXT NOT NULL);

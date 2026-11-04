@@ -146,3 +146,8 @@ model UserAccount {
  affiliateId String?
  affiliate Affiliate? @relation(fields:[affiliateId],references:[id],onDelete:Restrict)
 }
+
+model MetaConnection {
+ id String @id
+ datasetId String
+}
