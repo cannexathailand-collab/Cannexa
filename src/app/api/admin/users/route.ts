@@ -16,7 +16,7 @@ export async function POST(req:Request){
   const form=await req.formData();
   const {username,role,affiliateId,password}=fields.parse(Object.fromEntries(form));
   const edit=form.get("action")==="edit";
-  if(username==="owner"||(!edit&&password.length<16)||(password&&password.length<16)||(role==="employee"&&!affiliateId))return back("error");
+  if(username==="owner"||(!edit&&password.length<8)||(password&&password.length<8)||(role==="employee"&&!affiliateId))return back("error");
   const active=form.get("active")==="on";
   const salt=randomBytes(32).toString("hex");
   const credential=password?{salt,hash:passwordHash(password,salt)}:undefined;

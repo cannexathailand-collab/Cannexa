@@ -14,7 +14,7 @@ export async function POST(req:Request){
  if(!await limit("password:"+a.username,10))return back();
  const f=await req.formData();
  const old=String(f.get("old")??""), password=String(f.get("password")??"");
- if(old.length>256||password.length<16||password.length>256||password!==f.get("confirm")||!equal(passwordHash(old,a.salt),a.hash))return back();
+ if(old.length>256||password.length<8||password.length>256||password!==f.get("confirm")||!equal(passwordHash(old,a.salt),a.hash))return back();
  const salt=randomBytes(32).toString("hex");
  const values={salt,hash:passwordHash(password,salt),version:randomUUID()};
  try{
