@@ -29,7 +29,7 @@ test("LINE setup validates, encrypts, switches OA and clears without fallback",a
  const first=await lineSettings();
  assert.equal(first?.settings.accessToken,"test-access-token-a");
  assert.doesNotMatch(JSON.stringify(row),/test-access-token|login-secret|messaging-secret/);
- assert.match((await save("rejected-token-0000")).headers.get("location")??"",/invalid$/);
+ assert.match((await save("rejected-token-0000")).headers.get("location")??"",/token-rejected$/);
  assert.equal((await lineSettings())?.revision,first?.revision);
  await save("test-access-token-b");
  assert.equal((await lineSettings())?.settings.basicId,"@second");

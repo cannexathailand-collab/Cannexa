@@ -19,10 +19,18 @@ export async function saveLineConnection(req:Request){
    });
    return redirect("cleared");
   }
-  const f=input.parse(Object.fromEntries(form));
-  const response=await fetch("https://api.line.me/v2/bot/info",{headers:{Authorization:"Bearer "+f.token},signal:AbortSignal.timeout(10000),cache:"no-store",redirect:"error"});
-  if(!response.ok)return redirect("invalid");
-  const {userId, basicId}=bot.parse(await response.json());
+  const parsed=input.safeParse(Object.fromEntries(form));
+  if(!parsed.success)return redirect("field-"+String(parsed.error.issues[0]?.path[0]??"unknown"));
+  const f=parsed.data;
+  let response:Response;
+  try{
+  response=await fetch("https://api.line.me/v2/bot/info",{headers:{Authorization:"Bearer "+f.token},signal:AbortSignal.timeout(10000),cache:"no-store",redirect:"error"});
+  }catch{return redirect("line-unavailable");}
+  if(response.status===401||response.status===403)return redirect("token-rejected");
+  if(!response.ok)return redirect("line-unavailable");
+  const account=bot.safeParse(await response.json().catch(()=>null));
+  if(!account.success)return redirect("line-response");
+  const {userId,basicId}=account.data;
   const encrypted=seal({loginId:f.loginId,loginSecret:f.loginSecret,messagingSecret:f.messagingSecret,botId:userId,basicId,accessToken:f.token});
   const revision=randomUUID();
   await transaction(async tx=>{
@@ -30,5 +38,5 @@ export async function saveLineConnection(req:Request){
    await tx.auditLog.create({data:{actor:"admin",action:"LINE_CONNECTION_UPDATED",entityId:basicId,details:{loginId:f.loginId}}});
   });
   return redirect("saved");
- }catch{return redirect("invalid");}
+ }catch{return redirect("save-error");}
 }
