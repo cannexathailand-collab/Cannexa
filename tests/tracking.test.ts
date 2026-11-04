@@ -108,3 +108,15 @@ test("block after approval does not silently revoke an already earned commission
  assert.equal(h.conversions[0].status,"VERIFIED_NEW_FRIEND");
  }finally{mock.restoreAll();}
 });
+
+test("unconfigured real LINE flow returns 503 before creating a click",async()=>{
+ const keys=["MOCK_MODE","LINE_LOGIN_CHANNEL_ID","LINE_LOGIN_CHANNEL_SECRET","LINE_MESSAGING_CHANNEL_SECRET","LINE_BOT_USER_ID","LINE_OA_BASIC_ID"];
+ const previous=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
+ try{
+  for(const k of keys)delete process.env[k];
+  process.env.MOCK_MODE="false";
+  const response=await scan(new NextRequest("http://localhost:3000/r/AFF001"),{params:Promise.resolve({code:"AFF001"})});
+  assert.equal(response.status,503);
+  assert.ok((await response.text()).includes("LINE OA"));
+ }finally{for(const k of keys){if(previous[k]===undefined)delete process.env[k];else process.env[k]=previous[k];}}
+});

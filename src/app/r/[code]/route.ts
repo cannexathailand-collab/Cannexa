@@ -1,11 +1,12 @@
 import {NextRequest,NextResponse} from "next/server";
 import {db} from "@/lib/db";
 import {sha,random} from "@/lib/crypto";
-import {baseUrl,mockMode} from "@/lib/config";
+import {baseUrl,mockMode,lineConfigured} from "@/lib/config";
 import {authorizationUrl} from "@/lib/line";
 import {cookieOptions} from "@/lib/auth";
 import {limit} from "@/lib/rate-limit";
 export async function GET(req:NextRequest,{params}:{params:Promise<{code:string}>}){
+ if(!mockMode()&&!lineConfigured())return new Response("ร้านค้ายังไม่ได้ตั้งค่าการเชื่อม LINE OA กรุณาติดต่อผู้ดูแลร้าน",{status:503,headers:{"Content-Type":"text/plain; charset=utf-8"}});
  const {code}=await params;
  const link=await db.trackingLink.findFirst({where:{affiliate:{code,active:true}},include:{affiliate:true}});
  if(!link)return new Response("ไม่พบลิงก์ หรือ Affiliate ถูกระงับ",{status:404});
