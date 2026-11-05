@@ -17,7 +17,11 @@ export async function receiveOrderEvent(botId:string,e:OrderEvent){
    await tx.orderMessageWithdrawal.upsert({where:{messageKey},create:{messageKey},update:{}});
    const orders=await tx.orderIntake.findMany({where:{messageKey,groupKey},select:{id:true}});
    if(orders.length)await tx.salesOrder.updateMany({where:{orderId:{in:orders.map(o=>o.id)},status:{in:["PENDING","WAITING_COST"]}},data:{status:"CANCELLED",commissionSatang:0}});
-   await tx.orderIntake.updateMany({where:{messageKey,groupKey},data:{rawText:null,recipient:null,phone:null,address:null,senderKey:null,sellerCode:null,affiliateId:null,status:"WITHDRAWN",withdrawnAt:new Date(),issues:[]}});
+   if(orders.length){
+    await tx.shipment.updateMany({where:{orderId:{in:orders.map(o=>o.id)}},data:{status:"CANCELLED"}});
+    await tx.orderIntake.deleteMany({where:{messageKey,groupKey}});
+    for(const order of orders)await tx.auditLog.create({data:{actor:"line-unsend",action:"CANCELLED_ORDER_REMOVED",entityId:order.id,details:{}}});
+   }
   });return null;
  }
  if(!group.enabled||e.type!=="message"||e.message?.type!=="text"||!e.message.text)return null;
