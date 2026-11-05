@@ -2,7 +2,7 @@ import {db,transaction,userLock} from "./db";
 import {sha} from "./crypto";
 import {decryptGmail,type GmailConfig} from "./gmail";
 import {parseMyOrderXlsx} from "./myorder-xlsx";
-import {shipmentCandidates,transferShipmentCandidates,compatibleCodCandidates} from "./shipment-matching";
+import {shipmentCandidates,nonCodShipmentCandidates,compatibleCodCandidates} from "./shipment-matching";
 
 const senders={SHIPMENT:"account-thaipost-freight@myorder.ai",COD:"account-thaipost-cod@myorder.ai"};
 type MailPart={filename?:string;body?:{attachmentId?:string;data?:string;size?:number};parts?:MailPart[]};
@@ -39,19 +39,28 @@ export async function importGmailReports(actor:string,messageIds?:string[]){
 export async function matchShipments(actor:string){
  return transaction(async tx=>{
   await userLock(tx,"shipment-matching");
-  const shipments=await tx.shipment.findMany({where:{orderId:null},orderBy:[{reportAt:"asc"},{tracking:"asc"}],take:1000});
+  const shipments=await tx.shipment.findMany({where:{status:{notIn:["RETURNED","CANCELLED"]},OR:[{orderId:null},{status:{in:["MATCHED_WAITING_COD","MATCHED_COD_AMOUNT_MISMATCH"]}}]},orderBy:[{reportAt:"asc"},{tracking:"asc"}],take:1000});
   const receipts=await tx.codReceipt.findMany({where:{tracking:{in:shipments.map(s=>s.tracking)}},select:{tracking:true,amountSatang:true}});
   const receiptByTracking=new Map(receipts.map(r=>[r.tracking,r]));
-  const orders=await tx.orderIntake.findMany({where:{status:"WAITING_SHIPMENT",affiliateId:{not:null}},orderBy:[{eventAt:"asc"},{id:"asc"}]});
+  const orders=await tx.orderIntake.findMany({where:{status:{in:["WAITING_SHIPMENT","MATCHED_SHIPMENT_WAITING_COD","COD_AMOUNT_MISMATCH"]},affiliateId:{not:null}},orderBy:[{eventAt:"asc"},{id:"asc"}]});
   const transferOrders=await tx.orderIntake.findMany({where:{status:"TRANSFER_RECORDED",payment:"โอน",affiliateId:{not:null}},orderBy:[{eventAt:"asc"},{id:"asc"}]});
-  const used=new Set<string>();let matched=0,ambiguous=0,codConfirmed=0,waitingCod=0,amountMismatch=0,transferMatched=0;
+  const claimOrders=await tx.orderIntake.findMany({where:{status:"CLAIM_WAITING_COST",payment:"เคลม",affiliateId:{not:null}},orderBy:[{eventAt:"asc"},{id:"asc"}]});
+  const nonCodOrders=[...transferOrders,...claimOrders];
+  const used=new Set<string>();let matched=0,ambiguous=0,codConfirmed=0,waitingCod=0,amountMismatch=0,transferMatched=0,shipmentLinked=0,claimMatched=0;
   const statusChanges=new Map<string,string>();
   const setStatus=(shipment:{tracking:string;status:string},status:string)=>{if(shipment.status===status)statusChanges.delete(shipment.tracking);else statusChanges.set(shipment.tracking,status);};
   for(const shipment of shipments){
    if(shipment.codSatang===0){
-    const candidates=transferShipmentCandidates(shipment,transferOrders.filter(o=>!used.has(o.id)&&(!o.eventAt||!shipment.reportAt||o.eventAt<=shipment.reportAt)));
-    if(candidates.length!==1){setStatus(shipment,candidates.length?"AMBIGUOUS_TRANSFER":"WAITING_TRANSFER_ORDER");continue;}
-    const order=candidates[0];
+    const candidates=nonCodShipmentCandidates(shipment,nonCodOrders.filter(o=>!used.has(o.id)&&(!o.eventAt||!shipment.reportAt||o.eventAt<=shipment.reportAt)));
+    if(candidates.length!==1){setStatus(shipment,candidates.length?"AMBIGUOUS_NON_COD":"WAITING_NON_COD_ORDER");continue;}
+    const order=nonCodOrders.find(o=>o.id===candidates[0].id)!;
+    const alternatives=shipments.filter(s=>!s.orderId&&(!order.eventAt||!s.reportAt||order.eventAt<=s.reportAt)&&nonCodShipmentCandidates(s,[order]).length);
+    if(alternatives.length!==1){setStatus(shipment,"AMBIGUOUS_NON_COD");continue;}
+    if(order.payment==="เคลม"){
+     if(await tx.shipment.findUnique({where:{orderId:order.id},select:{tracking:true}}))continue;
+     await tx.shipment.update({where:{tracking:shipment.tracking},data:{orderId:order.id,status:"MATCHED_CLAIM"}});
+     await tx.auditLog.create({data:{actor,action:"CLAIM_SHIPMENT_LINKED",entityId:order.id,details:{tracking:shipment.tracking}}});used.add(order.id);claimMatched++;continue;
+    }
     const sale=await tx.salesOrder.findUnique({where:{orderId:order.id}});
     if(!sale||sale.paymentMethod!=="TRANSFER"||sale.status==="CANCELLED"||sale.tracking)continue;
     await tx.salesOrder.update({where:{id:sale.id},data:{tracking:shipment.tracking}});
@@ -60,11 +69,14 @@ export async function matchShipments(actor:string){
    }
    if(shipment.codSatang<0)continue;
    const receipt=receiptByTracking.get(shipment.tracking);
-   if(!receipt){waitingCod++;setStatus(shipment,"WAITING_COD");continue;}
-   if(receipt.amountSatang!==shipment.codSatang){amountMismatch++;setStatus(shipment,"COD_AMOUNT_MISMATCH");continue;}
-   codConfirmed++;setStatus(shipment,"COD_CONFIRMED");
-   const available=orders.filter(o=>!used.has(o.id));
-   let candidates=shipmentCandidates(shipment,available);let matchMethod="EXACT";
+   if(!receipt){waitingCod++;if(!shipment.orderId)setStatus(shipment,"WAITING_COD");}
+   else if(receipt.amountSatang!==shipment.codSatang){amountMismatch++;if(!shipment.orderId)setStatus(shipment,"COD_AMOUNT_MISMATCH");}
+   else {codConfirmed++;if(!shipment.orderId)setStatus(shipment,"COD_CONFIRMED");}
+   let order=shipment.orderId?orders.find(o=>o.id===shipment.orderId):undefined;
+   let matchMethod=shipment.orderId?"LINKED_TRACKING":"EXACT";
+   if(!shipment.orderId){
+   const available=orders.filter(o=>o.status==="WAITING_SHIPMENT"&&!used.has(o.id));
+   let candidates=shipmentCandidates(shipment,available);
    if(!candidates.length){
     candidates=compatibleCodCandidates(shipment,available);matchMethod="COMPATIBLE_UNIQUE";
     if(!candidates.length)continue;
@@ -74,7 +86,18 @@ export async function matchShipments(actor:string){
    }
    if(!candidates.length)continue;
    if(new Set(candidates.map(o=>o.affiliateId)).size>1){ambiguous++;setStatus(shipment,"AMBIGUOUS_SELLER");continue;}
-   const order=orders.find(o=>o.id===candidates[0].id)!;
+   order=orders.find(o=>o.id===candidates[0].id)!;
+   await tx.shipment.update({where:{tracking:shipment.tracking},data:{orderId:order.id,status:"MATCHED_WAITING_COD"}});
+   statusChanges.delete(shipment.tracking);
+   await tx.orderIntake.update({where:{id:order.id},data:{status:"MATCHED_SHIPMENT_WAITING_COD"}});
+   await tx.auditLog.create({data:{actor,action:"SHIPMENT_LINKED",entityId:order.id,details:{tracking:shipment.tracking,matchMethod}}});used.add(order.id);shipmentLinked++;
+   }
+   if(!order)continue;
+   if(receipt&&receipt.amountSatang!==shipment.codSatang){
+    await tx.shipment.update({where:{tracking:shipment.tracking},data:{status:"MATCHED_COD_AMOUNT_MISMATCH"}});
+    await tx.orderIntake.update({where:{id:order.id},data:{status:"COD_AMOUNT_MISMATCH"}});continue;
+   }
+   if(!receipt)continue;
    if(order.salesCommissionBps===null||!order.salesCommissionBasis)continue;
    // Archived/suspended affiliates remain review-only, never silently credited.
    const affiliate=await tx.affiliate.findUnique({where:{id:order.affiliateId!},select:{active:true,archivedAt:true}});if(!affiliate?.active||affiliate.archivedAt)continue;
@@ -87,6 +110,6 @@ export async function matchShipments(actor:string){
   }
   const statusGroups=Map.groupBy([...statusChanges],([,status])=>status);
   for(const [status,rows] of statusGroups)await tx.shipment.updateMany({where:{tracking:{in:rows.map(([tracking])=>tracking)},orderId:null},data:{status}});
-  return {matched,ambiguous,codConfirmed,waitingCod,amountMismatch,transferMatched};
+  return {matched,ambiguous,codConfirmed,waitingCod,amountMismatch,transferMatched,shipmentLinked,claimMatched};
  });
 }

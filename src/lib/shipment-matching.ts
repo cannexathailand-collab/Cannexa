@@ -13,6 +13,10 @@ export function transferShipmentCandidates(shipment:MatchShipment,orders:MatchOr
  if(shipment.codSatang!==0||!shipment.recipient||!shipment.phone||!shipment.address)return [];
  return orders.filter(o=>o.affiliateId&&o.payment==="โอน"&&o.recipient&&o.phone&&o.address&&normalizeName(o.recipient)===normalizeName(shipment.recipient)&&normalizePhone(o.phone)===normalizePhone(shipment.phone)&&normalizeAddress(o.address)===normalizeAddress(shipment.address));
 }
+export function nonCodShipmentCandidates(shipment:MatchShipment,orders:MatchOrder[]){
+ if(shipment.codSatang!==0||!shipment.recipient||!shipment.phone||!shipment.address)return [];
+ return orders.filter(o=>o.affiliateId&&(o.payment==="โอน"||o.payment==="เคลม")&&o.recipient&&o.phone&&o.address&&normalizePhone(o.phone)===normalizePhone(shipment.phone)&&comparableRecipient(o.recipient)===comparableRecipient(shipment.recipient)&&compatibleAddress(o.address,shipment.address));
+}
 function comparableRecipient(value:string){
  const name=normalizeName(value.replace(/^(?:ส่ง(?:ถึง)?|เรียน)\s*(?=คุณ|นาย|นาง|น\.?ส\.?)/,""));
  // A narrowly defined English nickname spelling variant, not general fuzzy names.
