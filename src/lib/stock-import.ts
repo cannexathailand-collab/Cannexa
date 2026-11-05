@@ -1,4 +1,4 @@
-export type StockRow={code:string;name:string|null;costSatang:number|null;sourceRow:number};
+export type StockRow={code:string;name:string|null;costSatang:number|null;receivedQuantity:number|null;sourceRow:number};
 export function stockRows(rows:unknown[][],{costColumnConfirmed=false}:{costColumnConfirmed?:boolean}={}):StockRow[]{
  const seen=new Set<string>();const products:StockRow[]=[];
  rows.forEach((row,index)=>{
@@ -13,6 +13,12 @@ export function stockRows(rows:unknown[][],{costColumnConfirmed=false}:{costColu
    if(!Number.isFinite(n)||n<0||Math.abs(n*100-Math.round(n*100))>0.00001||!Number.isSafeInteger(Math.round(n*100)))throw new Error('INVALID_PRODUCT_COST '+code);
    costSatang=Math.round(n*100);
   }
-  products.push({code,name,costSatang,sourceRow:index+1});
+  const rawQuantity=row[4];let receivedQuantity:number|null=null;
+  if(rawQuantity!==null&&rawQuantity!==undefined&&rawQuantity!==''){
+   const n=typeof rawQuantity==='number'?rawQuantity:Number(String(rawQuantity).replace(/,/g,''));
+   if(!Number.isFinite(n)||Math.abs(n*1000-Math.round(n*1000))>0.0001||Math.abs(n)>=1e15)throw new Error('INVALID_PRODUCT_QUANTITY '+code);
+   receivedQuantity=n;
+  }
+  products.push({code,name,costSatang,receivedQuantity,sourceRow:index+1});
  });return products;
 }

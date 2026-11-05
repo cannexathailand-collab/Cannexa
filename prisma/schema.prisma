@@ -300,6 +300,7 @@ model GmailOAuthAttempt {
 }
 
 model StockProduct {
+ receivedQuantity Decimal? @db.Decimal(18, 3)
  id String @id @default(cuid())
  code String @unique
  name String?
