@@ -6,11 +6,11 @@ process.env.USER_HASH_SECRET="intake-test-secret-only";
 const txOriginal=db.$transaction,groupOriginal=db.orderGroup.upsert;
 afterEach(()=>{db.$transaction=txOriginal;db.orderGroup.upsert=groupOriginal;});
 function harness(enabled=true){
- const rows:any[]=[],groups=new Map<string,any>(),withdrawn=new Set<string>();
+ const rows:any[]=[],sales:any[]=[],groups=new Map<string,any>(),withdrawn=new Set<string>();
  db.orderGroup.upsert=(async({where,create}:any)=>{if(!groups.has(where.id))groups.set(where.id,{...create,enabled});return groups.get(where.id);}) as any;
- const tx:any={$queryRawUnsafe:async()=>[],orderGroup:{findUnique:async({where}:any)=>groups.get(where.id)},affiliate:{findMany:async({where}:any)=>{assert.equal(where.OR[0].code.mode,"insensitive");assert.equal(where.OR[1].accounts.some.username.mode,"insensitive");return [{id:"seller",salesCommissionBasis:"REVENUE",salesCommissionBps:1000}];}},orderMessageWithdrawal:{findUnique:async({where}:any)=>withdrawn.has(where.messageKey)?{}:null,upsert:async({where}:any)=>withdrawn.add(where.messageKey)},salesOrder:{updateMany:async()=>({count:0})},orderIntake:{findMany:async({where}:any)=>rows.filter(r=>r.messageKey===where.messageKey&&r.groupKey===where.groupKey),findFirst:async({where}:any)=>rows.find(r=>where.OR.some((q:any)=>(q.messageKey&&q.messageKey===r.messageKey)||(q.eventKey&&q.eventKey===r.eventKey))),create:async({data}:any)=>{const row={id:"order-"+rows.length,...data};rows.push(row);return row;},updateMany:async({where,data}:any)=>{rows.filter(r=>r.messageKey===where.messageKey&&r.groupKey===where.groupKey).forEach(r=>Object.assign(r,data));}}};
+ const tx:any={$queryRawUnsafe:async()=>[],orderGroup:{findUnique:async({where}:any)=>groups.get(where.id)},affiliate:{findMany:async({where}:any)=>{assert.equal(where.OR[0].code.mode,"insensitive");assert.equal(where.OR[1].accounts.some.username.mode,"insensitive");return [{id:"seller",salesCommissionBasis:"REVENUE",salesCommissionBps:1000}];}},orderMessageWithdrawal:{findUnique:async({where}:any)=>withdrawn.has(where.messageKey)?{}:null,upsert:async({where}:any)=>withdrawn.add(where.messageKey)},auditLog:{create:async()=>({})},salesOrder:{create:async({data}:any)=>{assert.ok(!sales.some(s=>s.orderId===data.orderId));sales.push(data);return data;},updateMany:async({where,data}:any)=>{const selected=sales.filter(s=>where.orderId.in.includes(s.orderId)&&where.status.in.includes(s.status));selected.forEach(s=>Object.assign(s,data));return {count:selected.length};}},orderIntake:{findMany:async({where}:any)=>rows.filter(r=>r.messageKey===where.messageKey&&r.groupKey===where.groupKey),findFirst:async({where}:any)=>rows.find(r=>where.OR.some((q:any)=>(q.messageKey&&q.messageKey===r.messageKey)||(q.eventKey&&q.eventKey===r.eventKey))),create:async({data}:any)=>{const row={id:"order-"+rows.length,...data};rows.push(row);return row;},updateMany:async({where,data}:any)=>{rows.filter(r=>r.messageKey===where.messageKey&&r.groupKey===where.groupKey).forEach(r=>Object.assign(r,data));}}};
  db.$transaction=(async(fn:any)=>fn(tx)) as any;
- return {rows,groups,tx};
+ return {rows,groups,tx,sales};
 }
 function event(message="m1"):OrderEvent{return {webhookEventId:"e-"+message,type:"message",timestamp:Date.now(),source:{type:"group",groupId:"group",userId:"person"},message:{type:"text",id:message,text:"รหัสผู้ขาย: ADM001\nผู้รับ: ตัวอย่าง\nโทร: 0812345678\nที่อยู่: 1\nชำระเงิน: COD\nยอดรวม: 2560"}};}
 test("repeated webhook and message IDs save once, identical separate messages save twice",async()=>{
@@ -29,4 +29,14 @@ test("unknown or ambiguous sellers remain review-only",async()=>{
 test("unsend erases customer text and blocks out-of-order redelivery",async()=>{
  const h=harness();await receiveOrderEvent("bot-a",event());const unsend={...event(),type:"unsend",message:undefined,unsend:{messageId:"m1"}};await receiveOrderEvent("bot-a",unsend);assert.equal(h.rows[0].rawText,null);assert.equal(h.rows[0].phone,null);assert.equal(h.rows[0].status,"WITHDRAWN");await receiveOrderEvent("bot-a",event());assert.equal(h.rows.length,1);
  await receiveOrderEvent("bot-a",{...unsend,unsend:{messageId:"m2"}});await receiveOrderEvent("bot-a",event("m2"));assert.equal(h.rows.length,1);
+});
+test("declared transfer credits once immediately and unsend reverses pending commission",async()=>{
+ const h=harness(),e=event();e.message!.text=e.message!.text!.replace("ชำระเงิน: COD","ชำระเงิน: โอน");
+ await receiveOrderEvent("bot-a",e);await receiveOrderEvent("bot-a",e);
+ assert.equal(h.sales.length,1);assert.equal(h.sales[0].revenueSatang,256000);assert.equal(h.sales[0].commissionSatang,25600);assert.equal(h.sales[0].paymentEvidence,"DECLARED_TRANSFER");assert.equal(h.rows[0].status,"TRANSFER_RECORDED");
+ await receiveOrderEvent("bot-a",{...e,type:"unsend",message:undefined,unsend:{messageId:e.message!.id}});assert.equal(h.sales[0].status,"CANCELLED");assert.equal(h.sales[0].commissionSatang,0);
+});
+test("transfer with missing total stays review-only, profit basis waits for costs",async()=>{
+ const h=harness(),e=event();e.message!.text=e.message!.text!.replace("ชำระเงิน: COD","ชำระเงิน: โอน").replace("ยอดรวม: 2560","");await receiveOrderEvent("bot-a",e);assert.equal(h.sales.length,0);assert.equal(h.rows[0].status,"NEEDS_REVIEW");
+ h.tx.affiliate.findMany=async()=>[{id:"seller",salesCommissionBasis:"PROFIT",salesCommissionBps:1000}];const profit=event("profit");profit.message!.text=profit.message!.text!.replace("ชำระเงิน: COD","ชำระเงิน: โอน");await receiveOrderEvent("bot-a",profit);assert.equal(h.sales[0].commissionSatang,null);assert.equal(h.sales[0].status,"WAITING_COST");
 });

@@ -3,6 +3,7 @@ import {db,transaction,userLock} from "./db";
 import {userKey} from "./crypto";
 import {parseOrderText} from "./order-parser";
 import {metaAdCode} from "./meta-ad";
+import {quotedTotal} from "./shipment-matching";
 
 export type OrderEvent={webhookEventId:string;type:string;timestamp:number;replyToken?:string;source:{type?:string;groupId?:string;userId?:string};message?:{type:string;id:string;text?:string};unsend?:{messageId:string}};
 export async function receiveOrderEvent(botId:string,e:OrderEvent){
@@ -31,6 +32,10 @@ export async function receiveOrderEvent(botId:string,e:OrderEvent){
   if(!(await tx.orderGroup.findUnique({where:{id:groupKey}}))?.enabled)return null;
   const sellers=await tx.affiliate.findMany({where:{archivedAt:null,active:true,code:{not:metaAdCode},OR:[{code:{equals:parsed.sellerCode,mode:"insensitive"}},{accounts:{some:{username:{equals:parsed.sellerCode,mode:"insensitive"},role:"employee",active:true}}}]},select:{id:true,salesCommissionBasis:true,salesCommissionBps:true},take:2});
   const issues=[...parsed.issues];if(sellers.length!==1)issues.push("ไม่พบรหัสผู้ขายที่ใช้งานอยู่เพียงรายเดียว");
-  return tx.orderIntake.create({data:{eventKey,messageKey,groupKey,senderKey:e.source.userId?userKey("order-sender:"+botId+":"+e.source.userId):null,orderNumber:"ORD-"+randomBytes(10).toString("hex").toUpperCase(),rawText:e.message!.text!,sellerCode:parsed.sellerCode,affiliateId:sellers.length===1?sellers[0].id:null,salesCommissionBasis:sellers.length===1?sellers[0].salesCommissionBasis:null,salesCommissionBps:sellers.length===1?sellers[0].salesCommissionBps:null,recipient:parsed.recipient,phone:parsed.phone,address:parsed.address,payment:parsed.payment,issues,status:issues.length?"NEEDS_REVIEW":"WAITING_SHIPMENT",eventAt:new Date(e.timestamp)}});
+  const total=quotedTotal(e.message!.text!);if(parsed.payment==="โอน"&&(total===null||total<=0))issues.push("ยอดโอนต้องระบุยอดรวมที่มากกว่าศูนย์เพียงยอดเดียว");
+  const transfer=parsed.payment==="โอน"&&!issues.length;
+  const order=await tx.orderIntake.create({data:{eventKey,messageKey,groupKey,senderKey:e.source.userId?userKey("order-sender:"+botId+":"+e.source.userId):null,orderNumber:"ORD-"+randomBytes(10).toString("hex").toUpperCase(),rawText:e.message!.text!,sellerCode:parsed.sellerCode,affiliateId:sellers.length===1?sellers[0].id:null,salesCommissionBasis:sellers.length===1?sellers[0].salesCommissionBasis:null,salesCommissionBps:sellers.length===1?sellers[0].salesCommissionBps:null,recipient:parsed.recipient,phone:parsed.phone,address:parsed.address,payment:parsed.payment,issues,status:issues.length?"NEEDS_REVIEW":transfer?"TRANSFER_RECORDED":"WAITING_SHIPMENT",eventAt:new Date(e.timestamp)}});
+  if(transfer){const seller=sellers[0],profit=seller.salesCommissionBasis==="PROFIT";await tx.salesOrder.create({data:{orderId:order.id,tracking:null,affiliateId:seller.id,paymentMethod:"TRANSFER",paymentEvidence:"DECLARED_TRANSFER",revenueSatang:total!,commissionBasis:seller.salesCommissionBasis,commissionBps:seller.salesCommissionBps,commissionSatang:profit?null:Math.round(total!*seller.salesCommissionBps/10000),status:profit?"WAITING_COST":"PENDING"}});await tx.auditLog.create({data:{actor:"line-order",action:"TRANSFER_SALE_RECORDED",entityId:order.id,details:{evidence:"DECLARED_TRANSFER"}}});}
+  return order;
  });
 }

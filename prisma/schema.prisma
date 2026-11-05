@@ -258,7 +258,9 @@ model CodReceipt {
 model SalesOrder {
  id String @id @default(cuid())
  orderId String @unique
- tracking String @unique
+ tracking String? @unique
+ paymentMethod String @default("COD")
+ paymentEvidence String @default("SHIPMENT_REPORT")
  affiliateId String
  revenueSatang Int
  commissionBasis String
