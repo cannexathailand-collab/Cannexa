@@ -3,13 +3,16 @@ import {admin,sameOrigin} from "@/lib/auth";
 import {db,transaction} from "@/lib/db";
 import {baseUrl} from "@/lib/config";
 import {seal} from "@/lib/line-settings";
+import {getOrderBotInfo} from "@/lib/order-bot-info";
 export async function POST(req:Request){
  let actor:string;try{actor=await admin();await sameOrigin();}catch{return new Response("Forbidden",{status:403});}
  const f=await req.formData();const action=String(f.get("action")??"");
  if(action==="bot"){
-  const name=String(f.get("name")??"").trim(),botId=String(f.get("botId")??"").trim(),messagingSecret=String(f.get("secret")??"").trim();
-  if(!name||name.length>100||!/^U[0-9a-f]{32}$/i.test(botId)||!messagingSecret||messagingSecret.length>200)return new Response("Invalid settings",{status:400});
-  const encrypted=seal({loginId:"",loginSecret:"",basicId:"",botId,messagingSecret});
+  const name=String(f.get("name")??"").trim(),messagingSecret=String(f.get("secret")??"").trim(),accessToken=String(f.get("accessToken")??"").trim();
+  if(!name||name.length>100||!messagingSecret||messagingSecret.length>200)return new Response("Invalid settings",{status:400});
+  let info;try{info=await getOrderBotInfo(accessToken);}catch{return new Response("ดึงข้อมูล OA ไม่สำเร็จ กรุณากลับไปตรวจ Channel Access Token แล้วลองอีกครั้ง",{status:400});}
+  const botId=info.userId;
+  const encrypted=seal({loginId:"",loginSecret:"",basicId:info.basicId,botId,messagingSecret,accessToken});
   await transaction(async tx=>{
    const bot=await tx.orderBot.upsert({where:{botId},create:{name,botId,encrypted},update:{name,encrypted,active:true}});
    await tx.auditLog.create({data:{actor,action:"ORDER_BOT_SAVED",entityId:bot.id,details:{name}}});
