@@ -76,3 +76,9 @@ test("substantial named villa prefix requires exact full name, phone, amount and
  assert.equal(compatibleCodCandidates({...s,recipient:"OBY"},[{...o,recipient:"OBY"}]).length,0);
  assert.equal(compatibleCodCandidates({...s,address:"Golden Villa 37 กระบี่ 81000"},[{...o,address:"Golden Villa"}]).length,0);
 });
+
+test("COD receipts arriving after a rate change still use each order original commission snapshot",async t=>{
+ const h=harness(t);h.orders[0].salesCommissionBps=200;h.orders[1].salesCommissionBps=100;h.receipts.splice(0);await matchShipments("owner");assert.equal(h.sales.length,0);
+ h.receipts.push(...h.shipments.map(s=>({tracking:s.tracking,amountSatang:s.codSatang})));await matchShipments("owner");
+ assert.deepEqual(h.sales.map(s=>s.commissionBps),[200,100]);assert.deepEqual(h.sales.map(s=>s.commissionSatang),[5120,2560]);await matchShipments("owner");assert.equal(h.sales.length,2);assert.deepEqual(h.sales.map(s=>s.commissionSatang),[5120,2560]);
+});

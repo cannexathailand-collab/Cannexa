@@ -132,3 +132,11 @@ test("Meta ad friend is verified without creating employee commission",async()=>
  assert.equal(h.conversions[0].status,"VERIFIED_NEW_FRIEND");
  assert.equal(h.commissions.length,0);
 });
+test("friend rate changes affect only new conversions, including approval delayed until after the change",async()=>{
+ const h=harness();await recordLogin("click-a","old-rate-user",true,true);h.clicks[0].affiliate.rateSatang=100;
+ await recordLogin("click-a","new-rate-user",true,true);
+ for(const [id,key] of [["old-rate-follow","old-rate-user"],["new-rate-follow","new-rate-user"]])await webhook({id,key,type:"follow",at:new Date(h.clicks[0].loginAt.getTime()-1),unblocked:false});
+ assert.deepEqual(h.conversions.map(c=>c.rateSatang),[500,100]);assert.deepEqual(h.commissions.map(c=>c.amountSatang),[500,100]);
+ await review(h.conversions[0].id,"paid","Rate snapshot verification test evidence");h.clicks[0].affiliate.rateSatang=900;await recordLogin("click-a","raised-rate-user",true,true);await webhook({id:"raised-follow",key:"raised-rate-user",type:"follow",at:new Date(h.clicks[0].loginAt.getTime()-1),unblocked:false});
+ assert.deepEqual(h.commissions.map(c=>c.amountSatang),[500,100,900]);assert.equal(h.commissions[0].status,"Paid");
+});

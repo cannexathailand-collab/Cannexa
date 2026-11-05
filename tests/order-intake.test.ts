@@ -54,3 +54,11 @@ test("unsend keeps independently confirmed returned parcel history",async()=>{
  h.tx.shipment.updateMany=async({where}:any)=>{assert.equal(where.status.not,"RETURNED");checked=true;return {count:0};};
  await receiveOrderEvent("bot-a",{...event(),type:"unsend",message:undefined,unsend:{messageId:"m1"}});assert.ok(checked);assert.equal(h.rows.length,0);
 });
+
+test("sales rate changes preserve old transfer and waiting COD snapshots, new orders take the new rate",async()=>{
+ const h=harness();let bps=200;h.tx.affiliate.findMany=async()=>[{id:"seller",salesCommissionBasis:"REVENUE",salesCommissionBps:bps}];
+ const transfer=(id:string)=>{const e=event(id);e.message!.text=e.message!.text!.replace("ชำระเงิน: COD","ชำระเงิน: โอน");return e;};
+ await receiveOrderEvent("bot-a",transfer("old-transfer"));await receiveOrderEvent("bot-a",event("old-cod"));bps=100;
+ await receiveOrderEvent("bot-a",transfer("old-transfer"));await receiveOrderEvent("bot-a",transfer("new-transfer"));await receiveOrderEvent("bot-a",event("new-cod"));
+ assert.deepEqual(h.rows.map(o=>o.salesCommissionBps),[200,200,100,100]);assert.deepEqual(h.sales.map(s=>s.commissionBps),[200,100]);assert.deepEqual(h.sales.map(s=>s.commissionSatang),[5120,2560]);
+});
