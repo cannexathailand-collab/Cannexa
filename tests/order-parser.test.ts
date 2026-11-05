@@ -5,6 +5,7 @@ test("only explicit order headers are collected",()=>{
  assert.equal(parseOrderText("สวัสดีครับ\nรหัสผู้ขาย: ADM001"),null);
  assert.equal(parseOrderText("ข้อความทั่วไป 1000 บาท"),null);
 });
+test("seller header accepts current username format including dots and preserves original case",()=>{assert.equal(parseOrderText("รหัสผู้ขาย: Ink.123")?.sellerCode,"Ink.123");assert.equal(parseOrderText("รหัสผู้ขาย: "+"a".repeat(64))?.sellerCode.length,64);});
 test("structured intake extracts recipient matching fields without financial posting",()=>{
  const p=parseOrderText("รหัสผู้ขาย: ADM001\nชื่อผู้รับ: ทดสอบ\nเบอร์โทร: 081-234-5678\nที่อยู่: 1 กรุงเทพ\nชำระเงิน: cod\nสินค้า: CG13 20g 1200\nยอดรวม: 1260")!;
  assert.deepEqual(p,{sellerCode:"ADM001",recipient:"ทดสอบ",phone:"0812345678",address:"1 กรุงเทพ",payment:"COD",issues:[]});

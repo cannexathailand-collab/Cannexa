@@ -1,7 +1,7 @@
 // Amounts in chat are unverified claims. This intake never creates sales or commission.
 export function parseOrderText(text:string){
  const lines=text.replace(/\r/g,"").split("\n").map(x=>x.trim()).filter(Boolean);
- const seller=lines[0]?.match(/^รหัสผู้ขาย\s*[:：]\s*([A-Za-z0-9_-]{1,50})\s*$/);
+ const seller=lines[0]?.match(/^รหัสผู้ขาย\s*[:：]\s*([A-Za-z0-9._-]{3,64})\s*$/);
  if(!seller)return null;
  const field=(labels:string)=>lines.map(x=>x.match(new RegExp("^(?:"+labels+")\\s*[:：]\\s*(.+)$","i"))).find(Boolean)?.[1]?.trim()??null;
  const recipient=field("ชื่อผู้รับ|ผู้รับ|ชื่อลูกค้า");
