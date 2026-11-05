@@ -2,7 +2,7 @@ import {db} from './db';import {userKey} from './crypto';import {parseExpenseTex
 type ExpenseMessage={expenseNumber:string;description:string|null;amountSatang:number|null;status:string;issues:unknown};
 export function expenseConfirmationText(expense:ExpenseMessage){
  if(expense.status!=='PAID'||expense.amountSatang===null)return 'รับข้อความค่าใช้จ่ายแล้ว\nยังบันทึกค่าใช้จ่ายไม่สำเร็จ\nกรุณาตรวจ: '+(Array.isArray(expense.issues)?expense.issues.map(String).join(' · '):'ข้อมูลไม่ครบ')+'\nยกเลิกข้อความเดิมแล้วส่งใหม่ตามรูปแบบ';
- return 'บันทึกค่าใช้จ่ายสำเร็จ\nเลขรายการ: '+expense.expenseNumber+'\nรายการ: '+(expense.description??'รายจ่าย')+'\nจำนวนเงิน: ฿'+(expense.amountSatang/100).toFixed(2)+'\nสถานะ: บันทึกแล้ว';
+ return 'บันทึกค่าใช้จ่ายสำเร็จ\nรายการ: '+(expense.description??'รายจ่าย');
 }
 export async function replyExpenseConfirmation(botId:string,e:OrderEvent,accessToken?:string){
  if(e.type!=='message'||e.source.type!=='group'||e.message?.type!=='text'||!e.replyToken||!parseExpenseText(e.message.text??''))return;
