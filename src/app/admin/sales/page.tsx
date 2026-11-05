@@ -1,16 +1,8 @@
 import {approvers} from "@/lib/accounts";
 import {requireAdminPage} from "@/lib/auth";
-import {salesReport} from "@/lib/sales-report";
-import {CommissionMonthSelect} from "@/app/commission-month-select";
-const money=(n:number)=>(n/100).toLocaleString("th-TH",{style:"currency",currency:"THB"});
-export default async function Sales({searchParams}:{searchParams:Promise<{month?:string}>}){
- await requireAdminPage(approvers);const {month,months,summary,groups}=await salesReport((await searchParams).month);
- const metrics=[["ยอดขายรวม",money(summary.revenueSatang),"ยอดขายที่บันทึกแล้วในเดือนที่เลือก"],["จำนวนออเดอร์",summary.count+" รายการ","ไม่นับรายการเคลม ยกเลิก หรือตีกลับ"],["ยอดโอน",money(summary.transferSatang),"ตามยอดโอนที่แจ้งในออเดอร์"],["COD รับเงินแล้ว",money(summary.codSatang),"บันทึกหลังจับคู่รายงานรับเงิน"]];
- return <><div className="intro"><div><div className="eyebrow">บัญชี</div><h1>ยอดขาย</h1><p className="muted">สรุปจากยอดขายชุดเดียวกับออเดอร์และค่าคอม</p></div></div>
- <CommissionMonthSelect action="/admin/sales" month={month} months={months} label="เดือนยอดขาย"/>
- <section className="stats">{metrics.map(([label,value,note])=><article className="card stat" key={label}><span>{label}</span><strong>{value}</strong><span>{note}</span></article>)}</section>
- <section className="card review"><h2>ค่าคอมจากยอดขาย</h2><p>รอจ่าย <strong>{money(summary.pendingCommissionSatang)}</strong> · จ่ายแล้ว <strong>{money(summary.paidCommissionSatang)}</strong></p>{summary.waitingCost>0&&<p>รอต้นทุนสินค้า {summary.waitingCost} รายการ จึงยังไม่รวมค่าคอมที่คำนวณไม่ได้</p>}</section>
- <section className="card"><h2>ยอดขายแยกตามผู้ขาย</h2>{!groups.length?<p>ยังไม่มียอดขายในเดือนนี้</p>:<div className="table-wrap"><table><thead><tr><th>ผู้ขาย / Affiliate</th><th>ออเดอร์</th><th>ยอดโอน</th><th>COD รับเงินแล้ว</th><th>ยอดขายรวม</th><th>คอมรอจ่าย</th><th>คอมจ่ายแล้ว</th></tr></thead><tbody>{groups.map(g=><tr key={g.key}><td>{g.name}<br/>{g.code}</td><td>{g.count}</td><td>{money(g.transferSatang)}</td><td>{money(g.codSatang)}</td><td>{money(g.revenueSatang)}</td><td>{money(g.pendingCommissionSatang)}</td><td>{money(g.paidCommissionSatang)}</td></tr>)}</tbody></table></div>}</section>
- <section className="card"><h2>รายการยอดขาย</h2><p className="muted small">แสดงล่าสุดไม่เกิน 100 รายการในเดือนที่เลือก วันที่ใช้วันที่บันทึกยอดขาย</p>{!summary.count?<p>ยังไม่มียอดขาย</p>:<div className="table-wrap"><table><thead><tr><th>วันที่บันทึก</th><th>ออเดอร์ / ผู้ขาย</th><th>ประเภท</th><th>เลขพัสดุ</th><th>ยอดขาย</th><th>ค่าคอม</th><th>สถานะค่าคอม</th></tr></thead><tbody>{summary.rows.slice(0,100).map(s=><tr key={s.id}><td>{s.createdAt.toLocaleString("th-TH",{timeZone:"Asia/Bangkok"})}</td><td>{s.order?.orderNumber??"รายการเดิม ไม่มีข้อความ LINE"}<br/>{s.order?.sellerUsername??s.affiliate?.name??"บัญชีเดิม"}</td><td>{s.paymentMethod==="TRANSFER"?"โอน":"COD"}</td><td>{s.tracking??"ยังไม่ผูกพัสดุ"}</td><td>{money(s.revenueSatang)}</td><td>{s.commissionSatang===null?"รอต้นทุน":money(s.status==="PAID"?(s.paidAmountSatang??s.commissionSatang):s.commissionSatang)}</td><td>{s.status==="PAID"?"จ่ายแล้ว":s.status==="WAITING_COST"?"รอต้นทุน":"รอจ่าย"}</td></tr>)}</tbody></table></div>}</section>
- </>;
+import {SalesOverview} from "@/app/sales-overview";
+import type {SalesFilters} from "@/lib/sales-report";
+export default async function Sales({searchParams}:{searchParams:Promise<SalesFilters>}){
+ await requireAdminPage(approvers);
+ return <><h1>บัญชี · ยอดขาย</h1><SalesOverview filters={await searchParams} action="/admin/sales"/></>;
 }

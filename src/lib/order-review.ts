@@ -10,6 +10,7 @@ export async function orderReview(id:string,access:Access){
  const reasons=Array.isArray(order.issues)?order.issues.map(String):[];
  if(!order.affiliateId)reasons.push("ยังระบุผู้ขายที่ถูกต้องเพียงรายเดียวไม่ได้");
  if(!shipment)reasons.push("ยังไม่ผูกกับรายการจัดส่งที่ยืนยันได้");
+ if(shipment&&shipment.fulfillmentStatus!=="DISPATCHED"&&!["RETURNED","CANCELLED"].includes(shipment.status))reasons.push("ยังไม่มีหลักฐานยืนยันส่งมอบให้ขนส่งจริง จึงยังไม่นับยอดขาย แม้มีเลขพัสดุหรือรายงานรับเงินแล้ว");
  if(order.payment==="COD"&&shipment&&order.status!=="RETURNED"){
   if(!receipt)reasons.push("ผูกจัดส่งแล้ว รอรายงานรับเงิน COD ของเลขพัสดุนี้ ไม่ได้หมายความว่าตีกลับ");
   else if(receipt.amountSatang!==shipment.codSatang)reasons.push("ยอดในรายงานรับเงิน COD ไม่ตรงกับยอดที่ระบุในรายการจัดส่ง");

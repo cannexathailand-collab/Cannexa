@@ -1,0 +1,11 @@
+import {NextResponse} from "next/server";
+import {admin,sameOrigin} from "@/lib/auth";
+import {baseUrl} from "@/lib/config";
+import {parseDispatchTime} from "@/lib/sales-dates";
+import {updateShipmentFulfillment} from "@/lib/sales-recognition";
+export async function POST(req:Request){
+ let actor:string;try{actor=await admin();await sameOrigin();}catch{return new Response("Forbidden",{status:403});}
+ const f=await req.formData(),id=String(f.get("id")??""),action=String(f.get("action")??"");if(!["DISPATCHED","RETURNED","CANCELLED"].includes(action))return new Response("Invalid action",{status:400});
+ try{await updateShipmentFulfillment(id,action as "DISPATCHED"|"RETURNED"|"CANCELLED",actor,String(f.get("evidence")??""),action==="DISPATCHED"?parseDispatchTime(String(f.get("dispatchedAt")??"")):undefined);return NextResponse.redirect(baseUrl()+"/admin/orders/"+encodeURIComponent(id)+"/review",303);}
+ catch(e){const messages:Record<string,string>={DISPATCH_EVIDENCE_REQUIRED:"ระบุหลักฐานส่งมอบให้ขนส่งก่อน",INVALID_DISPATCH_TIME:"ระบุวันและเวลาจัดส่งจริงให้ถูกต้อง",ORDER_CLOSED:"ออเดอร์นี้ปิดแล้ว ไม่สามารถยืนยันส่งใหม่",SALE_CONFLICT:"ข้อมูลยอดขายขัดแย้ง ต้องตรวจสอบก่อน",SELLER_NOT_READY:"ข้อมูลผู้ขายยังไม่พร้อม",INVALID_SALES_AMOUNT:"ยังไม่มียอดขายที่ยืนยันได้"};return new Response(messages[e instanceof Error?e.message:""]??"บันทึกไม่ได้ กรุณาตรวจข้อมูลจัดส่งอีกครั้ง",{status:409});}
+}

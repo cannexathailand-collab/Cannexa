@@ -1,14 +1,16 @@
+import {SalesOverview} from "@/app/sales-overview";
+import type {SalesFilters} from "@/lib/sales-report";
 import {office} from "@/lib/accounts";
 import {requireAdminPage} from "@/lib/auth";
 import Link from "next/link";
 import {report} from "@/lib/report";
-export default async function Dashboard({searchParams}:{searchParams:Promise<{period?:string}>}){
- await requireAdminPage(office);const period=(await searchParams).period??"month";const rows=await report(period,undefined,true);
+export default async function Dashboard({searchParams}:{searchParams:Promise<SalesFilters & {period?:string}>}){
+ const account=await requireAdminPage(office);const filters=await searchParams;const period=filters.period??"month";const rows=await report(period,undefined,true);
  const ranked=[...rows].sort((a,b)=>b.approved-a.approved);
  const sum=(k:"clicks"|"logins"|"friends"|"approved"|"pending"|"rejected"|"commissionSatang")=>rows.reduce((n,r)=>n+r[k],0);
  const max=Math.max(1,...rows.map(r=>r.approved));
  const metrics=[["Affiliate ทั้งหมด",rows.length,"คนในเครือข่าย"],["คลิกลิงก์",sum("clicks"),"จำนวนการเปิดลิงก์"],["LINE Login สำเร็จ",sum("logins"),"นับตาม Click ID ที่ Login สำเร็จ"],["เพื่อนใหม่",sum("approved"),"ระบบยืนยันจาก LINE"],["รายการที่ไม่นับค่าคอม",sum("rejected"),"เพื่อนเดิม / ปลดบล็อก / ปฏิเสธ"],["ค่าคอมรวม","฿"+(sum("commissionSatang")/100).toLocaleString("th-TH"),"ยอด Approved + Paid"]];
- return <><div className="intro"><div><div className="eyebrow">Performance overview</div><h1>ภาพรวม Affiliate</h1><p className="muted">ติดตามผลการแนะนำ และตรวจสอบทุกยอดก่อนจ่ายค่าคอมมิชชัน</p></div><a className="button secondary" href={"/api/admin/export?period="+period}>↓ ส่งออก CSV</a></div><div className="filters" style={{marginBottom:22}}>{[["day","24 ชั่วโมง"],["week","7 วัน"],["month","30 วัน"],["all","ทั้งหมด"]].map(([k,t])=><Link className={period===k?"active":""} key={k} href={"/admin?period="+k}>{t}</Link>)}</div><section className="stats">{metrics.map(([label,value,note])=><article className="card stat" key={label}><span>{label}</span><strong>{value}</strong><span>{note}</span></article>)}</section>
+ return <>{["owner","admin"].includes(account.role)&&<SalesOverview filters={filters} action="/admin"/>}<div className="intro"><div><div className="eyebrow">Performance overview</div><h1>ภาพรวม Affiliate</h1><p className="muted">ติดตามผลการแนะนำ และตรวจสอบทุกยอดก่อนจ่ายค่าคอมมิชชัน</p></div><a className="button secondary" href={"/api/admin/export?period="+period}>↓ ส่งออก CSV</a></div><div className="filters" style={{marginBottom:22}}>{[["day","24 ชั่วโมง"],["week","7 วัน"],["month","30 วัน"],["all","ทั้งหมด"]].map(([k,t])=><Link className={period===k?"active":""} key={k} href={"/admin?period="+k}>{t}</Link>)}</div><section className="stats">{metrics.map(([label,value,note])=><article className="card stat" key={label}><span>{label}</span><strong>{value}</strong><span>{note}</span></article>)}</section>
 <section className="card review">
    <h2>อันดับเพื่อนใหม่ตามพนักงาน</h2>
    {!rows.length && <p>ยังไม่มี Affiliate</p>}

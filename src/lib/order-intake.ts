@@ -19,7 +19,7 @@ export async function receiveOrderEvent(botId:string,e:OrderEvent){
    const orders=await tx.orderIntake.findMany({where:{messageKey,groupKey},select:{id:true}});
    if(orders.length)await reverseOrderSales(tx,orders.map(o=>o.id));
    if(orders.length){
-    await tx.shipment.updateMany({where:{orderId:{in:orders.map(o=>o.id)},status:{not:"RETURNED"}},data:{status:"CANCELLED"}});
+    await tx.shipment.updateMany({where:{orderId:{in:orders.map(o=>o.id)},status:{not:"RETURNED"}},data:{status:"CANCELLED",fulfillmentStatus:"CANCELLED"}});
     await tx.orderIntake.deleteMany({where:{messageKey,groupKey}});
     for(const order of orders)await tx.auditLog.create({data:{actor:"line-unsend",action:"CANCELLED_ORDER_REMOVED",entityId:order.id,details:{}}});
    }

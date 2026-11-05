@@ -247,6 +247,11 @@ model Shipment {
  reportAt DateTime
  orderId String? @unique
  status String @default("WAITING_ORDER")
+ fulfillmentStatus String @default("UNCONFIRMED")
+ dispatchedAt DateTime?
+ dispatchEvidence String?
+ dispatchConfirmedBy String?
+ @@index([fulfillmentStatus, dispatchedAt])
  createdAt DateTime @default(now())
 }
 
@@ -271,7 +276,9 @@ model SalesOrder {
  status String
  paidAt DateTime?
  paidAmountSatang Int?
+ recognizedAt DateTime?
  createdAt DateTime @default(now())
+ @@index([recognizedAt, status])
 }
 
 model GmailOAuthAttempt {

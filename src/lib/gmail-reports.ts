@@ -3,6 +3,7 @@ import {sha} from "./crypto";
 import {decryptGmail,type GmailConfig} from "./gmail";
 import {parseMyOrderXlsx} from "./myorder-xlsx";
 import {shipmentCandidates,nonCodShipmentCandidates,compatibleCodCandidates} from "./shipment-matching";
+import {hasActualDispatch,reconcileSalesRecognition,revokeSalesRecognition} from "./sales-recognition";
 
 const senders={SHIPMENT:"account-thaipost-freight@myorder.ai",COD:"account-thaipost-cod@myorder.ai"};
 type MailPart={filename?:string;body?:{attachmentId?:string;data?:string;size?:number};parts?:MailPart[]};
@@ -66,6 +67,7 @@ export async function matchShipments(actor:string){
     if(!sale||sale.paymentMethod!=="TRANSFER"||sale.status==="CANCELLED"||sale.tracking)continue;
     await tx.salesOrder.update({where:{id:sale.id},data:{tracking:shipment.tracking}});
     await tx.shipment.update({where:{tracking:shipment.tracking},data:{orderId:order.id,status:"MATCHED_TRANSFER"}});
+    if(hasActualDispatch(shipment))await reconcileSalesRecognition(tx,order,{...shipment,orderId:order.id},actor);else await revokeSalesRecognition(tx,sale,actor,"ยังไม่ยืนยันจัดส่งจริง");
     await tx.auditLog.create({data:{actor,action:"TRANSFER_SHIPMENT_LINKED",entityId:order.id,details:{tracking:shipment.tracking}}});used.add(order.id);transferMatched++;continue;
    }
    if(shipment.codSatang<0)continue;
@@ -107,7 +109,11 @@ export async function matchShipments(actor:string){
    statusChanges.delete(shipment.tracking);
    await tx.orderIntake.update({where:{id:order.id},data:{status:"MATCHED_SHIPMENT"}});
    const profit=order.salesCommissionBasis==="PROFIT";
-   await tx.salesOrder.create({data:{orderId:order.id,tracking:shipment.tracking,affiliateId:order.affiliateId!,paymentMethod:"COD",paymentEvidence:"COD_RECEIPT",revenueSatang:shipment.codSatang,commissionBasis:order.salesCommissionBasis,commissionBps:order.salesCommissionBps,commissionSatang:profit?null:Math.round(shipment.codSatang*order.salesCommissionBps/10000),status:profit?"WAITING_COST":"PENDING"}});
+   const existingSale=await tx.salesOrder.findUnique({where:{orderId:order.id}});
+   const settlement={paymentEvidence:"COD_RECEIPT",commissionSatang:profit?null:Math.round(shipment.codSatang*order.salesCommissionBps/10000),status:profit?"WAITING_COST":"PENDING"};
+   if(existingSale){if(existingSale.revenueSatang!==shipment.codSatang)throw Error("COD_CONFLICT");await tx.salesOrder.update({where:{id:existingSale.id},data:{...settlement,...(existingSale.status==="PAID"?{status:"PAID",commissionSatang:existingSale.commissionSatang}:{})}});}
+   else await tx.salesOrder.create({data:{orderId:order.id,tracking:shipment.tracking,affiliateId:order.affiliateId!,paymentMethod:"COD",...settlement,revenueSatang:shipment.codSatang,commissionBasis:order.salesCommissionBasis,commissionBps:order.salesCommissionBps}});
+   if(hasActualDispatch(shipment))await reconcileSalesRecognition(tx,order,{...shipment,orderId:order.id},actor);else if(existingSale)await revokeSalesRecognition(tx,existingSale,actor,"ยังไม่ยืนยันจัดส่งจริง");
    await tx.auditLog.create({data:{actor,action:"SHIPMENT_MATCHED",entityId:order.id,details:{tracking:shipment.tracking,matchMethod}}});used.add(order.id);matched++;
   }
   const statusGroups=Map.groupBy([...statusChanges],([,status])=>status);
