@@ -24,7 +24,9 @@ export async function POST(req:Request){
 
   const values={role,affiliateId:role==="employee"?affiliateId:null,active,version:randomUUID()};
   await transaction(async tx=>{
-   if(role==="employee"&&(await tx.affiliate.findUnique({where:{id:affiliateId},select:{code:true}}))?.code===metaAdCode)throw new Error("Reserved Meta ad link");
+   const affiliate=role==="employee"?await tx.affiliate.findUnique({where:{id:affiliateId},select:{code:true,archivedAt:true}}):null;
+   if(role==="employee"&&(!affiliate||affiliate.archivedAt))throw new Error("Affiliate unavailable");
+   if(affiliate?.code===metaAdCode)throw new Error("Reserved Meta ad link");
    if(edit)await tx.userAccount.update({where:{username},data:{...values,...credential}});
    else if(credential)await tx.userAccount.create({data:{username,...values,...credential}});
    await tx.auditLog.create({data:{actor,action:edit?"USER_UPDATED":"USER_CREATED",entityId:username,details:{role,active,passwordReset:!!credential}}});

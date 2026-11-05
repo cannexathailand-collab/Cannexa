@@ -13,7 +13,7 @@ export async function GET(req:NextRequest,{params}:{params:Promise<{code:string}
  const connection=mock?null:await lineSettings();
  if(!mock&&!connection)return new Response("ร้านค้ายังไม่ได้ตั้งค่าการเชื่อม LINE OA กรุณาติดต่อผู้ดูแลร้าน",{status:503,headers:{"Content-Type":"text/plain; charset=utf-8"}});
  const {code}=await params;
- const link=await db.trackingLink.findFirst({where:{affiliate:{code,active:true}},include:{affiliate:true}});
+ const link=await db.trackingLink.findFirst({where:{affiliate:{code,active:true,archivedAt:null}},include:{affiliate:true}});
  if(!link)return new Response("ไม่พบลิงก์ หรือ Affiliate ถูกระงับ",{status:404});
  if(!await limit("tracking:"+link.id,5000))return new Response("ลองใหม่ภายหลัง",{status:429});
  const state=random(),browser=random(),verifier=random(),nonce=random();

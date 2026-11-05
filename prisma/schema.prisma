@@ -30,6 +30,9 @@ model Affiliate {
  notes String @default("")
  active Boolean @default(true)
  rateSatang Int @default(500)
+ archivedAt DateTime?
+ salesCommissionBasis String @default("REVENUE")
+ salesCommissionBps Int @default(0)
  createdAt DateTime @default(now())
  accounts UserAccount[]
  link TrackingLink?
