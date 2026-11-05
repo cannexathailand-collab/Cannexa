@@ -49,3 +49,8 @@ test("claim records no sale or commission and waits for inventory cost, not ship
  const h=harness(),e=event();e.message!.text=e.message!.text!.replace("ชำระเงิน: COD","ชำระเงิน: เครม");await receiveOrderEvent("bot-a",e);await receiveOrderEvent("bot-a",e);
  assert.equal(h.rows.length,1);assert.equal(h.rows[0].payment,"เคลม");assert.equal(h.rows[0].status,"CLAIM_WAITING_COST");assert.equal(h.sales.length,0);
 });
+test("unsend keeps independently confirmed returned parcel history",async()=>{
+ const h=harness();await receiveOrderEvent("bot-a",event());let checked=false;
+ h.tx.shipment.updateMany=async({where}:any)=>{assert.equal(where.status.not,"RETURNED");checked=true;return {count:0};};
+ await receiveOrderEvent("bot-a",{...event(),type:"unsend",message:undefined,unsend:{messageId:"m1"}});assert.ok(checked);assert.equal(h.rows.length,0);
+});

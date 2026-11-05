@@ -40,6 +40,7 @@ export async function matchShipments(actor:string){
  return transaction(async tx=>{
   await userLock(tx,"shipment-matching");
   const shipments=await tx.shipment.findMany({where:{status:{notIn:["RETURNED","CANCELLED"]},OR:[{orderId:null},{status:{in:["MATCHED_WAITING_COD","MATCHED_COD_AMOUNT_MISMATCH"]}}]},orderBy:[{reportAt:"asc"},{tracking:"asc"}],take:1000});
+  const excludedParcels=await tx.shipment.findMany({where:{status:{in:["RETURNED","CANCELLED"]}}});
   const receipts=await tx.codReceipt.findMany({where:{tracking:{in:shipments.map(s=>s.tracking)}},select:{tracking:true,amountSatang:true}});
   const receiptByTracking=new Map(receipts.map(r=>[r.tracking,r]));
   const orders=await tx.orderIntake.findMany({where:{status:{in:["WAITING_SHIPMENT","MATCHED_SHIPMENT_WAITING_COD","COD_AMOUNT_MISMATCH"]},affiliateId:{not:null}},orderBy:[{eventAt:"asc"},{id:"asc"}]});
@@ -85,6 +86,7 @@ export async function matchShipments(actor:string){
     if(candidates.length!==1||alternatives.length!==1){ambiguous++;setStatus(shipment,"AMBIGUOUS_ORDER");continue;}
    }
    if(!candidates.length)continue;
+   if(candidates.some(o=>excludedParcels.some(s=>s.reportAt>shipment.reportAt&&compatibleCodCandidates(s,[o]).length))){ambiguous++;setStatus(shipment,"NEWER_RETURNED_OR_CANCELLED_PARCEL");continue;}
    if(new Set(candidates.map(o=>o.affiliateId)).size>1){ambiguous++;setStatus(shipment,"AMBIGUOUS_SELLER");continue;}
    order=orders.find(o=>o.id===candidates[0].id)!;
    await tx.shipment.update({where:{tracking:shipment.tracking},data:{orderId:order.id,status:"MATCHED_WAITING_COD"}});
