@@ -196,6 +196,10 @@ model OrderIntake {
  eventAt DateTime
  createdAt DateTime @default(now())
  withdrawnAt DateTime?
+ replyStatus String @default("NOT_SENT")
+ replyAttempts Int @default(0)
+ replyLastError String?
+ repliedAt DateTime?
  @@index([groupKey, createdAt])
 }
 

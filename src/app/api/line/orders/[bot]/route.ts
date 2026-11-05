@@ -3,8 +3,9 @@ import {db} from "@/lib/db";
 import {validSignature} from "@/lib/crypto";
 import {unseal} from "@/lib/line-settings";
 import {receiveOrderEvent} from "@/lib/order-intake";
+import {replyOrderConfirmation} from "@/lib/order-confirmation";
 import {mockMode} from "@/lib/config";
-const payload=z.object({destination:z.string(),events:z.array(z.object({webhookEventId:z.string().min(1),type:z.string(),timestamp:z.number().int().min(0).max(8640000000000000),source:z.object({type:z.string().optional(),groupId:z.string().optional(),userId:z.string().optional()}).passthrough(),message:z.object({type:z.string(),id:z.string().min(1),text:z.string().max(10000).optional()}).passthrough().optional(),unsend:z.object({messageId:z.string()}).optional()}).passthrough()).max(100)});
+const payload=z.object({destination:z.string(),events:z.array(z.object({webhookEventId:z.string().min(1),type:z.string(),replyToken:z.string().max(200).optional(),timestamp:z.number().int().min(0).max(8640000000000000),source:z.object({type:z.string().optional(),groupId:z.string().optional(),userId:z.string().optional()}).passthrough(),message:z.object({type:z.string(),id:z.string().min(1),text:z.string().max(10000).optional()}).passthrough().optional(),unsend:z.object({messageId:z.string()}).optional()}).passthrough()).max(100)});
 export async function POST(req:Request,{params}:{params:Promise<{bot:string}>}){
  if(mockMode())return new Response("Real webhook disabled in mock mode",{status:409});
  const {bot}=await params;const connection=await db.orderBot.findUnique({where:{id:bot}});
@@ -14,6 +15,6 @@ export async function POST(req:Request,{params}:{params:Promise<{bot:string}>}){
  if(!validSignature(raw,req.headers.get("x-line-signature")??"",settings.messagingSecret))return new Response("Invalid signature",{status:401});
  let body:unknown;try{body=JSON.parse(raw);}catch{return new Response("Invalid JSON",{status:400});}
  const parsed=payload.safeParse(body);if(!parsed.success||parsed.data.destination!==connection.botId)return new Response("Invalid payload",{status:400});
- for(const e of parsed.data.events)await receiveOrderEvent(connection.botId,e);
+ for(const e of parsed.data.events){await receiveOrderEvent(connection.botId,e);await replyOrderConfirmation(connection.botId,e,settings.accessToken);}
  return Response.json({ok:true});
 }

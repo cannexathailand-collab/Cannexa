@@ -4,7 +4,7 @@ import {userKey} from "./crypto";
 import {parseOrderText} from "./order-parser";
 import {metaAdCode} from "./meta-ad";
 
-export type OrderEvent={webhookEventId:string;type:string;timestamp:number;source:{type?:string;groupId?:string;userId?:string};message?:{type:string;id:string;text?:string};unsend?:{messageId:string}};
+export type OrderEvent={webhookEventId:string;type:string;timestamp:number;replyToken?:string;source:{type?:string;groupId?:string;userId?:string};message?:{type:string;id:string;text?:string};unsend?:{messageId:string}};
 export async function receiveOrderEvent(botId:string,e:OrderEvent){
  if(e.source.type!=="group"||!e.source.groupId)return null;
  const groupKey=userKey("order-group:"+botId+":"+e.source.groupId);
