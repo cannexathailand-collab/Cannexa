@@ -299,6 +299,18 @@ model GmailOAuthAttempt {
  consumedAt DateTime?
 }
 
+model StockProduct {
+ id String @id @default(cuid())
+ code String @unique
+ name String?
+ costSatang Int?
+ sourceUrl String
+ sourceSheet String
+ sourceRow Int
+ importedAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+}
+
 model Expense {
  items Json @default("[]")
  replyStatus String @default("NOT_SENT")

@@ -1,0 +1,4 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {stockRows} from '../src/lib/stock-import';
+test('stock import preserves missing names and costs and normalizes codes',()=>{const rows=stockRows([[],[],[null,null,'nt16',18],[null,'Pink runt','KB3',11],[null,null,'CG13',null]],{costColumnConfirmed:true});assert.equal(rows[0].code,'NT16');assert.equal(rows[0].name,null);assert.equal(rows[0].costSatang,1800);assert.equal(rows[1].name,'Pink runt');assert.equal(rows[2].costSatang,null);});
+test('unconfirmed cost column is not treated as verified cost',()=>assert.equal(stockRows([[],[],[null,null,'NT1',18]])[0].costSatang,null));
+test('duplicate product codes and invalid cost abort import',()=>{assert.throws(()=>stockRows([[],[],[null,null,'a1',1],[null,null,'A1',2]]),/DUPLICATE/);assert.throws(()=>stockRows([[],[],[null,null,'A1',-1]],{costColumnConfirmed:true}),/INVALID_PRODUCT_COST/);});
