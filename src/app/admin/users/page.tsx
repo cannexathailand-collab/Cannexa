@@ -20,6 +20,17 @@ export default async function Users({searchParams}:{searchParams:Promise<{status
  await requireAdminPage();
  const [{status},users,affiliates]=await Promise.all([searchParams,db.userAccount.findMany({where:{username:{not:"owner"}},select:{username:true,role:true,active:true,affiliateId:true},orderBy:{username:"asc"}}),db.affiliate.findMany({where:{code:{not:metaAdCode}},select:{id:true,name:true,code:true},orderBy:{name:"asc"}})]);
  return <><h1>จัดการผู้ใช้</h1>{status==="saved"&&<p role="status">บันทึกแล้ว</p>}{status==="error"&&<p role="alert">บันทึกไม่ได้ ตรวจชื่อผู้ใช้ซ้ำ รหัสผ่านอย่างน้อย 8 ตัวอักษร และ Affiliate ของพนักงาน</p>}
+ {status==="deleted"&&<p role="status">ลบบัญชีพนักงานแล้ว</p>}{status==="delete-error"&&<p role="alert">ลบบัญชีไม่ได้ กรุณาลองอีกครั้ง</p>}
  <section className="card"><h2>เพิ่มผู้ใช้</h2><UserForm affiliates={affiliates}/></section>
- {users.map(user=><details className="card" key={user.username}><summary>{user.username} · {labels[user.role as keyof typeof labels]}</summary><UserForm user={user} affiliates={affiliates}/></details>)}</>;
+ {users.map(user=><details className="card" key={user.username}><summary>{user.username} · {labels[user.role as keyof typeof labels]}</summary><UserForm user={user} affiliates={affiliates}/>
+ {user.role==="employee"&&<details>
+  <summary>ลบบัญชีพนักงาน</summary>
+  <p>บัญชีนี้จะเข้าสู่ระบบไม่ได้หลังลบ ข้อมูล Affiliate และผลงานยังดูย้อนหลังได้</p>
+  <form action="/api/admin/users/delete" method="post">
+   <input type="hidden" name="username" value={user.username}/>
+   <label><input type="checkbox" name="confirm" value="yes" required/> ยืนยันลบบัญชี {user.username}</label>
+   <button type="submit">ลบบัญชีพนักงาน</button>
+  </form>
+ </details>}
+ </details>)}</>;
 }
