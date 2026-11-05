@@ -14,12 +14,22 @@ export function transferShipmentCandidates(shipment:MatchShipment,orders:MatchOr
  return orders.filter(o=>o.affiliateId&&o.payment==="โอน"&&o.recipient&&o.phone&&o.address&&normalizeName(o.recipient)===normalizeName(shipment.recipient)&&normalizePhone(o.phone)===normalizePhone(shipment.phone)&&normalizeAddress(o.address)===normalizeAddress(shipment.address));
 }
 function comparableRecipient(value:string){
- const name=normalizeName(value);
+ const name=normalizeName(value.replace(/^(?:ส่ง(?:ถึง)?|เรียน)\s*(?=คุณ|นาย|นาง|น\.?ส\.?)/,""));
  // A narrowly defined English nickname spelling variant, not general fuzzy names.
  return /^[a-z]{3,}$/.test(name)?name.replace(/ie$/, "y"):name;
 }
+function structuredThaiAddress(value:string){
+ const tokens=value.normalize("NFKC").replace(/ตําบล|ตำบล|อำเภอ|จังหวัด|ต\.|อ\.|จ\./g,"").trim().split(/\s+/).map(normalizeAddress).filter(Boolean);
+ if(!/^\d+(?:[/-]\d+)*$/.test(tokens[0]??""))return null;
+ const postalIndex=tokens.findIndex(t=>/^\d{5}$/.test(t));if(postalIndex<1)return null;
+ const province=tokens[postalIndex-1];if(!/^[ก-๙]+$/.test(province))return null;
+ const postcodes=new Set(tokens.filter(t=>/^\d{5}$/.test(t)));if(postcodes.size!==1)return null;
+ return [...new Set(tokens.map(t=>t==="เมือง"+province?"เมือง":t))].join("|");
+}
 export function compatibleAddress(first:string,second:string){
  const a=normalizeAddress(first),b=normalizeAddress(second);if(a===b)return !!a;
+ const structuredFirst=structuredThaiAddress(first),structuredSecond=structuredThaiAddress(second);
+ if(structuredFirst&&structuredSecond&&structuredFirst===structuredSecond)return true;
  const [short,long]=a.length<=b.length?[a,b]:[b,a];
  // Accept a substantial complete address prefix with a house/unit number.
  // Never equate house 28 with 280, or unit 28 with 28/1.

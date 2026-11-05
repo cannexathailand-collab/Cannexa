@@ -45,10 +45,12 @@ export async function matchShipments(actor:string){
   const orders=await tx.orderIntake.findMany({where:{status:"WAITING_SHIPMENT",affiliateId:{not:null}},orderBy:[{eventAt:"asc"},{id:"asc"}]});
   const transferOrders=await tx.orderIntake.findMany({where:{status:"TRANSFER_RECORDED",payment:"โอน",affiliateId:{not:null}},orderBy:[{eventAt:"asc"},{id:"asc"}]});
   const used=new Set<string>();let matched=0,ambiguous=0,codConfirmed=0,waitingCod=0,amountMismatch=0,transferMatched=0;
+  const statusChanges=new Map<string,string>();
+  const setStatus=(shipment:{tracking:string;status:string},status:string)=>{if(shipment.status===status)statusChanges.delete(shipment.tracking);else statusChanges.set(shipment.tracking,status);};
   for(const shipment of shipments){
    if(shipment.codSatang===0){
     const candidates=transferShipmentCandidates(shipment,transferOrders.filter(o=>!used.has(o.id)&&(!o.eventAt||!shipment.reportAt||o.eventAt<=shipment.reportAt)));
-    if(candidates.length!==1){await tx.shipment.update({where:{tracking:shipment.tracking},data:{status:candidates.length?"AMBIGUOUS_TRANSFER":"WAITING_TRANSFER_ORDER"}});continue;}
+    if(candidates.length!==1){setStatus(shipment,candidates.length?"AMBIGUOUS_TRANSFER":"WAITING_TRANSFER_ORDER");continue;}
     const order=candidates[0];
     const sale=await tx.salesOrder.findUnique({where:{orderId:order.id}});
     if(!sale||sale.paymentMethod!=="TRANSFER"||sale.status==="CANCELLED"||sale.tracking)continue;
@@ -58,28 +60,33 @@ export async function matchShipments(actor:string){
    }
    if(shipment.codSatang<0)continue;
    const receipt=receiptByTracking.get(shipment.tracking);
-   if(!receipt){waitingCod++;await tx.shipment.update({where:{tracking:shipment.tracking},data:{status:"WAITING_COD"}});continue;}
-   if(receipt.amountSatang!==shipment.codSatang){amountMismatch++;await tx.shipment.update({where:{tracking:shipment.tracking},data:{status:"COD_AMOUNT_MISMATCH"}});continue;}
-   codConfirmed++;await tx.shipment.update({where:{tracking:shipment.tracking},data:{status:"COD_CONFIRMED"}});
+   if(!receipt){waitingCod++;setStatus(shipment,"WAITING_COD");continue;}
+   if(receipt.amountSatang!==shipment.codSatang){amountMismatch++;setStatus(shipment,"COD_AMOUNT_MISMATCH");continue;}
+   codConfirmed++;setStatus(shipment,"COD_CONFIRMED");
    const available=orders.filter(o=>!used.has(o.id));
    let candidates=shipmentCandidates(shipment,available);let matchMethod="EXACT";
    if(!candidates.length){
     candidates=compatibleCodCandidates(shipment,available);matchMethod="COMPATIBLE_UNIQUE";
     if(!candidates.length)continue;
-    const alternatives=shipments.filter(s=>!s.orderId&&s.codSatang>0&&receiptByTracking.get(s.tracking)?.amountSatang===s.codSatang&&compatibleCodCandidates(s,[candidates[0]]).length);
-    if(candidates.length!==1||alternatives.length!==1){ambiguous++;await tx.shipment.update({where:{tracking:shipment.tracking},data:{status:"AMBIGUOUS_ORDER"}});continue;}
+    // A still-unpaid plausible parcel is also a conflict: don't steal an older receipt.
+    const alternatives=shipments.filter(s=>!s.orderId&&s.codSatang>0&&compatibleCodCandidates(s,[candidates[0]]).length);
+    if(candidates.length!==1||alternatives.length!==1){ambiguous++;setStatus(shipment,"AMBIGUOUS_ORDER");continue;}
    }
    if(!candidates.length)continue;
-   if(new Set(candidates.map(o=>o.affiliateId)).size>1){ambiguous++;await tx.shipment.update({where:{tracking:shipment.tracking},data:{status:"AMBIGUOUS_SELLER"}});continue;}
+   if(new Set(candidates.map(o=>o.affiliateId)).size>1){ambiguous++;setStatus(shipment,"AMBIGUOUS_SELLER");continue;}
    const order=orders.find(o=>o.id===candidates[0].id)!;
    if(order.salesCommissionBps===null||!order.salesCommissionBasis)continue;
    // Archived/suspended affiliates remain review-only, never silently credited.
    const affiliate=await tx.affiliate.findUnique({where:{id:order.affiliateId!},select:{active:true,archivedAt:true}});if(!affiliate?.active||affiliate.archivedAt)continue;
    await tx.shipment.update({where:{tracking:shipment.tracking},data:{orderId:order.id,status:"MATCHED"}});
+   statusChanges.delete(shipment.tracking);
    await tx.orderIntake.update({where:{id:order.id},data:{status:"MATCHED_SHIPMENT"}});
    const profit=order.salesCommissionBasis==="PROFIT";
    await tx.salesOrder.create({data:{orderId:order.id,tracking:shipment.tracking,affiliateId:order.affiliateId!,paymentMethod:"COD",paymentEvidence:"COD_RECEIPT",revenueSatang:shipment.codSatang,commissionBasis:order.salesCommissionBasis,commissionBps:order.salesCommissionBps,commissionSatang:profit?null:Math.round(shipment.codSatang*order.salesCommissionBps/10000),status:profit?"WAITING_COST":"PENDING"}});
    await tx.auditLog.create({data:{actor,action:"SHIPMENT_MATCHED",entityId:order.id,details:{tracking:shipment.tracking,matchMethod}}});used.add(order.id);matched++;
-  }return {matched,ambiguous,codConfirmed,waitingCod,amountMismatch,transferMatched};
+  }
+  const statusGroups=Map.groupBy([...statusChanges],([,status])=>status);
+  for(const [status,rows] of statusGroups)await tx.shipment.updateMany({where:{tracking:{in:rows.map(([tracking])=>tracking)},orderId:null},data:{status}});
+  return {matched,ambiguous,codConfirmed,waitingCod,amountMismatch,transferMatched};
  });
 }
