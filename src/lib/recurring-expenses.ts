@@ -10,16 +10,16 @@ async function generate(tx:Prisma.TransactionClient,schedule:RecurringExpense,ac
  await tx.recurringExpense.update({where:{id:schedule.id},data:{lastGeneratedMonth:months.at(-1)}});
  if(result.count)await tx.auditLog.create({data:{actor,action:'RECURRING_EXPENSE_RECORDED',entityId:schedule.id,details:{months,amountSatang:schedule.amountSatang,count:result.count}}});return result.count;
 }
-export async function addRecurringExpense(input:{requestKey:string;description:string;amountSatang:number;startMonth:string},actor:string,now=new Date()){
- if(!/^[A-Za-z0-9-]{16,100}$/.test(input.requestKey)||!input.description.trim()||input.description.trim().length>300||!Number.isSafeInteger(input.amountSatang)||input.amountSatang<=0||input.amountSatang>2147483647)throw Error('INVALID_RECURRING_EXPENSE');recurringMonths(input.startMonth,null,now);
+export async function addRecurringExpense(input:{requestKey:string;description:string;amountSatang:number;startMonth?:string},actor:string,now=new Date()){
+ if(!/^[A-Za-z0-9-]{16,100}$/.test(input.requestKey)||!input.description.trim()||input.description.trim().length>300||!Number.isSafeInteger(input.amountSatang)||input.amountSatang<=0||input.amountSatang>2147483647)throw Error('INVALID_RECURRING_EXPENSE');const startMonth=shiftMonth(commissionMonth(now)+'-01',1).slice(0,7);
  return transaction(async tx=>{await userLock(tx,'recurring-create:'+input.requestKey);const existing=await tx.recurringExpense.findUnique({where:{requestKey:input.requestKey}});if(existing)return existing.id;
- const schedule=await tx.recurringExpense.create({data:{...input,description:input.description.trim(),createdBy:actor}});await tx.auditLog.create({data:{actor,action:'RECURRING_EXPENSE_CREATED',entityId:schedule.id,details:{description:schedule.description,amountSatang:schedule.amountSatang,startMonth:schedule.startMonth}}});await generate(tx,schedule,actor,now);return schedule.id;});
+ const schedule=await tx.recurringExpense.create({data:{...input,startMonth,description:input.description.trim(),createdBy:actor}});await tx.auditLog.create({data:{actor,action:'RECURRING_EXPENSE_CREATED',entityId:schedule.id,details:{description:schedule.description,amountSatang:schedule.amountSatang,startMonth:schedule.startMonth}}});await generate(tx,schedule,actor,now);return schedule.id;});
 }
 export async function generateRecurringExpenses(actor:string,now=new Date()){
  const schedules=await db.recurringExpense.findMany({where:{archivedAt:null},select:{id:true}});let created=0;
  for(const schedule of schedules)created+=await transaction(async tx=>{await userLock(tx,'recurring-expense:'+schedule.id);const current=await tx.recurringExpense.findUniqueOrThrow({where:{id:schedule.id}});return generate(tx,current,actor,now);});return {schedules:schedules.length,created};
 }
-export async function removeRecurringExpense(id:string,actor:string,voidCurrent=false,now=new Date()){
+export async function removeRecurringExpense(id:string,actor:string,now=new Date()){
  await transaction(async tx=>{await userLock(tx,'recurring-expense:'+id);const schedule=await tx.recurringExpense.findUniqueOrThrow({where:{id}});if(schedule.archivedAt)return;
- const affected=voidCurrent?await tx.recurringExpenseEntry.updateMany({where:{recurringExpenseId:id,month:{gte:commissionMonth(now)},status:'RECORDED'},data:{status:'VOIDED',voidedAt:now}}):{count:0};await tx.recurringExpense.update({where:{id},data:{archivedAt:now}});await tx.auditLog.create({data:{actor,action:'RECURRING_EXPENSE_REMOVED',entityId:id,details:{description:schedule.description,voidedEntries:affected.count,keepEarlierHistory:true}}});});
+ await tx.recurringExpense.update({where:{id},data:{archivedAt:now}});await tx.auditLog.create({data:{actor,action:'RECURRING_EXPENSE_REMOVED',entityId:id,details:{description:schedule.description,recordedEntriesPreserved:true}}});});
 }
