@@ -15,7 +15,7 @@ export function orderConfirmationText(order:Confirmation,sale?:Sale|null,seller?
   if(sale?.status==="PENDING"&&sale.commissionSatang!==null)return intro+"\nบันทึกค่าคอมสำเร็จ ฿"+(sale.commissionSatang/100).toFixed(2)+" (ยอดรอจ่าย)\nคิดตามยอดโอนที่แจ้ง ไม่มีการตรวจสลิปอัตโนมัติ";
   return intro+"\nยังไม่บันทึกค่าคอม กรุณาตรวจยอดและรหัสผู้ขาย";
  }
- return intro+"\nCOD: รอจับคู่รายงานจัดส่งจริง\nยังไม่บันทึกยอดขายหรือค่าคอม";
+ return intro+"\nCOD: รอจับคู่พัสดุกับรายงานรับเงิน COD\nยังไม่บันทึกยอดขายหรือค่าคอม";
 }
 export async function replyOrderConfirmation(botId:string,event:OrderEvent,accessToken?:string){
  if(event.type!=="message"||event.message?.type!=="text"||event.source.type!=="group"||!event.replyToken)return;

@@ -40,9 +40,16 @@ export async function matchShipments(actor:string){
  return transaction(async tx=>{
   await userLock(tx,"shipment-matching");
   const shipments=await tx.shipment.findMany({where:{orderId:null},orderBy:[{reportAt:"asc"},{tracking:"asc"}],take:1000});
+  const receipts=await tx.codReceipt.findMany({where:{tracking:{in:shipments.map(s=>s.tracking)}},select:{tracking:true,amountSatang:true}});
+  const receiptByTracking=new Map(receipts.map(r=>[r.tracking,r]));
   const orders=await tx.orderIntake.findMany({where:{status:"WAITING_SHIPMENT",affiliateId:{not:null}},orderBy:[{eventAt:"asc"},{id:"asc"}]});
-  const used=new Set<string>();let matched=0,ambiguous=0;
+  const used=new Set<string>();let matched=0,ambiguous=0,codConfirmed=0,waitingCod=0,amountMismatch=0;
   for(const shipment of shipments){
+   if(shipment.codSatang<=0)continue;
+   const receipt=receiptByTracking.get(shipment.tracking);
+   if(!receipt){waitingCod++;await tx.shipment.update({where:{tracking:shipment.tracking},data:{status:"WAITING_COD"}});continue;}
+   if(receipt.amountSatang!==shipment.codSatang){amountMismatch++;await tx.shipment.update({where:{tracking:shipment.tracking},data:{status:"COD_AMOUNT_MISMATCH"}});continue;}
+   codConfirmed++;await tx.shipment.update({where:{tracking:shipment.tracking},data:{status:"COD_CONFIRMED"}});
    const candidates=shipmentCandidates(shipment,orders.filter(o=>!used.has(o.id)));
    if(!candidates.length)continue;
    if(new Set(candidates.map(o=>o.affiliateId)).size>1){ambiguous++;await tx.shipment.update({where:{tracking:shipment.tracking},data:{status:"AMBIGUOUS_SELLER"}});continue;}
@@ -53,8 +60,8 @@ export async function matchShipments(actor:string){
    await tx.shipment.update({where:{tracking:shipment.tracking},data:{orderId:order.id,status:"MATCHED"}});
    await tx.orderIntake.update({where:{id:order.id},data:{status:"MATCHED_SHIPMENT"}});
    const profit=order.salesCommissionBasis==="PROFIT";
-   await tx.salesOrder.create({data:{orderId:order.id,tracking:shipment.tracking,affiliateId:order.affiliateId!,revenueSatang:shipment.codSatang,commissionBasis:order.salesCommissionBasis,commissionBps:order.salesCommissionBps,commissionSatang:profit?null:Math.round(shipment.codSatang*order.salesCommissionBps/10000),status:profit?"WAITING_COST":"PENDING"}});
+   await tx.salesOrder.create({data:{orderId:order.id,tracking:shipment.tracking,affiliateId:order.affiliateId!,paymentMethod:"COD",paymentEvidence:"COD_RECEIPT",revenueSatang:shipment.codSatang,commissionBasis:order.salesCommissionBasis,commissionBps:order.salesCommissionBps,commissionSatang:profit?null:Math.round(shipment.codSatang*order.salesCommissionBps/10000),status:profit?"WAITING_COST":"PENDING"}});
    await tx.auditLog.create({data:{actor,action:"SHIPMENT_MATCHED",entityId:order.id,details:{tracking:shipment.tracking}}});used.add(order.id);matched++;
-  }return {matched,ambiguous};
+  }return {matched,ambiguous,codConfirmed,waitingCod,amountMismatch};
  });
 }
