@@ -1,11 +1,12 @@
 import type {SalesOrder,Shipment,CodReceipt,OrderIntake} from "@prisma/client";
+import {demoSalesRows} from "./sales-demo";
 import {db} from "./db";
 import {hasActualDispatch} from "./sales-recognition";
 import {bangkokDay,salesRange,shiftDay,shiftMonth,compareRevenue} from "./sales-dates";
 type OrderInfo=Pick<OrderIntake,"id"|"orderNumber"|"sellerUsername"|"sellerCode"|"payment"|"status">;
 type AffiliateInfo={id:string;name:string;code:string};
 export type SaleRow=SalesOrder&{order:OrderInfo|null;affiliate:AffiliateInfo|null;shipment:Shipment|null;receipt:CodReceipt|null};
-export type SalesFilters={from?:string;to?:string;month?:string;payment?:string;seller?:string};
+export type SalesFilters={from?:string;to?:string;month?:string;payment?:string;seller?:string;demo?:string};
 export function isRecognizedSale(s:SaleRow){
  return !!s.order&&!!s.shipment&&hasActualDispatch(s.shipment)&&!!s.recognizedAt&&s.recognizedAt.getTime()===s.shipment.dispatchedAt!.getTime()&&s.shipment.orderId===s.orderId&&s.tracking===s.shipment.tracking&&s.revenueSatang>0&&["PENDING","PAID","WAITING_COST"].includes(s.status)&&s.order.payment!=="เคลม"&&!['RETURNED','CANCELLED','WITHDRAWN'].includes(s.order.status)&&(s.paymentMethod==="TRANSFER"&&s.order.payment==="โอน"||(s.paymentMethod==="COD"&&s.order.payment==="COD"&&s.receipt?.tracking===s.tracking&&s.receipt.amountSatang===s.revenueSatang&&s.shipment.codSatang===s.revenueSatang));
 }
@@ -25,6 +26,7 @@ export function analyzeSales(rows:SaleRow[],input:SalesFilters={},now=new Date()
  return {range,month:range.from.slice(0,7),summary,groups,daily,previous,payment:payment??"",seller:input.seller??"",waitingCodCount:waitingCod.length,waitingCodSatang:waitingCod.reduce((n,s)=>n+s.revenueSatang,0),sellerOptions:[...new Set(rows.flatMap(s=>s.order?.sellerUsername?[s.order.sellerUsername]:[]))].sort()};
 }
 export async function salesReport(input?:string|SalesFilters){
+ if(typeof input!=="string"&&input?.demo==="1")return analyzeSales(demoSalesRows(),input);
  const sales=await db.salesOrder.findMany({where:{status:{in:["PENDING","PAID","WAITING_COST","WAITING_COD"]}},orderBy:[{recognizedAt:{sort:"desc",nulls:"last"}},{createdAt:"desc"}]});
  const ids=sales.map(s=>s.orderId);
  const [orders,affiliates,shipments,receipts]=await Promise.all([db.orderIntake.findMany({where:{id:{in:ids}},select:{id:true,orderNumber:true,sellerUsername:true,sellerCode:true,payment:true,status:true}}),db.affiliate.findMany({where:{id:{in:[...new Set(sales.map(s=>s.affiliateId))]}},select:{id:true,name:true,code:true}}),db.shipment.findMany({where:{orderId:{in:ids}}}),db.codReceipt.findMany({where:{tracking:{in:sales.flatMap(s=>s.tracking?[s.tracking]:[])}}})]);
