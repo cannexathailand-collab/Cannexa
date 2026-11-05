@@ -1,0 +1,3 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {expenseItems} from '../src/lib/expense-items';
+test('stored multiline expenses expand into separate monetary rows with no duplicated total',()=>{const rows=expenseItems({description:'รายจ่าย 3 รายการ',amountSatang:96500,items:[{description:'ค่าไฟ',amountSatang:19300},{description:'ค่ากล่อง',amountSatang:65200},{description:'ค่าน้ำมัน',amountSatang:12000}]});assert.equal(rows.length,3);assert.equal(rows.reduce((n,e)=>n+e.amountSatang,0),96500);assert.ok(rows.every(r=>r.amountSatang!==96500));});
+test('older single-item records preserve their original total',()=>{assert.deepEqual(expenseItems({description:'ค่าไฟ',amountSatang:55600,items:[]}),[{description:'ค่าไฟ',amountSatang:55600}]);});

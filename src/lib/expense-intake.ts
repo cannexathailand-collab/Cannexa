@@ -11,7 +11,7 @@ export async function receiveExpenseEvent(botId:string,e:OrderEvent){
   await userLock(tx,messageKey);const existing=await tx.expense.findUnique({where:{messageKey}});
   if(e.type==='unsend'){
    if(existing?.status==='WITHDRAWN')return;
-   const row=await tx.expense.upsert({where:{messageKey},create:{messageKey,eventKey,groupKey,expenseNumber:'EXP-'+randomBytes(8).toString('hex').toUpperCase(),status:'WITHDRAWN',issues:[],eventAt:new Date(e.timestamp)},update:{status:'WITHDRAWN',rawText:null,bankAccount:null,bankName:null,recipient:null,description:null}});
+   const row=await tx.expense.upsert({where:{messageKey},create:{messageKey,eventKey,groupKey,expenseNumber:'EXP-'+randomBytes(8).toString('hex').toUpperCase(),status:'WITHDRAWN',issues:[],eventAt:new Date(e.timestamp)},update:{status:'WITHDRAWN',items:[],rawText:null,bankAccount:null,bankName:null,recipient:null,description:null}});
    await tx.auditLog.create({data:{actor:'line-expense',action:'EXPENSE_WITHDRAWN',entityId:row.id,details:{previousStatus:existing?.status??null,amountSatang:existing?.amountSatang??null}}});return;
   }
   if(existing||await tx.expense.findUnique({where:{eventKey}}))return;

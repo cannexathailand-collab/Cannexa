@@ -300,6 +300,7 @@ model GmailOAuthAttempt {
 }
 
 model Expense {
+ items Json @default("[]")
  replyStatus String @default("NOT_SENT")
  replyAttempts Int @default(0)
  repliedAt DateTime?

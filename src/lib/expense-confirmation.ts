@@ -1,8 +1,10 @@
+import {expenseItems} from './expense-items';
 import {db} from './db';import {userKey} from './crypto';import {parseExpenseText} from './expense-parser';import type {OrderEvent} from './order-intake';
-type ExpenseMessage={expenseNumber:string;description:string|null;amountSatang:number|null;status:string;issues:unknown};
+type ExpenseMessage={expenseNumber:string;description:string|null;amountSatang:number|null;status:string;issues:unknown;items?:unknown};
 export function expenseConfirmationText(expense:ExpenseMessage){
  if(expense.status!=='PAID'||expense.amountSatang===null)return 'รับข้อความค่าใช้จ่ายแล้ว\nยังบันทึกค่าใช้จ่ายไม่สำเร็จ\nกรุณาตรวจ: '+(Array.isArray(expense.issues)?expense.issues.map(String).join(' · '):'ข้อมูลไม่ครบ')+'\nยกเลิกข้อความเดิมแล้วส่งใหม่ตามรูปแบบ';
- return 'บันทึกค่าใช้จ่ายสำเร็จ\nรายการ: '+(expense.description??'รายจ่าย');
+ const items=expenseItems(expense);if(items.length<=1)return 'บันทึกค่าใช้จ่ายสำเร็จ\nรายการ: '+(items[0]?.description??expense.description??'รายจ่าย');
+ let text='บันทึกค่าใช้จ่ายสำเร็จ\nรายการ:';let shown=0;for(const item of items){const line='\n• '+item.description;if(text.length+line.length>4500)break;text+=line;shown++;}if(shown<items.length)text+='\nและอีก '+(items.length-shown)+' รายการ ดูรายละเอียดในเว็บ';return text;
 }
 export async function replyExpenseConfirmation(botId:string,e:OrderEvent,accessToken?:string){
  if(e.type!=='message'||e.source.type!=='group'||e.message?.type!=='text'||!e.replyToken||!parseExpenseText(e.message.text??''))return;
