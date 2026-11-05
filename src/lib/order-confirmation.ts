@@ -9,6 +9,7 @@ export function orderConfirmationText(order:Confirmation,sale?:Sale|null,seller?
  const sellerInfo=seller?"\nรหัสผู้ขาย: "+line(order.sellerCode??seller.code)+"\nชื่อผู้ขาย: "+line(seller.name)+"\nบันทึกให้ Affiliate: "+line(seller.code):"\nรหัสผู้ขาย: "+line(order.sellerCode??"ยังไม่ระบุ")+"\nยังไม่สามารถระบุบัญชีผู้ขายได้";
  const intro="บันทึกข้อมูลออเดอร์แล้ว\nเลขออเดอร์: "+order.orderNumber+sellerInfo;
  if(order.status==="NEEDS_REVIEW")return intro+"\nต้องตรวจข้อมูลเพิ่มเติม: "+(Array.isArray(order.issues)?order.issues.map(String).join(" · "):"ข้อมูลไม่ครบ")+"\nยังไม่บันทึกยอดขายหรือค่าคอม";
+ if(order.payment==="เคลม")return intro+"\nรายการเคลม · รอต้นทุนสินค้าจากสต็อก\nไม่รวมค่าส่งในต้นทุนเคลม\nไม่เพิ่มยอดขายหรือค่าคอม";
  if(order.payment==="โอน"){
   if(sale?.status==="WAITING_COST")return intro+"\nบันทึกยอดขายโอนแล้ว\nค่าคอมรอต้นทุนสินค้า";
   if(sale?.status==="PENDING"&&sale.commissionSatang!==null)return intro+"\nบันทึกค่าคอมสำเร็จ ฿"+(sale.commissionSatang/100).toFixed(2)+" (ยอดรอจ่าย)\nคิดตามยอดโอนที่แจ้ง ไม่มีการตรวจสลิปอัตโนมัติ";

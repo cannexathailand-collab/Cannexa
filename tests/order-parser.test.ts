@@ -20,3 +20,6 @@ test("payment text is never treated as proof of collection",()=>{
  assert.equal(p.payment,"โอน");assert.equal("paid" in p,false);
  assert.ok(parseOrderText("รหัสผู้ขาย: ADM001\nโทร: abc")!.issues.length);
 });
+test("claim spelling variants normalize without treating chat selling prices as cost",()=>{
+ for(const payment of ["เคลม","เครม"]){const p=parseOrderText("รหัสผู้ขาย: Ink123\nชื่อผู้รับ: ทดสอบ\nโทรศัพท์: 0812345678\nที่อยู่: ที่อยู่ทดสอบ\nรายการสินค้า:\nสินค้า NT16 x 100 = 2900\nสินค้า NT17 x 10 = 350\nยอดสินค้า: 3250 บาท\nค่าส่ง: 50 บาท\nยอดรวม: 3300 บาท\nชำระเงิน: "+payment)!;assert.equal(p.payment,"เคลม");assert.deepEqual(p.issues,[]);assert.equal("costSatang" in p,false);}
+});
