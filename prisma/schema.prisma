@@ -323,3 +323,29 @@ model Expense {
  @@index([paidAt,status])
  @@index([groupKey,eventAt])
 }
+model RecurringExpense {
+ id String @id @default(cuid())
+ requestKey String @unique
+ description String
+ amountSatang Int
+ startMonth String
+ lastGeneratedMonth String?
+ createdBy String
+ archivedAt DateTime?
+ createdAt DateTime @default(now())
+ entries RecurringExpenseEntry[]
+}
+model RecurringExpenseEntry {
+ id String @id @default(cuid())
+ recurringExpenseId String
+ recurringExpense RecurringExpense @relation(fields:[recurringExpenseId],references:[id])
+ month String
+ description String
+ amountSatang Int
+ incurredAt DateTime
+ status String @default("RECORDED")
+ voidedAt DateTime?
+ createdAt DateTime @default(now())
+ @@unique([recurringExpenseId,month])
+ @@index([incurredAt,status])
+}

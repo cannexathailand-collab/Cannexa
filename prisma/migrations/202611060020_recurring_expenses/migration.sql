@@ -1,0 +1,6 @@
+CREATE TABLE "RecurringExpense" ("id" TEXT NOT NULL,"requestKey" TEXT NOT NULL,"description" TEXT NOT NULL,"amountSatang" INTEGER NOT NULL,"startMonth" TEXT NOT NULL,"lastGeneratedMonth" TEXT,"createdBy" TEXT NOT NULL,"archivedAt" TIMESTAMP(3),"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,CONSTRAINT "RecurringExpense_pkey" PRIMARY KEY ("id"));
+CREATE UNIQUE INDEX "RecurringExpense_requestKey_key" ON "RecurringExpense"("requestKey");
+CREATE TABLE "RecurringExpenseEntry" ("id" TEXT NOT NULL,"recurringExpenseId" TEXT NOT NULL,"month" TEXT NOT NULL,"description" TEXT NOT NULL,"amountSatang" INTEGER NOT NULL,"incurredAt" TIMESTAMP(3) NOT NULL,"status" TEXT NOT NULL DEFAULT 'RECORDED',"voidedAt" TIMESTAMP(3),"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,CONSTRAINT "RecurringExpenseEntry_pkey" PRIMARY KEY ("id"));
+CREATE UNIQUE INDEX "RecurringExpenseEntry_recurringExpenseId_month_key" ON "RecurringExpenseEntry"("recurringExpenseId","month");
+CREATE INDEX "RecurringExpenseEntry_incurredAt_status_idx" ON "RecurringExpenseEntry"("incurredAt","status");
+ALTER TABLE "RecurringExpenseEntry" ADD CONSTRAINT "RecurringExpenseEntry_recurringExpenseId_fkey" FOREIGN KEY ("recurringExpenseId") REFERENCES "RecurringExpense"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
