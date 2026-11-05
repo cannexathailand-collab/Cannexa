@@ -1,4 +1,7 @@
-export type StockRow={code:string;name:string|null;costSatang:number|null;receivedQuantity:number|null;sourceRow:number};
+export type StockPrice={pack:string;priceSatang:number};
+export type StockRow={code:string;name:string|null;costSatang:number|null;receivedQuantity:number|null;issuedQuantity:number|null;remainingQuantity:number|null;salePrices:StockPrice[];sourceRow:number};
+function quantity(raw:unknown,code:string){if(raw===null||raw===undefined||raw==='')return null;const n=typeof raw==='number'?raw:Number(String(raw).replace(/,/g,''));if(!Number.isFinite(n)||Math.abs(n*1000-Math.round(n*1000))>0.0001||Math.abs(n)>=1e15)throw new Error('INVALID_PRODUCT_QUANTITY '+code);return n;}
+export function stockPrices(row:unknown[],headers:unknown[]):StockPrice[]{return row.slice(8,12).flatMap((raw,index)=>{if(raw===null||raw===undefined||raw==='')return [];const explicit=typeof raw==='string'?raw.trim().match(/^([^/]+)\s*\/\s*([\d,.]+)$/):null;const pack=explicit?explicit[1].trim():String(headers[index+8]??'').trim();const price=Number(String(explicit?explicit[2]:raw).replace(/,/g,''));if(!pack||!Number.isFinite(price)||price<0||!Number.isSafeInteger(Math.round(price*100))||Math.abs(price*100-Math.round(price*100))>0.00001)throw new Error('INVALID_PRODUCT_PRICE');return [{pack,priceSatang:Math.round(price*100)}];});}
 export function stockRows(rows:unknown[][],{costColumnConfirmed=false}:{costColumnConfirmed?:boolean}={}):StockRow[]{
  const seen=new Set<string>();const products:StockRow[]=[];
  rows.forEach((row,index)=>{
@@ -19,6 +22,6 @@ export function stockRows(rows:unknown[][],{costColumnConfirmed=false}:{costColu
    if(!Number.isFinite(n)||Math.abs(n*1000-Math.round(n*1000))>0.0001||Math.abs(n)>=1e15)throw new Error('INVALID_PRODUCT_QUANTITY '+code);
    receivedQuantity=n;
   }
-  products.push({code,name,costSatang,receivedQuantity,sourceRow:index+1});
+  products.push({code,name,costSatang,receivedQuantity,issuedQuantity:quantity(row[5],code),remainingQuantity:quantity(row[6],code),salePrices:stockPrices(row,rows[1]??[]),sourceRow:index+1});
  });return products;
 }
