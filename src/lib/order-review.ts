@@ -16,7 +16,7 @@ export async function orderReview(id:string,access:Access){
   else if(receipt.amountSatang!==shipment.codSatang)reasons.push("ยอดในรายงานรับเงิน COD ไม่ตรงกับยอดที่ระบุในรายการจัดส่ง");
  }
  if(order.payment==="เคลม"||sale?.status==="WAITING_COST")reasons.push("รอต้นทุนสินค้าจากระบบสต็อก");
- if(order.status==="RETURNED")reasons.push("บันทึกว่าตีกลับแล้ว ไม่สร้างยอดขายหรือค่าคอมใหม่");
+ if(order.status==="RETURNED")reasons.push("พัสดุตีกลับ · ไม่นับยอดขายหรือค่าคอม · รอต้นทุนจากระบบสต็อก");
  const total=quotedTotal(order.rawText??"");
  const phone=normalizePhone(order.phone??"");
  const filters=[];
