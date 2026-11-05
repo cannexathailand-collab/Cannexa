@@ -15,23 +15,24 @@
     "db:retention": "tsx scripts/retention.ts"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.0",
+    "exceljs": "4.4.0",
     "next": "^16.0.0",
+    "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "@prisma/client": "^6.19.0",
-    "qrcode": "^1.5.4",
     "zod": "^4.1.0"
   },
   "devDependencies": {
-    "prisma": "^6.19.0",
-    "typescript": "^5.9.0",
-    "tsx": "^4.20.0",
+    "@tailwindcss/postcss": "^4.1.0",
     "@types/node": "^24.0.0",
+    "@types/qrcode": "^1.5.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@types/qrcode": "^1.5.5",
+    "prisma": "^6.19.0",
     "tailwindcss": "^4.1.0",
-    "@tailwindcss/postcss": "^4.1.0"
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
   },
   "packageManager": "pnpm@11.25.0",
   "engines": {

@@ -14,6 +14,8 @@ export async function receiveOrderEvent(botId:string,e:OrderEvent){
   await transaction(async tx=>{
    await userLock(tx,messageKey);
    await tx.orderMessageWithdrawal.upsert({where:{messageKey},create:{messageKey},update:{}});
+   const orders=await tx.orderIntake.findMany({where:{messageKey,groupKey},select:{id:true}});
+   if(orders.length)await tx.salesOrder.updateMany({where:{orderId:{in:orders.map(o=>o.id)},status:{in:["PENDING","WAITING_COST"]}},data:{status:"CANCELLED",commissionSatang:0}});
    await tx.orderIntake.updateMany({where:{messageKey,groupKey},data:{rawText:null,recipient:null,phone:null,address:null,senderKey:null,sellerCode:null,affiliateId:null,payment:null,status:"WITHDRAWN",withdrawnAt:new Date(),issues:[]}});
   });return null;
  }
@@ -27,8 +29,8 @@ export async function receiveOrderEvent(botId:string,e:OrderEvent){
   const previous=await tx.orderIntake.findFirst({where:{OR:[{messageKey},{eventKey}]}});if(previous)return null;
   // Recheck inside the write transaction so disabling a group takes effect before save.
   if(!(await tx.orderGroup.findUnique({where:{id:groupKey}}))?.enabled)return null;
-  const sellers=await tx.affiliate.findMany({where:{archivedAt:null,active:true,code:{not:metaAdCode},OR:[{code:parsed.sellerCode},{accounts:{some:{username:parsed.sellerCode,role:"employee",active:true}}}]},select:{id:true},take:2});
+  const sellers=await tx.affiliate.findMany({where:{archivedAt:null,active:true,code:{not:metaAdCode},OR:[{code:parsed.sellerCode},{accounts:{some:{username:parsed.sellerCode,role:"employee",active:true}}}]},select:{id:true,salesCommissionBasis:true,salesCommissionBps:true},take:2});
   const issues=[...parsed.issues];if(sellers.length!==1)issues.push("ไม่พบรหัสผู้ขายที่ใช้งานอยู่เพียงรายเดียว");
-  return tx.orderIntake.create({data:{eventKey,messageKey,groupKey,senderKey:e.source.userId?userKey("order-sender:"+botId+":"+e.source.userId):null,orderNumber:"ORD-"+randomBytes(10).toString("hex").toUpperCase(),rawText:e.message!.text!,sellerCode:parsed.sellerCode,affiliateId:sellers.length===1?sellers[0].id:null,recipient:parsed.recipient,phone:parsed.phone,address:parsed.address,payment:parsed.payment,issues,status:issues.length?"NEEDS_REVIEW":"WAITING_SHIPMENT",eventAt:new Date(e.timestamp)}});
+  return tx.orderIntake.create({data:{eventKey,messageKey,groupKey,senderKey:e.source.userId?userKey("order-sender:"+botId+":"+e.source.userId):null,orderNumber:"ORD-"+randomBytes(10).toString("hex").toUpperCase(),rawText:e.message!.text!,sellerCode:parsed.sellerCode,affiliateId:sellers.length===1?sellers[0].id:null,salesCommissionBasis:sellers.length===1?sellers[0].salesCommissionBasis:null,salesCommissionBps:sellers.length===1?sellers[0].salesCommissionBps:null,recipient:parsed.recipient,phone:parsed.phone,address:parsed.address,payment:parsed.payment,issues,status:issues.length?"NEEDS_REVIEW":"WAITING_SHIPMENT",eventAt:new Date(e.timestamp)}});
  });
 }

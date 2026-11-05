@@ -1,0 +1,10 @@
+ALTER TABLE "GmailConnection" ADD COLUMN "syncPageToken" TEXT, ADD COLUMN "lastSyncAt" TIMESTAMP(3);
+ALTER TABLE "OrderIntake" ADD COLUMN "salesCommissionBasis" TEXT, ADD COLUMN "salesCommissionBps" INTEGER;
+UPDATE "OrderIntake" AS o SET "salesCommissionBasis"=a."salesCommissionBasis", "salesCommissionBps"=a."salesCommissionBps" FROM "Affiliate" AS a WHERE o."affiliateId"=a."id" AND o."status" <> 'WITHDRAWN';
+CREATE TABLE "GmailImport" ("id" TEXT PRIMARY KEY, "messageId" TEXT NOT NULL, "filename" TEXT NOT NULL, "subject" TEXT NOT NULL, "kind" TEXT NOT NULL, "rowCount" INTEGER NOT NULL, "reportAt" TIMESTAMP(3) NOT NULL, "importedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE "Shipment" ("tracking" TEXT PRIMARY KEY, "importId" TEXT NOT NULL, "recipient" TEXT NOT NULL, "phone" TEXT NOT NULL, "address" TEXT NOT NULL, "codSatang" INTEGER NOT NULL, "reportAt" TIMESTAMP(3) NOT NULL, "orderId" TEXT, "status" TEXT NOT NULL DEFAULT 'WAITING_ORDER', "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE UNIQUE INDEX "Shipment_orderId_key" ON "Shipment"("orderId");
+CREATE TABLE "CodReceipt" ("tracking" TEXT PRIMARY KEY, "importId" TEXT NOT NULL, "amountSatang" INTEGER NOT NULL, "reportAt" TIMESTAMP(3) NOT NULL);
+CREATE TABLE "SalesOrder" ("id" TEXT PRIMARY KEY, "orderId" TEXT NOT NULL, "tracking" TEXT NOT NULL, "affiliateId" TEXT NOT NULL, "revenueSatang" INTEGER NOT NULL, "commissionBasis" TEXT NOT NULL, "commissionBps" INTEGER NOT NULL, "commissionSatang" INTEGER, "status" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE UNIQUE INDEX "SalesOrder_orderId_key" ON "SalesOrder"("orderId");
+CREATE UNIQUE INDEX "SalesOrder_tracking_key" ON "SalesOrder"("tracking");

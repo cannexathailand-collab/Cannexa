@@ -185,6 +185,8 @@ model OrderIntake {
  rawText String?
  sellerCode String?
  affiliateId String?
+ salesCommissionBasis String?
+ salesCommissionBps Int?
  recipient String?
  phone String?
  address String?
@@ -209,6 +211,57 @@ model GmailConnection {
  encryptedToken String?
  email String?
  connectedAt DateTime?
+ syncPageToken String?
+ lastSyncAt DateTime?
+ topicName String?
+ watchExpiresAt DateTime?
+ historyId String?
+ lastPushAt DateTime?
+}
+
+model GmailImport {
+ id String @id
+ messageId String
+ filename String
+ subject String
+ kind String
+ rowCount Int
+ reportAt DateTime
+ importedAt DateTime @default(now())
+ @@unique([messageId, filename])
+}
+
+model Shipment {
+ tracking String @id
+ importId String
+ recipient String
+ phone String
+ address String
+ codSatang Int
+ reportAt DateTime
+ orderId String? @unique
+ status String @default("WAITING_ORDER")
+ createdAt DateTime @default(now())
+}
+
+model CodReceipt {
+ tracking String @id
+ importId String
+ amountSatang Int
+ reportAt DateTime
+}
+
+model SalesOrder {
+ id String @id @default(cuid())
+ orderId String @unique
+ tracking String @unique
+ affiliateId String
+ revenueSatang Int
+ commissionBasis String
+ commissionBps Int
+ commissionSatang Int?
+ status String
+ createdAt DateTime @default(now())
 }
 
 model GmailOAuthAttempt {

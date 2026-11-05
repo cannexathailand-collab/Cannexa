@@ -1,0 +1,7 @@
+import {test} from "node:test";
+import assert from "node:assert/strict";
+import ExcelJS from "exceljs";
+import {parseMyOrderXlsx} from "../src/lib/myorder-xlsx";
+test("shipment workbook preserves two distinct parcels and separates COD zero",async()=>{const wb=new ExcelJS.Workbook(),sheet=wb.addWorksheet("Total Charge Detail");sheet.addRow(["Tracking No.","Consignee","Phone number","Address","Moo","Sub-district","District","Province","ZIP Code","COD Amount"]);sheet.addRow(["TRACK0001","ทดสอบ","0812345678","1","2","ราไวย์","เมือง","ภูเก็ต","83130",2560]);sheet.addRow(["TRACK0002","ทดสอบ","0812345678","1","2","ราไวย์","เมือง","ภูเก็ต","83130",0]);const rows=await parseMyOrderXlsx(Buffer.from(await wb.xlsx.writeBuffer()),"SHIPMENT");assert.equal(rows.length,2);assert.equal(rows[0].amountSatang,256000);assert.equal(rows[1].amountSatang,0);assert.ok(rows[0].address.includes("83130"));});
+test("COD receipt workbook reads reported amount by tracking",async()=>{const wb=new ExcelJS.Workbook(),sheet=wb.addWorksheet("Matching Tracking Number");sheet.addRow(["Tracking No.","recipientName","Total Amount"]);sheet.addRow(["TRACK0001","ทดสอบ",100.5]);const rows=await parseMyOrderXlsx(Buffer.from(await wb.xlsx.writeBuffer()),"COD");assert.equal(rows[0].amountSatang,10050);});
+test("unrecognized report is rejected instead of inventing columns",async()=>{const wb=new ExcelJS.Workbook();wb.addWorksheet("Unknown").addRow(["name","amount"]);await assert.rejects(parseMyOrderXlsx(Buffer.from(await wb.xlsx.writeBuffer()),"SHIPMENT"),{message:"UNSUPPORTED_REPORT"});});

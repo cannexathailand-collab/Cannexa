@@ -21,7 +21,7 @@ export async function GET(req:Request){
   const connection=await db.gmailConnection.findUnique({where:{id:"active"}});if(!connection||connection.revision!==attempt.revision)return back("settings-changed");
   const tokens=await exchangeGmailCode(decryptGmail<GmailConfig>(connection.encryptedConfig),code,attempt.verifier);
   await transaction(async tx=>{
-   const updated=await tx.gmailConnection.updateMany({where:{id:"active",revision:attempt.revision},data:{encryptedToken:encryptGmail({refreshToken:tokens.refreshToken}),email:tokens.email,connectedAt:new Date()}});if(!updated.count)throw new Error("SETTINGS_CHANGED");
+   const updated=await tx.gmailConnection.updateMany({where:{id:"active",revision:attempt.revision},data:{encryptedToken:encryptGmail({refreshToken:tokens.refreshToken}),email:tokens.email,connectedAt:new Date(),syncPageToken:null,lastSyncAt:null,historyId:null,watchExpiresAt:null,lastPushAt:null}});if(!updated.count)throw new Error("SETTINGS_CHANGED");
    await tx.auditLog.create({data:{actor:actor.username,action:"GMAIL_CONNECTED",entityId:"active",details:{}}});
   });return back("connected");
  }catch{return back("connection-failed");}
