@@ -25,3 +25,9 @@ test("one payout cannot combine two affiliates",async()=>{
  const h=setup();h.sales.push({...h.sales[0],id:"s2",affiliateId:"b"});
  await assert.rejects(()=>markAffiliatePaid(["sale:s1","sale:s2"],"owner"));assert.equal(h.sales[0].status,"PENDING");
 });
+
+test("friend payout captures its actual payment date once so only paid commissions become expenses",async()=>{
+ const h=setup();const friend:any={id:"f1",status:"Approved",amountSatang:500,conversion:{affiliateId:"a",source:"LINE",status:"VERIFIED_NEW_FRIEND"}};
+ h.tx.commission.findMany=async()=>[friend];h.tx.commission.updateMany=async({where,data}:any)=>{if(where.id.in.includes(friend.id)&&friend.status===where.status){Object.assign(friend,data);return {count:1};}return {count:0};};
+ await markAffiliatePaid(["friend:f1"],"owner");assert.ok(friend.paidAt instanceof Date);const at=friend.paidAt.getTime();await markAffiliatePaid(["friend:f1"],"owner");assert.equal(friend.paidAt.getTime(),at);assert.equal(h.audits.length,1);assert.equal(friend.amountSatang,500);
+});

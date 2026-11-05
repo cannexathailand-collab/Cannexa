@@ -111,11 +111,13 @@ model WebhookEvent {
  @@index([userKey,eventAt])
 }
 model Commission {
+ @@index([status,paidAt])
  id String @id @default(cuid())
  conversionId String @unique
  conversion Conversion @relation(fields:[conversionId],references:[id])
  status CommissionStatus @default(Pending)
  amountSatang Int
+ paidAt DateTime?
  createdAt DateTime @default(now())
  updatedAt DateTime @updatedAt
 }
@@ -156,6 +158,7 @@ model MetaConnection {
 }
 
 model OrderGroup {
+ purpose String @default("ORDER")
  id String @id
  botId String
  groupId String
@@ -238,6 +241,10 @@ model GmailImport {
 }
 
 model Shipment {
+ freightSatang Int?
+ totalChargeSatang Int?
+ freightReportAt DateTime?
+ freightImportId String?
  tracking String @id
  importId String
  recipient String
@@ -290,4 +297,25 @@ model GmailOAuthAttempt {
  verifier String
  expiresAt DateTime
  consumedAt DateTime?
+}
+
+model Expense {
+ id String @id @default(cuid())
+ messageKey String @unique
+ eventKey String @unique
+ groupKey String
+ expenseNumber String @unique
+ description String?
+ amountSatang Int?
+ bankName String?
+ bankAccount String?
+ recipient String?
+ rawText String?
+ status String
+ issues Json
+ eventAt DateTime
+ paidAt DateTime?
+ createdAt DateTime @default(now())
+ @@index([paidAt,status])
+ @@index([groupKey,eventAt])
 }

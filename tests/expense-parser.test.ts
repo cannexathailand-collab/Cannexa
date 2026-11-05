@@ -1,0 +1,7 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {parseExpenseText} from '../src/lib/expense-parser';
+const message='รายจ่าย\nค่าไฟออฟฟิศ 5331.45\nกสิกร 0123456789\nตัวอย่างผู้รับ';
+test('expense template reads description exact satang bank and recipient',()=>{const p=parseExpenseText(message)!;assert.equal(p.description,'ค่าไฟออฟฟิศ');assert.equal(p.amountSatang,533145);assert.equal(p.bankName,'กสิกร');assert.equal(p.bankAccount,'0123456789');assert.equal(p.recipient,'ตัวอย่างผู้รับ');assert.deepEqual(p.issues,[]);});
+test('expense money accepts properly grouped commas and one decimal without rounding',()=>{assert.equal(parseExpenseText(message.replace('5331.45','5,331.4 บาท'))?.amountSatang,533140);assert.equal(parseExpenseText(message.replace('5331.45','5331'))?.amountSatang,533100);});
+test('ordinary chat and sales messages never become expenses',()=>{for(const text of ['สวัสดี','ค่าไฟ 500','รหัสผู้ขาย: INK123\nยอดรวม: 500'])assert.equal(parseExpenseText(text),null);});
+test('negative zero excessive precision invalid grouping and overflow are review-only',()=>{for(const value of ['-100','0','5331.455','5,33.45','999999999999999'])assert.ok(parseExpenseText(message.replace('5331.45',value))!.issues.length);});
+test('missing bank recipient and extra unexplained lines require review',()=>{assert.ok(parseExpenseText('รายจ่าย\nค่าไฟ 500')!.issues.length);assert.ok(parseExpenseText(message+'\nอีกยอด 20')!.issues.length);});

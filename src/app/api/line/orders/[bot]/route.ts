@@ -2,6 +2,7 @@ import {z} from "zod";
 import {db} from "@/lib/db";
 import {validSignature} from "@/lib/crypto";
 import {unseal} from "@/lib/line-settings";
+import {receiveExpenseEvent} from "@/lib/expense-intake";
 import {receiveOrderEvent} from "@/lib/order-intake";
 import {replyOrderConfirmation} from "@/lib/order-confirmation";
 import {mockMode} from "@/lib/config";
@@ -15,6 +16,6 @@ export async function POST(req:Request,{params}:{params:Promise<{bot:string}>}){
  if(!validSignature(raw,req.headers.get("x-line-signature")??"",settings.messagingSecret))return new Response("Invalid signature",{status:401});
  let body:unknown;try{body=JSON.parse(raw);}catch{return new Response("Invalid JSON",{status:400});}
  const parsed=payload.safeParse(body);if(!parsed.success||parsed.data.destination!==connection.botId)return new Response("Invalid payload",{status:400});
- for(const e of parsed.data.events){await receiveOrderEvent(connection.botId,e);await replyOrderConfirmation(connection.botId,e,settings.accessToken);}
+ for(const e of parsed.data.events){await receiveOrderEvent(connection.botId,e);await receiveExpenseEvent(connection.botId,e);await replyOrderConfirmation(connection.botId,e,settings.accessToken);}
  return Response.json({ok:true});
 }

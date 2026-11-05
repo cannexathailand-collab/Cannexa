@@ -11,6 +11,7 @@ export async function receiveOrderEvent(botId:string,e:OrderEvent){
  if(e.source.type!=="group"||!e.source.groupId)return null;
  const groupKey=userKey("order-group:"+botId+":"+e.source.groupId);
  const group=await db.orderGroup.upsert({where:{id:groupKey},create:{id:groupKey,botId,groupId:e.source.groupId},update:{lastSeenAt:new Date()}});
+ if(group.purpose&&group.purpose!=="ORDER")return null;
  if(e.type==="unsend"&&e.unsend){
   const messageKey=userKey("order-message:"+botId+":"+e.unsend.messageId);
   await transaction(async tx=>{
@@ -34,7 +35,7 @@ export async function receiveOrderEvent(botId:string,e:OrderEvent){
   if(await tx.orderMessageWithdrawal.findUnique({where:{messageKey}}))return null;
   const previous=await tx.orderIntake.findFirst({where:{OR:[{messageKey},{eventKey}]}});if(previous)return null;
   // Recheck inside the write transaction so disabling a group takes effect before save.
-  if(!(await tx.orderGroup.findUnique({where:{id:groupKey}}))?.enabled)return null;
+  const currentGroup=await tx.orderGroup.findUnique({where:{id:groupKey}});if(!currentGroup?.enabled||(currentGroup.purpose&&currentGroup.purpose!=="ORDER"))return null;
   const sellers=await tx.affiliate.findMany({where:{archivedAt:null,active:true,code:{not:metaAdCode},OR:[{code:{equals:parsed.sellerCode,mode:"insensitive"}},{accounts:{some:{username:{equals:parsed.sellerCode,mode:"insensitive"},role:"employee",active:true}}}]},select:{id:true,salesCommissionBasis:true,salesCommissionBps:true,accounts:{where:{role:"employee",active:true},select:{username:true}}},take:2});
   const issues=[...parsed.issues];if(sellers.length!==1)issues.push("ไม่พบรหัสผู้ขายที่ใช้งานอยู่เพียงรายเดียว");
   const total=quotedTotal(e.message!.text!);if(parsed.payment==="โอน"&&(total===null||total<=0))issues.push("ยอดโอนต้องระบุยอดรวมที่มากกว่าศูนย์เพียงยอดเดียว");

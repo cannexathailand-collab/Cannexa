@@ -79,7 +79,7 @@ export async function review(id:string,action:"approve"|"reject"|"paid",reason:s
   if(action==="paid"){
    if(before.commission?.status==="Paid")return before;
    if(before.status!=="VERIFIED_NEW_FRIEND"||before.commission?.status!=="Approved")throw new Error("ต้องอนุมัติก่อนจ่าย");
-   await tx.commission.update({where:{conversionId:id},data:{status:"Paid"}});
+   await tx.commission.update({where:{conversionId:id},data:{status:"Paid",paidAt:new Date()}});
   }else{
    if(before.commission?.status==="Paid")throw new Error("จ่ายแล้ว ต้องทำ reconciliation");
    if(before.status==="REJECTED")return before;

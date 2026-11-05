@@ -1,6 +1,7 @@
 import {db,transaction,userLock} from "./db";
 import {sha} from "./crypto";
 import {decryptGmail,type GmailConfig} from "./gmail";
+import {saveFreightCost} from "./freight-cost";
 import {parseMyOrderXlsx} from "./myorder-xlsx";
 import {shipmentCandidates,nonCodShipmentCandidates,compatibleCodCandidates} from "./shipment-matching";
 import {hasActualDispatch,reconcileSalesRecognition,revokeSalesRecognition} from "./sales-recognition";
@@ -28,7 +29,7 @@ export async function importGmailReports(actor:string,messageIds?:string[]){
    await transaction(async tx=>{
     await userLock(tx,"gmail-reports");const current=await tx.gmailConnection.findUnique({where:{id:"active"}});if(current?.revision!==connection.revision||!current.encryptedToken)throw new Error("GMAIL_RECONNECT");if(await tx.gmailImport.findFirst({where:{messageId:item.id,filename:part.filename!}}))return;
     await tx.gmailImport.create({data:{id,messageId:item.id,filename:part.filename!,subject,kind,rowCount:rows.length,reportAt}});
-    for(const row of rows){if(kind==="SHIPMENT"){const old=await tx.shipment.findUnique({where:{tracking:row.tracking}});if(old){if(old.codSatang!==row.amountSatang||old.recipient!==row.recipient||old.phone!==row.phone||old.address!==row.address)throw new Error("SHIPMENT_CONFLICT");continue;}await tx.shipment.create({data:{tracking:row.tracking,importId:id,recipient:row.recipient,phone:row.phone,address:row.address,codSatang:row.amountSatang,reportAt}});}else{const old=await tx.codReceipt.findUnique({where:{tracking:row.tracking}});if(old){if(old.amountSatang!==row.amountSatang)throw new Error("COD_CONFLICT");continue;}await tx.codReceipt.create({data:{tracking:row.tracking,importId:id,amountSatang:row.amountSatang,reportAt}});}}
+    for(const row of rows){if(kind==="SHIPMENT"){const old=await tx.shipment.findUnique({where:{tracking:row.tracking}});if(old){if(old.codSatang!==row.amountSatang||old.recipient!==row.recipient||old.phone!==row.phone||old.address!==row.address)throw new Error("SHIPMENT_CONFLICT");await saveFreightCost(tx,row,id,reportAt);continue;}await tx.shipment.create({data:{tracking:row.tracking,importId:id,recipient:row.recipient,phone:row.phone,address:row.address,codSatang:row.amountSatang,reportAt,freightSatang:row.freightSatang,totalChargeSatang:row.totalChargeSatang,...(row.totalChargeSatang!==undefined||row.freightSatang!==undefined?{freightReportAt:reportAt,freightImportId:id}:{})}});}else{const old=await tx.codReceipt.findUnique({where:{tracking:row.tracking}});if(old){if(old.amountSatang!==row.amountSatang)throw new Error("COD_CONFLICT");continue;}await tx.codReceipt.create({data:{tracking:row.tracking,importId:id,amountSatang:row.amountSatang,reportAt}});}}
     await tx.auditLog.create({data:{actor,action:"GMAIL_REPORT_IMPORTED",entityId:id,details:{kind,rows:rows.length}}});
    });imported++;
   }

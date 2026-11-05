@@ -16,7 +16,7 @@ export async function markAffiliatePaid(ids:string[],actor:string){
   if(!pendingFriends.length&&!pendingSales.length)return;
   const amountSatang=pendingFriends.reduce((s,r)=>s+r.amountSatang,0)+pendingSales.reduce((s,r)=>s+r.commissionSatang!,0);
   const at=new Date();
-  const f=await tx.commission.updateMany({where:{id:{in:pendingFriends.map(r=>r.id)},status:"Approved"},data:{status:"Paid"}});
+  const f=await tx.commission.updateMany({where:{id:{in:pendingFriends.map(r=>r.id)},status:"Approved"},data:{status:"Paid",paidAt:at}});
   if(f.count!==pendingFriends.length)throw new Error("รายการเปลี่ยนแปลง");
   for(const row of pendingSales){const updated=await tx.salesOrder.updateMany({where:{id:row.id,status:"PENDING",commissionSatang:row.commissionSatang},data:{status:"PAID",paidAt:at,paidAmountSatang:row.commissionSatang}});if(updated.count!==1)throw new Error("รายการเปลี่ยนแปลง");}
   await tx.auditLog.create({data:{actor,action:"COMMISSION_PAID_BATCH",entityId:affiliateId,details:{commissionIds:pendingFriends.map(r=>r.id),salesIds:pendingSales.map(r=>r.id),amountSatang}}});
