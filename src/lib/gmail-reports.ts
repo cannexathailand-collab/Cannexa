@@ -10,19 +10,19 @@ export async function accessToken(config:GmailConfig,refreshToken:string){const 
 export async function importGmailReports(actor:string,messageIds?:string[]){
  const connection=await db.gmailConnection.findUnique({where:{id:"active"}});if(!connection?.encryptedToken)throw new Error("GMAIL_RECONNECT");
  const token=await accessToken(decryptGmail<GmailConfig>(connection.encryptedConfig),decryptGmail<{refreshToken:string}>(connection.encryptedToken).refreshToken);
- const api=async(path:string)=>{const response=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/"+path,{headers:{Authorization:"Bearer "+token},cache:"no-store",signal:AbortSignal.timeout(15000)});if(!response.ok)throw new Error("GMAIL_READ_FAILED");return response.json();};
+ const api=async(path:string,allowMissing=false)=>{const response=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/"+path,{headers:{Authorization:"Bearer "+token},cache:"no-store",signal:AbortSignal.timeout(15000)});if(allowMissing&&response.status===404)return null;if(!response.ok)throw new Error("GMAIL_READ_FAILED");return response.json();};
  const query="in:anywhere -in:trash {from:"+senders.SHIPMENT+" from:"+senders.COD+"} newer_than:30d has:attachment";
  const params=new URLSearchParams({q:query,maxResults:"10",includeSpamTrash:"true"});if(connection.syncPageToken)params.set("pageToken",connection.syncPageToken);
  const list=messageIds?{messages:messageIds.map(id=>({id})),nextPageToken:undefined}:await api("messages?"+params);let imported=0;
  for(const item of list.messages??[]){
-  let message=await api("messages/"+encodeURIComponent(item.id)+"?format=metadata&metadataHeaders=From&metadataHeaders=Subject");const headers=message.payload?.headers??[];const header=(name:string)=>String(headers.find((h:{name:string})=>h.name.toLowerCase()===name)?.value??"");
-  const from=header("from").match(/<([^>]+)>/)?.[1]??header("from").trim();const kind=from.toLowerCase()===senders.SHIPMENT?"SHIPMENT":from.toLowerCase()===senders.COD?"COD":null;if(!kind)continue;message=await api("messages/"+encodeURIComponent(item.id)+"?format=full");
+  let message=await api("messages/"+encodeURIComponent(item.id)+"?format=metadata&metadataHeaders=From&metadataHeaders=Subject",true);if(!message)continue;const headers=message.payload?.headers??[];const header=(name:string)=>String(headers.find((h:{name:string})=>h.name.toLowerCase()===name)?.value??"");
+  const from=header("from").match(/<([^>]+)>/)?.[1]??header("from").trim();const kind=from.toLowerCase()===senders.SHIPMENT?"SHIPMENT":from.toLowerCase()===senders.COD?"COD":null;if(!kind)continue;message=await api("messages/"+encodeURIComponent(item.id)+"?format=full",true);if(!message)continue;
   const subject=header("subject"),reportAt=new Date(Number(message.internalDate));if(!Number.isFinite(reportAt.getTime()))throw new Error("INVALID_REPORT_DATE");
   const parts:MailPart[]=[];function walk(part:MailPart){if(part.filename?.toLowerCase().endsWith(".xlsx"))parts.push(part);for(const child of part.parts??[])walk(child);}walk(message.payload);
   for(const part of parts){
    const id=sha(connection.email+":"+item.id+":"+part.filename);if(await db.gmailImport.findFirst({where:{messageId:item.id,filename:part.filename!}}))continue;
    if((part.body?.size??0)>5*1024*1024)throw new Error("FILE_TOO_LARGE");
-   const attachment=part.body?.attachmentId?await api("messages/"+encodeURIComponent(item.id)+"/attachments/"+encodeURIComponent(part.body.attachmentId)):part.body;
+   const attachment=part.body?.attachmentId?await api("messages/"+encodeURIComponent(item.id)+"/attachments/"+encodeURIComponent(part.body.attachmentId),true):part.body;if(!attachment)continue;
    if(typeof attachment?.data!=="string")throw new Error("ATTACHMENT_MISSING");const rows=await parseMyOrderXlsx(Buffer.from(attachment.data,"base64url"),kind);
    await transaction(async tx=>{
     await userLock(tx,"gmail-reports");const current=await tx.gmailConnection.findUnique({where:{id:"active"}});if(current?.revision!==connection.revision||!current.encryptedToken)throw new Error("GMAIL_RECONNECT");if(await tx.gmailImport.findFirst({where:{messageId:item.id,filename:part.filename!}}))return;
