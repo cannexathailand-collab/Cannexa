@@ -69,3 +69,10 @@ test("resubmitted order cannot consume an older paid parcel when a newer returne
  h.shipments.push({...h.shipments[0],tracking:"NEWRETURN",status:"RETURNED",reportAt:new Date('2026-10-30')} as any);
  assert.equal((await matchShipments("owner")).matched,0);assert.equal(h.sales.length,0);assert.equal(h.shipments[0].status,"NEWER_RETURNED_OR_CANCELLED_PARCEL");
 });
+test("substantial named villa prefix requires exact full name, phone, amount and a numbered full report address",()=>{
+ const o={...order("a"),recipient:"Example Customer",address:"Golden Melody Villa"};const s={...recipient,recipient:"Example Customer",address:"Golden Melody Villa 37 ซ. 1 อ่าวนาง เมืองกระบี่ กระบี่ 81000",codSatang:256000};
+ assert.equal(compatibleCodCandidates(s,[o]).length,1);
+ for(const changed of [{recipient:"Someone Customer"},{phone:"0811111111"},{codSatang:256001},{address:s.address.replace("Villa 37","Villas 37")},{address:s.address.replace("37 ","")},{address:s.address.replace("81000","")}])assert.equal(compatibleCodCandidates({...s,...changed},[o]).length,0);
+ assert.equal(compatibleCodCandidates({...s,recipient:"OBY"},[{...o,recipient:"OBY"}]).length,0);
+ assert.equal(compatibleCodCandidates({...s,address:"Golden Villa 37 กระบี่ 81000"},[{...o,address:"Golden Villa"}]).length,0);
+});

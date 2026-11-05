@@ -39,7 +39,14 @@ export function compatibleAddress(first:string,second:string){
  // Never equate house 28 with 280, or unit 28 with 28/1.
  return short.length>=20&&/\d/.test(short)&&long.startsWith(short)&&!(/[\d/]$/.test(short)&&/^[\d/]/.test(long.slice(short.length)));
 }
+function namedLocationWithExactFullName(order:MatchOrder,shipment:MatchShipment){
+ if(!order.recipient||!order.address||normalizeName(order.recipient)!==normalizeName(shipment.recipient)||normalizeName(order.recipient).length<10)return false;
+ if(!/^\p{L}{2,}(?:\s+\p{L}{2,})+$/u.test(order.recipient.trim()))return false;
+ const short=order.address.trim().toLowerCase().split(/\s+/),long=shipment.address.trim().toLowerCase().split(/\s+/);
+ if(short.length<3||short.join("").length<15||!short.every(word=>/^[a-z]{3,}$/.test(word)))return false;
+ return short.every((word,i)=>long[i]===word)&&/^\d+(?:[/-]\d+)*$/.test(long[short.length]??"")&&/\b\d{5}\b/.test(shipment.address);
+}
 export function compatibleCodCandidates(shipment:MatchShipment,orders:MatchOrder[]){
  if(shipment.codSatang<=0||!shipment.recipient||!shipment.phone||!shipment.address)return [];
- return orders.filter(o=>o.affiliateId&&o.payment==="COD"&&o.recipient&&o.phone&&o.address&&o.rawText&&normalizePhone(o.phone)===normalizePhone(shipment.phone)&&quotedTotal(o.rawText)===shipment.codSatang&&comparableRecipient(o.recipient)===comparableRecipient(shipment.recipient)&&compatibleAddress(o.address,shipment.address));
+ return orders.filter(o=>o.affiliateId&&o.payment==="COD"&&o.recipient&&o.phone&&o.address&&o.rawText&&normalizePhone(o.phone)===normalizePhone(shipment.phone)&&quotedTotal(o.rawText)===shipment.codSatang&&comparableRecipient(o.recipient)===comparableRecipient(shipment.recipient)&&(compatibleAddress(o.address,shipment.address)||namedLocationWithExactFullName(o,shipment)));
 }
