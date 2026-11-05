@@ -21,7 +21,7 @@ export default async function Reviews({searchParams}: {searchParams: Promise<{mo
    const items = groups.get(id) ?? [];
    const pending = items.filter(item => item.status === "Approved");
    const total = (entries: typeof items) => money(entries.reduce((sum, item) => sum + item.amountSatang, 0));
-   return <section className="card review" key={id}>
+   return <section className="card review" key={id} style={pending.some(item=>item.amountSatang>0)?{background:"#ecfdf5",borderLeft:"4px solid #34d399",color:"#065f46"}:undefined}>
     <h2>{name} · {code}</h2>
     {!!accounts.length && <p>บัญชีพนักงาน {accounts.map(account => account.username).join(", ")}</p>}
     <p>ยังไม่ได้จ่าย <strong>{total(pending)}</strong> · จ่ายแล้วสะสม <strong>{total(items.filter(item => item.status === "Paid"))}</strong></p>
