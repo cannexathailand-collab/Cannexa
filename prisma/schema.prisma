@@ -267,6 +267,8 @@ model SalesOrder {
  commissionBps Int
  commissionSatang Int?
  status String
+ paidAt DateTime?
+ paidAmountSatang Int?
  createdAt DateTime @default(now())
 }
 

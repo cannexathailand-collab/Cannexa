@@ -25,6 +25,8 @@ export default async function Reviews({searchParams}: {searchParams: Promise<{mo
     <h2>{name} · {code}</h2>
     {!!accounts.length && <p>บัญชีพนักงาน {accounts.map(account => account.username).join(", ")}</p>}
     <p>ยังไม่ได้จ่าย <strong>{total(pending)}</strong> · จ่ายแล้วสะสม <strong>{total(items.filter(item => item.status === "Paid"))}</strong></p>
+    <p>เพิ่มเพื่อน: รอจ่าย {total(pending.filter(item=>item.kind==="FRIEND"))} · จ่ายแล้ว {total(items.filter(item=>item.kind==="FRIEND"&&item.status==="Paid"))}</p>
+    <p>ยอดขาย: รอจ่าย {total(pending.filter(item=>item.kind==="SALE"))} · จ่ายแล้ว {total(items.filter(item=>item.kind==="SALE"&&item.status==="Paid"))}</p>
     {pending.length > 0 && <form action="/api/admin/review" method="post">
      <input type="hidden" name="month" value={month}/>
      {pending.map(item => <input key={item.id} type="hidden" name="commissionId" value={item.id}/>)}

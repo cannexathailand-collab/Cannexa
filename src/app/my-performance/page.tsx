@@ -1,18 +1,16 @@
 import Link from "next/link";
 import {requireAdminPage} from "@/lib/auth";
-import {db} from "@/lib/db";
-import {mockMode} from "@/lib/config";
-import {commissionPeriod} from "@/lib/commission-month";
+import {commissionReport} from "@/lib/commission-report";
+
+
 import {CommissionMonthSelect} from "@/app/commission-month-select";
 import {report} from "@/lib/report";
 export default async function MyPerformance({searchParams}: {searchParams: Promise<{month?: string}>}){
  const a=await requireAdminPage(["employee"]);
  const [r]=a.affiliateId?await report("all",a.affiliateId):[];
- const rows = r ? await db.commission.findMany({
-  where: {status: {in: ["Approved", "Paid"]}, conversion: {affiliateId: r.id, source: mockMode() ? "MOCK" : "LINE"}},
-  include: {conversion: {select: {verifiedAt: true, createdAt: true}}},
- }) : [];
- const {month, months, entries} = commissionPeriod(rows, (await searchParams).month);
+ const requestedMonth=(await searchParams).month;
+ const result=r?await commissionReport(requestedMonth,r.id):null;
+ const month=result?.month??"",months=result?.months??[],entries=result?.groups.get(r?.id??"")??[];
  const amount = (status: "Approved" | "Paid") => entries.reduce((sum, row) => sum + (row.status === status ? row.amountSatang : 0), 0) / 100;
  return <main className="center-page"><section className="customer"><h1>ผลงานของฉัน</h1>
  {r?<><p>{r.name} · {r.code}</p><dl>

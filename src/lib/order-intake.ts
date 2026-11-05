@@ -4,6 +4,7 @@ import {userKey} from "./crypto";
 import {parseOrderText} from "./order-parser";
 import {metaAdCode} from "./meta-ad";
 import {quotedTotal} from "./shipment-matching";
+import {reverseOrderSales} from "./sales-cancellation";
 
 export type OrderEvent={webhookEventId:string;type:string;timestamp:number;replyToken?:string;source:{type?:string;groupId?:string;userId?:string};message?:{type:string;id:string;text?:string};unsend?:{messageId:string}};
 export async function receiveOrderEvent(botId:string,e:OrderEvent){
@@ -16,7 +17,7 @@ export async function receiveOrderEvent(botId:string,e:OrderEvent){
    await userLock(tx,messageKey);
    await tx.orderMessageWithdrawal.upsert({where:{messageKey},create:{messageKey},update:{}});
    const orders=await tx.orderIntake.findMany({where:{messageKey,groupKey},select:{id:true}});
-   if(orders.length)await tx.salesOrder.updateMany({where:{orderId:{in:orders.map(o=>o.id)},status:{in:["PENDING","WAITING_COST"]}},data:{status:"CANCELLED",commissionSatang:0}});
+   if(orders.length)await reverseOrderSales(tx,orders.map(o=>o.id));
    if(orders.length){
     await tx.shipment.updateMany({where:{orderId:{in:orders.map(o=>o.id)}},data:{status:"CANCELLED"}});
     await tx.orderIntake.deleteMany({where:{messageKey,groupKey}});
