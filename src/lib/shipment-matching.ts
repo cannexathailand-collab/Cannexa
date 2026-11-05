@@ -13,3 +13,19 @@ export function transferShipmentCandidates(shipment:MatchShipment,orders:MatchOr
  if(shipment.codSatang!==0||!shipment.recipient||!shipment.phone||!shipment.address)return [];
  return orders.filter(o=>o.affiliateId&&o.payment==="โอน"&&o.recipient&&o.phone&&o.address&&normalizeName(o.recipient)===normalizeName(shipment.recipient)&&normalizePhone(o.phone)===normalizePhone(shipment.phone)&&normalizeAddress(o.address)===normalizeAddress(shipment.address));
 }
+function comparableRecipient(value:string){
+ const name=normalizeName(value);
+ // A narrowly defined English nickname spelling variant, not general fuzzy names.
+ return /^[a-z]{3,}$/.test(name)?name.replace(/ie$/, "y"):name;
+}
+export function compatibleAddress(first:string,second:string){
+ const a=normalizeAddress(first),b=normalizeAddress(second);if(a===b)return !!a;
+ const [short,long]=a.length<=b.length?[a,b]:[b,a];
+ // Accept a substantial complete address prefix with a house/unit number.
+ // Never equate house 28 with 280, or unit 28 with 28/1.
+ return short.length>=20&&/\d/.test(short)&&long.startsWith(short)&&!(/[\d/]$/.test(short)&&/^[\d/]/.test(long.slice(short.length)));
+}
+export function compatibleCodCandidates(shipment:MatchShipment,orders:MatchOrder[]){
+ if(shipment.codSatang<=0||!shipment.recipient||!shipment.phone||!shipment.address)return [];
+ return orders.filter(o=>o.affiliateId&&o.payment==="COD"&&o.recipient&&o.phone&&o.address&&o.rawText&&normalizePhone(o.phone)===normalizePhone(shipment.phone)&&quotedTotal(o.rawText)===shipment.codSatang&&comparableRecipient(o.recipient)===comparableRecipient(shipment.recipient)&&compatibleAddress(o.address,shipment.address));
+}

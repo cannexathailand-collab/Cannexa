@@ -2,7 +2,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {db} from "../src/lib/db";
 import {matchShipments} from "../src/lib/gmail-reports";
-import {shipmentCandidates,quotedTotal,moneySatang} from "../src/lib/shipment-matching";
+import {shipmentCandidates,quotedTotal,moneySatang,compatibleCodCandidates,compatibleAddress} from "../src/lib/shipment-matching";
 const recipient={recipient:"ทดสอบ",phone:"0812345678",address:"1 ต.ราไวย์ อ.เมือง จ.ภูเก็ต 83130"};
 const order=(id:string,affiliateId="seller")=>({id,affiliateId,...recipient,payment:"COD",status:"WAITING_SHIPMENT",rawText:"ยอดตามข้อความ: 2,560",salesCommissionBasis:"REVENUE",salesCommissionBps:1000});
 test("matching requires recipient phone address and total, never guesses transfer COD zero",()=>{
@@ -25,3 +25,19 @@ test("zero COD parcel links an already paid transfer without adding revenue or c
  assert.equal((await matchShipments("owner")).transferMatched,1);assert.equal(h.sales.length,1);assert.equal(h.sales[0].status,"PAID");assert.equal(h.sales[0].revenueSatang,256000);assert.equal(h.sales[0].commissionSatang,25600);assert.equal(h.sales[0].tracking,"TRACK0001");assert.equal((await matchShipments("owner")).transferMatched,0);
 });
 test("zero COD parcel cannot create a zero-valued sale or credit a claim",async t=>{const h=harness(t);h.shipments.forEach(s=>s.codSatang=0);h.orders.forEach(o=>{o.payment="เคลม";o.status="CLAIM_WAITING_COST";});const result=await matchShipments("owner");assert.equal(result.transferMatched,0);assert.equal(h.sales.length,0);assert.ok(h.shipments.every(s=>s.status==="WAITING_TRANSFER_ORDER"));});
+const shortAddress="หมู่บ้านทดสอบริมแม่น้ำบ้านเลขที่28";
+test("compatible matching allows y/ie spelling and substantial address prefix but preserves exact phone and amount",()=>{
+ const o={...order("a"),recipient:"OBY",address:shortAddress};const s={...recipient,recipient:"Obie",address:shortAddress+" ตำบลทดสอบ จังหวัดทดสอบ 11000",codSatang:256000};
+ assert.equal(shipmentCandidates(s,[o]).length,0);assert.equal(compatibleCodCandidates(s,[o]).length,1);
+ assert.equal(compatibleCodCandidates({...s,phone:"0811111111"},[o]).length,0);assert.equal(compatibleCodCandidates({...s,codSatang:256001},[o]).length,0);assert.equal(compatibleCodCandidates({...s,recipient:"Other"},[o]).length,0);
+ assert.equal(compatibleAddress(shortAddress,shortAddress+"0 เพิ่มเติม"),false);assert.equal(compatibleAddress(shortAddress,shortAddress+"/1 เพิ่มเติม"),false);assert.equal(compatibleAddress("ถนนทดสอบ", "ถนนทดสอบยาวขึ้น"),false);
+});
+test("one compatible verified COD pair credits once and records no duplicate on retry",async t=>{
+ const h=harness(t);h.orders.splice(1);h.shipments.splice(1);h.orders[0].recipient="OBY";h.orders[0].address=shortAddress;h.shipments[0].recipient="Obie";h.shipments[0].address=shortAddress+" ตำบลทดสอบ 11000";
+ assert.equal((await matchShipments("owner")).matched,1);assert.equal(h.sales.length,1);assert.equal(h.sales[0].commissionSatang,25600);assert.equal((await matchShipments("owner")).matched,0);
+});
+test("compatible matching refuses multiple plausible orders or parcels",async t=>{
+ const h=harness(t);h.orders.forEach(o=>{o.recipient="OBY";o.address=shortAddress;});h.shipments.forEach(s=>{s.recipient="Obie";s.address=shortAddress+" ตำบลทดสอบ 11000";});
+ assert.equal((await matchShipments("owner")).matched,0);assert.equal(h.sales.length,0);
+ h.orders.splice(1);assert.equal((await matchShipments("owner")).matched,0);assert.equal(h.sales.length,0);
+});

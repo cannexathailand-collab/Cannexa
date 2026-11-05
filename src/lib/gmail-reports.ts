@@ -2,7 +2,7 @@ import {db,transaction,userLock} from "./db";
 import {sha} from "./crypto";
 import {decryptGmail,type GmailConfig} from "./gmail";
 import {parseMyOrderXlsx} from "./myorder-xlsx";
-import {shipmentCandidates,transferShipmentCandidates} from "./shipment-matching";
+import {shipmentCandidates,transferShipmentCandidates,compatibleCodCandidates} from "./shipment-matching";
 
 const senders={SHIPMENT:"account-thaipost-freight@myorder.ai",COD:"account-thaipost-cod@myorder.ai"};
 type MailPart={filename?:string;body?:{attachmentId?:string;data?:string;size?:number};parts?:MailPart[]};
@@ -61,7 +61,14 @@ export async function matchShipments(actor:string){
    if(!receipt){waitingCod++;await tx.shipment.update({where:{tracking:shipment.tracking},data:{status:"WAITING_COD"}});continue;}
    if(receipt.amountSatang!==shipment.codSatang){amountMismatch++;await tx.shipment.update({where:{tracking:shipment.tracking},data:{status:"COD_AMOUNT_MISMATCH"}});continue;}
    codConfirmed++;await tx.shipment.update({where:{tracking:shipment.tracking},data:{status:"COD_CONFIRMED"}});
-   const candidates=shipmentCandidates(shipment,orders.filter(o=>!used.has(o.id)));
+   const available=orders.filter(o=>!used.has(o.id));
+   let candidates=shipmentCandidates(shipment,available);let matchMethod="EXACT";
+   if(!candidates.length){
+    candidates=compatibleCodCandidates(shipment,available);matchMethod="COMPATIBLE_UNIQUE";
+    if(!candidates.length)continue;
+    const alternatives=shipments.filter(s=>!s.orderId&&s.codSatang>0&&receiptByTracking.get(s.tracking)?.amountSatang===s.codSatang&&compatibleCodCandidates(s,[candidates[0]]).length);
+    if(candidates.length!==1||alternatives.length!==1){ambiguous++;await tx.shipment.update({where:{tracking:shipment.tracking},data:{status:"AMBIGUOUS_ORDER"}});continue;}
+   }
    if(!candidates.length)continue;
    if(new Set(candidates.map(o=>o.affiliateId)).size>1){ambiguous++;await tx.shipment.update({where:{tracking:shipment.tracking},data:{status:"AMBIGUOUS_SELLER"}});continue;}
    const order=orders.find(o=>o.id===candidates[0].id)!;
@@ -72,7 +79,7 @@ export async function matchShipments(actor:string){
    await tx.orderIntake.update({where:{id:order.id},data:{status:"MATCHED_SHIPMENT"}});
    const profit=order.salesCommissionBasis==="PROFIT";
    await tx.salesOrder.create({data:{orderId:order.id,tracking:shipment.tracking,affiliateId:order.affiliateId!,paymentMethod:"COD",paymentEvidence:"COD_RECEIPT",revenueSatang:shipment.codSatang,commissionBasis:order.salesCommissionBasis,commissionBps:order.salesCommissionBps,commissionSatang:profit?null:Math.round(shipment.codSatang*order.salesCommissionBps/10000),status:profit?"WAITING_COST":"PENDING"}});
-   await tx.auditLog.create({data:{actor,action:"SHIPMENT_MATCHED",entityId:order.id,details:{tracking:shipment.tracking}}});used.add(order.id);matched++;
+   await tx.auditLog.create({data:{actor,action:"SHIPMENT_MATCHED",entityId:order.id,details:{tracking:shipment.tracking,matchMethod}}});used.add(order.id);matched++;
   }return {matched,ambiguous,codConfirmed,waitingCod,amountMismatch,transferMatched};
  });
 }
