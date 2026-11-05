@@ -17,7 +17,7 @@ export async function receiveOrderEvent(botId:string,e:OrderEvent){
    await tx.orderMessageWithdrawal.upsert({where:{messageKey},create:{messageKey},update:{}});
    const orders=await tx.orderIntake.findMany({where:{messageKey,groupKey},select:{id:true}});
    if(orders.length)await tx.salesOrder.updateMany({where:{orderId:{in:orders.map(o=>o.id)},status:{in:["PENDING","WAITING_COST"]}},data:{status:"CANCELLED",commissionSatang:0}});
-   await tx.orderIntake.updateMany({where:{messageKey,groupKey},data:{rawText:null,recipient:null,phone:null,address:null,senderKey:null,sellerCode:null,affiliateId:null,payment:null,status:"WITHDRAWN",withdrawnAt:new Date(),issues:[]}});
+   await tx.orderIntake.updateMany({where:{messageKey,groupKey},data:{rawText:null,recipient:null,phone:null,address:null,senderKey:null,sellerCode:null,affiliateId:null,status:"WITHDRAWN",withdrawnAt:new Date(),issues:[]}});
   });return null;
  }
  if(!group.enabled||e.type!=="message"||e.message?.type!=="text"||!e.message.text)return null;
