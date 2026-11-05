@@ -1,0 +1,2 @@
+CREATE TABLE "GmailConnection" ("id" TEXT PRIMARY KEY, "encryptedConfig" TEXT NOT NULL, "revision" TEXT NOT NULL, "encryptedToken" TEXT, "email" TEXT, "connectedAt" TIMESTAMP(3));
+CREATE TABLE "GmailOAuthAttempt" ("stateHash" TEXT PRIMARY KEY, "browserHash" TEXT NOT NULL, "actor" TEXT NOT NULL, "actorVersion" TEXT NOT NULL, "revision" TEXT NOT NULL, "verifier" TEXT NOT NULL, "expiresAt" TIMESTAMP(3) NOT NULL, "consumedAt" TIMESTAMP(3));

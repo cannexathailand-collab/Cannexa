@@ -17,6 +17,7 @@ export default async function AdminLayout({children}:{children:React.ReactNode})
   <Link href="/admin/line">เชื่อมต่อ LINE</Link>
   <Link href="/admin/meta">Meta Pixel</Link>
   <Link href="/admin/orders">ออเดอร์จาก LINE</Link>
+  <Link href="/admin/gmail">เชื่อม Gmail</Link>
   <Link href="/admin/audit">ประวัติการดำเนินการ</Link>
  </>}
  <Link href="/account/password">เปลี่ยนรหัสผ่าน</Link>

@@ -5,6 +5,7 @@ async function main(){
  const cutoff=new Date(Date.now()-days*86400000);
  await transaction(async tx=>{
  const oauth=await tx.oAuthAttempt.deleteMany({where:{expiresAt:{lt:new Date()}}});
+ await tx.gmailOAuthAttempt.deleteMany({where:{expiresAt:{lt:new Date()}}});
  const history=await tx.statusHistory.deleteMany({where:{createdAt:{lt:cutoff}}});
  // Conversion + hashed identity remain as the deduplication/financial registry.
  const clicks=await tx.click.deleteMany({where:{createdAt:{lt:cutoff},conversion:{is:null},oauth:{none:{}}}});

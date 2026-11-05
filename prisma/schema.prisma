@@ -201,3 +201,23 @@ model OrderMessageWithdrawal {
  messageKey String @id
  createdAt DateTime @default(now())
 }
+
+model GmailConnection {
+ id String @id
+ encryptedConfig String
+ revision String
+ encryptedToken String?
+ email String?
+ connectedAt DateTime?
+}
+
+model GmailOAuthAttempt {
+ stateHash String @id
+ browserHash String
+ actor String
+ actorVersion String
+ revision String
+ verifier String
+ expiresAt DateTime
+ consumedAt DateTime?
+}
