@@ -300,6 +300,10 @@ model GmailOAuthAttempt {
 }
 
 model Expense {
+ replyStatus String @default("NOT_SENT")
+ replyAttempts Int @default(0)
+ repliedAt DateTime?
+ replyLastError String?
  id String @id @default(cuid())
  messageKey String @unique
  eventKey String @unique
