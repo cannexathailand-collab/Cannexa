@@ -9,3 +9,7 @@ export function shipmentCandidates(shipment:MatchShipment,orders:MatchOrder[]){
  if(shipment.codSatang<=0||!shipment.recipient||!shipment.phone||!shipment.address)return [];
  return orders.filter(o=>o.affiliateId&&o.recipient&&o.phone&&o.address&&o.rawText&&o.payment==="COD"&&normalizeName(o.recipient)===normalizeName(shipment.recipient)&&normalizePhone(o.phone)===normalizePhone(shipment.phone)&&normalizeAddress(o.address)===normalizeAddress(shipment.address)&&quotedTotal(o.rawText)===shipment.codSatang);
 }
+export function transferShipmentCandidates(shipment:MatchShipment,orders:MatchOrder[]){
+ if(shipment.codSatang!==0||!shipment.recipient||!shipment.phone||!shipment.address)return [];
+ return orders.filter(o=>o.affiliateId&&o.payment==="โอน"&&o.recipient&&o.phone&&o.address&&normalizeName(o.recipient)===normalizeName(shipment.recipient)&&normalizePhone(o.phone)===normalizePhone(shipment.phone)&&normalizeAddress(o.address)===normalizeAddress(shipment.address));
+}
