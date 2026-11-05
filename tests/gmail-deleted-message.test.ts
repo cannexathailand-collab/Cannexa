@@ -13,3 +13,10 @@ test("history entries for deleted messages are skipped without blocking later me
  const result=await importGmailReports("test",["deleted","next-message"]);
  assert.equal(result.imported,0);assert.ok(calls.some(u=>u.includes("next-message")));assert.equal(updated,true);
 });
+test("report search includes Spam and Trash without modifying Gmail",async t=>{
+ const originals={fetch:globalThis.fetch,find:db.gmailConnection.findUnique,update:db.gmailConnection.updateMany};t.after(()=>{globalThis.fetch=originals.fetch;db.gmailConnection.findUnique=originals.find;db.gmailConnection.updateMany=originals.update;});
+ db.gmailConnection.findUnique=(async()=>({encryptedConfig:encryptGmail({clientId:"test.apps.googleusercontent.com",clientSecret:"secret"}),encryptedToken:encryptGmail({refreshToken:"refresh"}),revision:"revision",email:"test@example.com"})) as any;
+ db.gmailConnection.updateMany=(async()=>({count:1})) as any;
+ let searched=false;globalThis.fetch=async(input,options)=>{const url=new URL(String(input));if(url.hostname==="oauth2.googleapis.com")return Response.json({access_token:"token"});assert.equal(options?.method,undefined);assert.equal(url.searchParams.get("includeSpamTrash"),"true");assert.ok(url.searchParams.get("q")?.includes("in:anywhere"));assert.equal(url.searchParams.get("q")?.includes("-in:trash"),false);searched=true;return Response.json({messages:[]});};
+ await importGmailReports("test");assert.equal(searched,true);
+});

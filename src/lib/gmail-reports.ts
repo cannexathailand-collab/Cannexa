@@ -11,7 +11,7 @@ export async function importGmailReports(actor:string,messageIds?:string[]){
  const connection=await db.gmailConnection.findUnique({where:{id:"active"}});if(!connection?.encryptedToken)throw new Error("GMAIL_RECONNECT");
  const token=await accessToken(decryptGmail<GmailConfig>(connection.encryptedConfig),decryptGmail<{refreshToken:string}>(connection.encryptedToken).refreshToken);
  const api=async(path:string,allowMissing=false)=>{const response=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/"+path,{headers:{Authorization:"Bearer "+token},cache:"no-store",signal:AbortSignal.timeout(15000)});if(allowMissing&&response.status===404)return null;if(!response.ok)throw new Error("GMAIL_READ_FAILED");return response.json();};
- const query="in:anywhere -in:trash {from:"+senders.SHIPMENT+" from:"+senders.COD+"} newer_than:30d has:attachment";
+ const query="in:anywhere {from:"+senders.SHIPMENT+" from:"+senders.COD+"} newer_than:30d has:attachment";
  const params=new URLSearchParams({q:query,maxResults:"10",includeSpamTrash:"true"});if(connection.syncPageToken)params.set("pageToken",connection.syncPageToken);
  const list=messageIds?{messages:messageIds.map(id=>({id})),nextPageToken:undefined}:await api("messages?"+params);let imported=0;
  for(const item of list.messages??[]){
