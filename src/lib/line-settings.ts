@@ -9,7 +9,7 @@ export function seal(settings:LineSettings){
  const data=Buffer.concat([cipher.update(JSON.stringify(settings),"utf8"),cipher.final()]);
  return Buffer.concat([iv,cipher.getAuthTag(),data]).toString("base64url");
 }
-function unseal(value:string):LineSettings{
+export function unseal(value:string):LineSettings{
  const data=Buffer.from(value,"base64url");
  const cipher=createDecipheriv("aes-256-gcm",key(),data.subarray(0,12));
  cipher.setAuthTag(data.subarray(12,28));

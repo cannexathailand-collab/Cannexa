@@ -154,3 +154,50 @@ model MetaConnection {
  id String @id
  datasetId String
 }
+
+model OrderGroup {
+ id String @id
+ botId String
+ groupId String
+ name String @default("")
+ enabled Boolean @default(false)
+ lastSeenAt DateTime @default(now())
+ createdAt DateTime @default(now())
+ @@unique([botId, groupId])
+}
+
+model OrderBot {
+ id String @id @default(cuid())
+ name String
+ botId String @unique
+ encrypted String
+ active Boolean @default(true)
+ createdAt DateTime @default(now())
+}
+
+model OrderIntake {
+ id String @id @default(cuid())
+ eventKey String @unique
+ messageKey String @unique
+ groupKey String
+ senderKey String?
+ orderNumber String @unique
+ rawText String?
+ sellerCode String?
+ affiliateId String?
+ recipient String?
+ phone String?
+ address String?
+ payment String?
+ status String @default("WAITING_SHIPMENT")
+ issues Json
+ eventAt DateTime
+ createdAt DateTime @default(now())
+ withdrawnAt DateTime?
+ @@index([groupKey, createdAt])
+}
+
+model OrderMessageWithdrawal {
+ messageKey String @id
+ createdAt DateTime @default(now())
+}

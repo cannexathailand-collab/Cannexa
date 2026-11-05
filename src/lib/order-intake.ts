@@ -1,0 +1,34 @@
+import {randomBytes} from "node:crypto";
+import {db,transaction,userLock} from "./db";
+import {userKey} from "./crypto";
+import {parseOrderText} from "./order-parser";
+import {metaAdCode} from "./meta-ad";
+
+export type OrderEvent={webhookEventId:string;type:string;timestamp:number;source:{type?:string;groupId?:string;userId?:string};message?:{type:string;id:string;text?:string};unsend?:{messageId:string}};
+export async function receiveOrderEvent(botId:string,e:OrderEvent){
+ if(e.source.type!=="group"||!e.source.groupId)return null;
+ const groupKey=userKey("order-group:"+botId+":"+e.source.groupId);
+ const group=await db.orderGroup.upsert({where:{id:groupKey},create:{id:groupKey,botId,groupId:e.source.groupId},update:{lastSeenAt:new Date()}});
+ if(e.type==="unsend"&&e.unsend){
+  const messageKey=userKey("order-message:"+botId+":"+e.unsend.messageId);
+  await transaction(async tx=>{
+   await userLock(tx,messageKey);
+   await tx.orderMessageWithdrawal.upsert({where:{messageKey},create:{messageKey},update:{}});
+   await tx.orderIntake.updateMany({where:{messageKey,groupKey},data:{rawText:null,recipient:null,phone:null,address:null,senderKey:null,sellerCode:null,affiliateId:null,payment:null,status:"WITHDRAWN",withdrawnAt:new Date(),issues:[]}});
+  });return null;
+ }
+ if(!group.enabled||e.type!=="message"||e.message?.type!=="text"||!e.message.text)return null;
+ const parsed=parseOrderText(e.message.text);if(!parsed)return null;
+ const messageKey=userKey("order-message:"+botId+":"+e.message.id);
+ const eventKey=userKey("order-event:"+botId+":"+e.webhookEventId);
+ return transaction(async tx=>{
+  await userLock(tx,messageKey);
+  if(await tx.orderMessageWithdrawal.findUnique({where:{messageKey}}))return null;
+  const previous=await tx.orderIntake.findFirst({where:{OR:[{messageKey},{eventKey}]}});if(previous)return null;
+  // Recheck inside the write transaction so disabling a group takes effect before save.
+  if(!(await tx.orderGroup.findUnique({where:{id:groupKey}}))?.enabled)return null;
+  const sellers=await tx.affiliate.findMany({where:{archivedAt:null,active:true,code:{not:metaAdCode},OR:[{code:parsed.sellerCode},{accounts:{some:{username:parsed.sellerCode,role:"employee",active:true}}}]},select:{id:true},take:2});
+  const issues=[...parsed.issues];if(sellers.length!==1)issues.push("ไม่พบรหัสผู้ขายที่ใช้งานอยู่เพียงรายเดียว");
+  return tx.orderIntake.create({data:{eventKey,messageKey,groupKey,senderKey:e.source.userId?userKey("order-sender:"+botId+":"+e.source.userId):null,orderNumber:"ORD-"+randomBytes(10).toString("hex").toUpperCase(),rawText:e.message!.text!,sellerCode:parsed.sellerCode,affiliateId:sellers.length===1?sellers[0].id:null,recipient:parsed.recipient,phone:parsed.phone,address:parsed.address,payment:parsed.payment,issues,status:issues.length?"NEEDS_REVIEW":"WAITING_SHIPMENT",eventAt:new Date(e.timestamp)}});
+ });
+}
