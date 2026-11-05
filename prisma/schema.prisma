@@ -184,6 +184,7 @@ model OrderIntake {
  orderNumber String @unique
  rawText String?
  sellerCode String?
+ sellerUsername String?
  affiliateId String?
  salesCommissionBasis String?
  salesCommissionBps Int?
@@ -201,6 +202,7 @@ model OrderIntake {
  replyLastError String?
  repliedAt DateTime?
  @@index([groupKey, createdAt])
+ @@index([sellerUsername, createdAt])
 }
 
 model OrderMessageWithdrawal {

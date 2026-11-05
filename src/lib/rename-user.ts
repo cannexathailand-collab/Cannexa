@@ -9,6 +9,7 @@ export async function renameUser(original:string,next:string,actor:string){
   if(!account||account.role==="owner")throw new Error("INVALID_ACCOUNT");
   if(await tx.userAccount.findUnique({where:{username:next},select:{username:true}}))throw new Error("USERNAME_EXISTS");
   await tx.userAccount.update({where:{username:original},data:{username:next,version:randomUUID()}});
+  await tx.orderIntake.updateMany({where:{sellerUsername:original},data:{sellerUsername:next}});
   await tx.auditLog.create({data:{actor,action:"USERNAME_CHANGED",entityId:next,details:{previousUsername:original,username:next}}});
  });
 }

@@ -13,6 +13,11 @@ function harness(enabled=true){
  return {rows,groups,tx,sales};
 }
 function event(message="m1"):OrderEvent{return {webhookEventId:"e-"+message,type:"message",timestamp:Date.now(),source:{type:"group",groupId:"group",userId:"person"},message:{type:"text",id:message,text:"รหัสผู้ขาย: ADM001\nผู้รับ: ตัวอย่าง\nโทร: 0812345678\nที่อยู่: 1\nชำระเงิน: COD\nยอดรวม: 2560"}};}
+test("shared affiliate orders belong to the matching employee, ambiguous code assigns nobody",async()=>{
+ const h=harness();h.tx.affiliate.findMany=async()=>[{id:"seller",salesCommissionBasis:"REVENUE",salesCommissionBps:200,accounts:[{username:"adm001"},{username:"other"}]}];
+ await receiveOrderEvent("bot-a",event());assert.equal(h.rows[0].sellerUsername,"adm001");
+ const e=event("ambiguous");e.message!.text=e.message!.text!.replace("ADM001","11155");await receiveOrderEvent("bot-a",e);assert.equal(h.rows[1].sellerUsername,null);
+});
 test("repeated webhook and message IDs save once, identical separate messages save twice",async()=>{
  const h=harness();await receiveOrderEvent("bot-a",event());await receiveOrderEvent("bot-a",event());await receiveOrderEvent("bot-a",{...event(),webhookEventId:"redelivered"});await receiveOrderEvent("bot-a",event("m2"));assert.equal(h.rows.length,2);assert.notEqual(h.rows[0].orderNumber,h.rows[1].orderNumber);assert.equal(h.rows[0].status,"WAITING_SHIPMENT");
  // No sale or commission delegate is provided: the intake must not post either.
