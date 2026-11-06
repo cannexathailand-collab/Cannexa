@@ -30,7 +30,7 @@ export async function appendStockProduct(input:NewStockProduct,actor:string){
   const plan=stockReceiptPlan(input,before,formula);
   await client(':batchUpdate',{method:'POST',body:JSON.stringify({requests:plan.requests})});
   const after=await readStockSheet(client),written=after.products.find(p=>p.code===input.code);
-  if(!written||written.receivedQuantity!==plan.result.receivedAfter||written.remainingQuantity!==plan.result.remainingAfter)throw new Error('STOCK_WRITE_NOT_CONFIRMED');
+  if(!written||written.receivedQuantity!==plan.result.receivedAfter||written.remainingQuantity!==plan.result.remainingAfter||written.name!==plan.result.nameAfter)throw new Error('STOCK_WRITE_NOT_CONFIRMED');
   await audit(plan.result);return {...plan.result,replayed:false};
  },{timeout:55000,maxWait:10000});
 }
