@@ -5,7 +5,7 @@ import {commissionMonth} from "@/lib/commission-month";
 import {AutoFilterForm} from "@/app/auto-filter-form";
 import Link from 'next/link';import {approvers} from '@/lib/accounts';import {requireAdminPage} from '@/lib/auth';import {db} from '@/lib/db';import {expenseReport,type ExpenseFilters} from '@/lib/expense-report';import {CommissionMonthSelect} from '@/app/commission-month-select';
 const money=(n:number)=>(n/100).toLocaleString('th-TH',{style:'currency',currency:'THB'});
-const labels={PRODUCT_COST:'ต้นทุนสินค้า',RECURRING:'รายจ่ายประจำ',LINE:'รายจ่ายจาก LINE',FREIGHT:'ค่าส่งและค่าธรรมเนียม',FRIEND:'ค่าคอมเพิ่มเพื่อน',SALE:'ค่าคอมยอดขาย'};
+const labels={PRODUCT_COST:'ต้นทุนสินค้า',RECURRING:'รายจ่ายประจำ',LINE:'รายจ่ายจาก LINE',FREIGHT:'ค่าส่งและค่าธรรมเนียม',FRIEND:'ค่าคอมเพิ่มเพื่อน',SALE:'ค่าคอมยอดขาย',SPECIAL:'ค่าคอมพิเศษ'};
 export default async function Expenses({searchParams}:{searchParams:Promise<ExpenseFilters>}){
  const actor=await requireAdminPage(approvers);let report;try{report=await expenseReport(await searchParams);}catch(e){if(e instanceof Error&&e.message.startsWith('INVALID'))return <><h1>ค่าใช้จ่าย</h1><p className="notice">ช่วงวันที่ไม่ถูกต้อง <Link href="/admin/expenses">เลือกวันที่ใหม่</Link></p></>;throw e;}const {month,months,range}=report;
  const groups=actor.role==='owner'?await db.orderGroup.findMany({where:{OR:[{purpose:'EXPENSE'},{enabled:false}]},orderBy:{lastSeenAt:'desc'}}):[];

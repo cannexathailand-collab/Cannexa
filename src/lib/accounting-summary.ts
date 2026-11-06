@@ -7,7 +7,7 @@ export type AccountingFilters={from?:string;to?:string;month?:string;view?:strin
 export type AccountingRange={from:string;to:string};
 export type RevenueDay={day:string;count:number;revenueSatang:number;transferSatang:number;codSatang:number};
 export type AccountingRow=RevenueDay&{productCostSatang:number;lineSatang:number;recurringSatang:number;freightSatang:number;commissionSatang:number;expenseSatang:number;profitSatang:number};
-export const accountingKinds:Record<ExpenseEntry['kind'],string>={PRODUCT_COST:'ต้นทุนสินค้า',LINE:'รายจ่ายจาก LINE',RECURRING:'รายจ่ายประจำ',FREIGHT:'ค่าส่งและค่าธรรมเนียม',FRIEND:'ค่าคอมเพิ่มเพื่อน',SALE:'ค่าคอมยอดขาย'};
+export const accountingKinds:Record<ExpenseEntry['kind'],string>={PRODUCT_COST:'ต้นทุนสินค้า',LINE:'รายจ่ายจาก LINE',RECURRING:'รายจ่ายประจำ',FREIGHT:'ค่าส่งและค่าธรรมเนียม',FRIEND:'ค่าคอมเพิ่มเพื่อน',SALE:'ค่าคอมยอดขาย',SPECIAL:'ค่าคอมพิเศษ'};
 export const accountingBasis='ยอดขายตามเกณฑ์หน้ายอดขาย; ต้นทุนตามวันที่จัดส่งและรับคืน; รายจ่าย LINE และค่าคอมตามวันที่จ่าย; รายจ่ายประจำตามวันที่ลงรายการ; ค่าขนส่งตามวันที่เรียกเก็บ ยอดย้อนหลังอาจเปลี่ยนเมื่อได้รับข้อมูลเพิ่มหรือแก้สถานะออเดอร์';
 export function accountingRange(input:AccountingFilters,now=new Date()){
  const range=salesRange(input,now);
@@ -42,7 +42,7 @@ export function summarizeAccounting(range:AccountingRange,revenue:RevenueDay[],e
   if(previous){if(previous.amountSatang!==entry.amountSatang||+previous.date!==+entry.date)throw Error('ACCOUNTING_DUPLICATE_CONFLICT');continue;}
   unique.set(key,entry);
   const row=days.get(bangkokDay(entry.date))!;
-  const field={PRODUCT_COST:'productCostSatang',LINE:'lineSatang',RECURRING:'recurringSatang',FREIGHT:'freightSatang',FRIEND:'commissionSatang',SALE:'commissionSatang'} as const;
+  const field={PRODUCT_COST:'productCostSatang',LINE:'lineSatang',RECURRING:'recurringSatang',FREIGHT:'freightSatang',FRIEND:'commissionSatang',SALE:'commissionSatang',SPECIAL:'commissionSatang'} as const;
   row[field[entry.kind]]+=entry.amountSatang;
   row.expenseSatang+=entry.amountSatang;
  }

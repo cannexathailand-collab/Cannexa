@@ -239,6 +239,18 @@ model MetaPurchase {
  sentAt DateTime?
  createdAt DateTime @default(now())
 }
+model SpecialCommission {
+ id String @id @default(cuid())
+ requestKey String @unique
+ affiliateId String
+ amountSatang Int
+ reason String
+ paidAt DateTime
+ createdBy String
+ createdAt DateTime @default(now())
+ @@index([affiliateId,paidAt])
+}
+
 model AdditionalCommission {
  id String @id @default(cuid())
  orderId String

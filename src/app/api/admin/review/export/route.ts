@@ -10,9 +10,9 @@ export async function GET(req: Request) {
   const entries = groups.get(id) ?? [];
   const total = (status: "Approved" | "Paid") =>
    (entries.reduce((sum, item) => sum + (item.status === status ? item.amountSatang : 0), 0) / 100).toFixed(2);
-  return [month, name, code, accounts.map(account => account.username).join(", "), total("Approved"), total("Paid")];
+  return [month, name, code, accounts.map(account => account.username).join(", "), total("Approved"), total("Paid"), (entries.filter(e=>e.kind==="SPECIAL").reduce((n,e)=>n+e.amountSatang,0)/100).toFixed(2)];
  });
- const header = ["เดือน", "ชื่อ Affiliate", "รหัส Affiliate", "บัญชีพนักงาน", "ยังไม่ได้จ่าย (บาท)", "จ่ายแล้วสะสม (บาท)"];
+ const header = ["เดือน", "ชื่อ Affiliate", "รหัส Affiliate", "บัญชีพนักงาน", "ยังไม่ได้จ่าย (บาท)", "จ่ายแล้วสะสม (บาท)", "ค่าคอมพิเศษจ่ายแล้ว (บาท)"];
  const csv = [header, ...rows].map(row => row.map(csvCell).join(",")).join("\r\n");
  return new Response("\uFEFF"+csv, {headers: {
   "Content-Type": "text/csv; charset=utf-8",

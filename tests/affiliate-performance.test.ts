@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import type {AdditionalCommission} from '@prisma/client';
+import type {AdditionalCommission,SpecialCommission} from '@prisma/client';
 import {summarizeAffiliatePerformance} from '../src/lib/affiliate-performance';
 import type {SaleRow} from '../src/lib/sales-report';
 const at=new Date('2026-11-06T10:00:00Z'),from=new Date('2026-11-01');
@@ -20,4 +20,10 @@ test('overview keeps dispatch-date sales separate from ledger-date commissions a
  assert.equal(a.referredCount,1);assert.equal(b.closedCount,1);assert.equal(a.totalCommissionSatang,100);assert.equal(a.waitingCost,1);
  const cancelled=sale({order:{...sale().order!,status:'RETURNED'},status:'CANCELLED'});
  assert.equal(summarizeAffiliatePerformance(friends,[cancelled],[],[],from)[0].referredCount,0);
+});
+test('special payments count once on payment date in both total and paid commission',()=>{
+ const special={affiliateId:'a',amountSatang:50000,paidAt:at,createdAt:new Date('2026-12-01')} as SpecialCommission;
+ const [a]=summarizeAffiliatePerformance(friends,[],[],[],from,[special]);
+ assert.equal(a.specialCommissionSatang,50000);assert.equal(a.totalCommissionSatang,50100);assert.equal(a.paidCommissionSatang,50040);assert.equal(a.pendingCommissionSatang,60);
+ assert.equal(summarizeAffiliatePerformance(friends,[],[],[],new Date('2026-12-01'),[special])[0].specialCommissionSatang,0);
 });
