@@ -315,6 +315,16 @@ model StockProduct {
  updatedAt DateTime @updatedAt
 }
 
+model StockDeleteBatch {
+ id String @id
+ fingerprint String
+ actor String
+ sourceSheet String
+ items Json
+ status String @default("PENDING")
+ createdAt DateTime @default(now())
+ completedAt DateTime?
+}
 model StockSheetsConnection {
  id String @id
  encryptedConfig String

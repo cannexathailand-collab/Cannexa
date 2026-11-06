@@ -1,7 +1,7 @@
 import {createHash} from 'node:crypto';import {db} from './db';import {stockGoogleClient,readStockSheet} from './stock-google';import type {StockFormProduct} from './stock-form-match';
 export function stockDeleteFingerprint(product:StockFormProduct,sourceSheet:string){const {code,name,costSatang,receivedQuantity,issuedQuantity,remainingQuantity,salePrices}=product;return createHash('sha256').update(JSON.stringify({code,name,costSatang,receivedQuantity,issuedQuantity,remainingQuantity,salePrices,sourceSheet})).digest('hex');}
 export async function deleteStockProduct(input:{requestKey:string;code:string;fingerprint:string},actor:string){return db.$transaction(async tx=>{
- await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended($1,0))','stock-sheet-add');
+ const locks=await tx.$queryRawUnsafe<{locked:boolean}[]>('SELECT pg_try_advisory_xact_lock(hashtextextended($1,0)) AS locked','stock-sheet-add');if(!locks[0]?.locked)throw new Error('STOCK_BUSY');
  const client=await stockGoogleClient(),key='cannexa-stock-delete-'+input.requestKey;
  const audit=async(details:Record<string,unknown>)=>tx.auditLog.upsert({where:{id:'stock-delete:'+input.requestKey},create:{id:'stock-delete:'+input.requestKey,actor,action:'STOCK_PRODUCT_DELETED',entityId:input.code,details:details as any},update:{}});
  const previous=await client('/developerMetadata:search',{method:'POST',body:JSON.stringify({dataFilters:[{developerMetadataLookup:{metadataKey:key,visibility:'DOCUMENT'}}]})});
