@@ -163,6 +163,7 @@ model MetaConnection {
 }
 model Customer {
  code String @id @default(dbgenerated("customer_code()"))
+ lineUserKey String? @unique
  conversionId String? @unique
  conversion Conversion? @relation(fields:[conversionId],references:[id],onDelete:Restrict)
  identityKey String? @unique
@@ -174,6 +175,15 @@ model Customer {
  legacy Boolean @default(false)
  createdAt DateTime @default(now())
  orders OrderIntake[]
+}
+model CustomerCodeDelivery {
+ userKey String @id
+ customerCode String
+ eventId String @unique
+ status String @default("SENDING")
+ lastError String?
+ sentAt DateTime?
+ createdAt DateTime @default(now())
 }
 model MetaPurchase {
  orderId String @id

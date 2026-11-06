@@ -38,7 +38,8 @@ export async function recordLogin(clickId:string,key:string,friendFlag:boolean|n
   const history:{status:"LOGIN_SUCCESS"|"VERIFIED_FRIEND"|"NOT_FRIEND"|"UNBLOCKED"|"EXISTING_FRIEND"|"PENDING_REVIEW";reason:string}[]=[{status:"LOGIN_SUCCESS",reason:"ตรวจสอบ ID Token สำเร็จ"}];
   if(friendFlag===true)history.push({status:"VERIFIED_FRIEND",reason:"friendFlag=true ยืนยันเฉพาะสถานะปัจจุบัน"});
   history.push(decision);
-  const created=await tx.conversion.create({data:{source:click.source,userKey:key,clickId,affiliateId:click.affiliateId,rateSatang:click.affiliate.rateSatang,friendFlag,friendshipChanged:changed,...decision,history:{create:history}}});
+  const issued=click.source==='LINE'?await tx.customer.findUnique({where:{lineUserKey:key},select:{code:true}}):null;
+  const created=await tx.conversion.create({data:{...(issued?{customerCode:issued.code}:{}),source:click.source,userKey:key,clickId,affiliateId:click.affiliateId,rateSatang:click.affiliate.rateSatang,friendFlag,friendshipChanged:changed,...decision,history:{create:history}}});
   const confirmed=await confirmNewFriend(tx,key);
   return {conversion:confirmed?.verified??created,meta:confirmed?.meta};
  });

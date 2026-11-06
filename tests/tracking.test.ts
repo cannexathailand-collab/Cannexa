@@ -17,6 +17,7 @@ function harness(){
  const conversions:Row[]=[],events:Row[]=[],audits:Row[]=[],commissions:Row[]=[];
  const tx:any={
  $queryRawUnsafe:async()=>[],
+ customer:{findUnique:async()=>null},
  click:{findUniqueOrThrow:async({where}:Row)=>clicks.find(c=>c.id===where.id),update:async({where,data}:Row)=>Object.assign(clicks.find(c=>c.id===where.id)!,data)},
  conversion:{
  findUnique:async({where,include}:Row)=>{const c=conversions.find(c=>c.userKey===where.userKey);return c?(include?{...c,affiliate:clicks.find(x=>x.id===c.clickId)?.affiliate,click:clicks.find(x=>x.id===c.clickId),commission:commissions.find(x=>x.conversionId===c.id)??null}:c):null;},
@@ -41,6 +42,10 @@ test("scan coupon creates click and OAuth session then redirects to explicit MOC
 test("QR PNG is generated from tracking link",async()=>{const png=await QRCode.toBuffer("https://example.test/r/AFF001");assert.equal(png.subarray(1,4).toString(),"PNG");});
 test("new friend candidate stays Pending without creating commission",async()=>{
  const h=harness();try{const c=await recordLogin("click-a","U1",true,true);assert.equal(c.status,"PENDING_REVIEW");assert.equal(h.commissions.length,0);}finally{mock.restoreAll();}
+});
+test('login retains the customer code already issued at follow',async()=>{
+ const h=harness();h.clicks[0].source='LINE';h.tx.customer.findUnique=async()=>({code:'CUS-EXISTING'});
+ const c=await recordLogin('click-a','issued-user',true,true);assert.equal(c.customerCode,'CUS-EXISTING');assert.equal((await recordLogin('click-b','issued-user',true,true)).customerCode,'CUS-EXISTING');assert.equal(h.conversions.length,1);
 });
 test("same user visits multiple affiliates: first authenticated touch wins, rate snapshot retained",async()=>{
  const h=harness();try{const a=await recordLogin("click-a","U1",true,true);const b=await recordLogin("click-b","U1",true,true);assert.equal(a.id,b.id);assert.equal(b.affiliateId,"affiliate-a");assert.equal(b.rateSatang,500);assert.equal(h.conversions.length,1);}finally{mock.restoreAll();}

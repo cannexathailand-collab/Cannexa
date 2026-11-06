@@ -13,6 +13,7 @@ import {replyExpenseConfirmation} from "@/lib/expense-confirmation";
 import {receiveExpenseEvent} from "@/lib/expense-intake";
 import {receiveOrderEvent} from "@/lib/order-intake";
 import {replyOrderConfirmation} from "@/lib/order-confirmation";
+import {replyCustomerCode} from '@/lib/customer-code-message';
 const payload=z.object({destination:z.string(),events:z.array(z.object({webhookEventId:z.string(),type:z.string(),replyToken:z.string().max(200).optional(),timestamp:z.number().int().min(0).max(8640000000000000),source:z.object({type:z.string().optional(),groupId:z.string().optional(),userId:z.string().optional()}).passthrough(),message:z.object({type:z.string(),id:z.string(),text:z.string().max(10000).optional()}).passthrough().optional(),unsend:z.object({messageId:z.string()}).optional(),follow:z.object({isUnblocked:z.boolean().optional()}).optional()}).passthrough()).max(100)});
 export async function POST(req:NextRequest){
  if(mockMode())return new Response("Real webhook disabled in mock mode",{status:409});
@@ -25,7 +26,9 @@ export async function POST(req:NextRequest){
  for(const e of parsed.data.events){
   if(intakeBot?.active){const received=await receiveOrderEvent(connection.settings.botId,e);if(received)orders.push(received.id);await receiveExpenseEvent(connection.settings.botId,e);await replyExpenseConfirmation(connection.settings.botId,e,unseal(intakeBot.encrypted).accessToken);await replyOrderConfirmation(connection.settings.botId,e,unseal(intakeBot.encrypted).accessToken);}
   if(!e.source.userId||!["follow","unfollow"].includes(e.type))continue;
-  await webhook({id:e.webhookEventId,key:userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?e.source.userId:connection.settings.botId+":"+e.source.userId),type:e.type,at:new Date(e.timestamp),unblocked:e.follow?.isUnblocked??null});
+  const key=userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?e.source.userId:connection.settings.botId+":"+e.source.userId);
+  await webhook({id:e.webhookEventId,key,type:e.type,at:new Date(e.timestamp),unblocked:e.follow?.isUnblocked??null});
+  if(e.type==='follow'&&e.source.type==='user')await replyCustomerCode({key,eventId:e.webhookEventId,replyToken:e.replyToken,unblocked:e.follow?.isUnblocked??null,accessToken:connection.settings.accessToken});
  }
  if(intakeBot?.active)after(async()=>{for(const id of orders)await queueStockOrder(id).catch(()=>{});await processPendingReservations(2).catch(()=>{});await processPendingStockDispatches('line-order',1).catch(()=>{});});
  return Response.json({ok:true});
