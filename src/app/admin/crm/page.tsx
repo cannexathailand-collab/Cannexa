@@ -7,6 +7,8 @@ import {requireAdminPage} from '@/lib/auth';
 import {crmTierReport} from '@/lib/crm-tier-report';
 import {filterAndSortCustomers} from '@/lib/crm-customer-filters';
 import {CrmFiltersForm} from '@/app/crm-filters-form';
+import {CrmDashboard} from '@/app/crm-dashboard';
+import {buildCrmDashboard} from '@/lib/crm-dashboard';
 
 export default async function Crm({searchParams}:{searchParams:Promise<Record<string,string|undefined>>}){
  await requireAdminPage(managers);
@@ -15,12 +17,13 @@ export default async function Crm({searchParams}:{searchParams:Promise<Record<st
  const [candidates,membership]=await Promise.all([db.customer.findMany({where,include:{referrer:{select:{name:true,code:true}}},orderBy:{code:'asc'}}),crmTierReport()]);
  const ranked=filterAndSortCustomers(candidates.map(c=>{const summary=membership.summaries.get(c.code)!,life=customerLifetimeStats(summary,c.createdAt);return {code:c.code,customer:c,life,spend:life.purchasedSatang/100,profit:life.pendingCostCount?null:life.profitSatang/100,points:summary.lifetimePoints,monthly:life.monthlyAverageSatang/100,frequency:life.monthlyOrderAverage,gap:life.averageGapDays};}),p);
  const count=ranked.length,customers=ranked.slice((page-1)*50,page*50).map(r=>r.customer);
+ const dashboard=buildCrmDashboard(ranked.map(r=>({code:r.code,name:r.customer.name,tier:membership.tiers.get(r.code)?.name??'ลูกค้าใหม่',history:membership.summaries.get(r.code)!.allHistory})));
  const range=crmRange(p),view=['month','year'].includes(p.view??'')?p.view!:'day',filters={...range,view};
  const detailQuery=new URLSearchParams(filters).toString();
  const query=Object.fromEntries(Object.entries(p).filter(([key,value])=>!['page','saved','tiersSaved'].includes(key)&&typeof value==='string')) as Record<string,string>;
  const metricLabel=p.sort==='spendDesc'?'ยอดซื้อสำเร็จสะสม':p.sort==='profitDesc'?'กำไรสะสมหลังต้นทุนสินค้าและค่าส่ง':p.sort==='pointsDesc'?'แต้มสะสม':p.sort==='monthlyDesc'?'ยอดซื้อเฉลี่ยต่อเดือน':p.sort==='gapAsc'?'ระยะห่างเฉลี่ยระหว่างการซื้อ':'จำนวนครั้งที่ซื้อเฉลี่ยต่อเดือน';
  return <><h1>CRM</h1><p>ข้อมูลลูกค้า ยอดสั่งซื้อสะสม และประวัติการซื้อ แยกตามรหัสลูกค้า</p>
- <CrmFiltersForm params={p} key={JSON.stringify(p)}/><p>พบ {count.toLocaleString('th-TH')} ลูกค้า · จัดอันดับจากยอดซื้อสำเร็จตลอดอายุลูกค้า</p>
+ <CrmFiltersForm params={p} key={JSON.stringify(p)}/><CrmDashboard data={dashboard}/><p>พบ {count.toLocaleString('th-TH')} ลูกค้า · จัดอันดับจากยอดซื้อสำเร็จตลอดอายุลูกค้า</p>
  <section className="card"><div className="table-wrap"><table><thead><tr><th>ลำดับ</th><th>ลูกค้า</th><th>{metricLabel}</th><th>ระดับสมาชิก</th><th>แต้มสะสม</th><th>ไม่รับสินค้า</th><th>ซื้อสำเร็จล่าสุด</th><th></th></tr></thead><tbody>{customers.map((c,index)=>{const all=membership.summaries.get(c.code)!,life=customerLifetimeStats(all,c.createdAt);const href='/admin/crm/'+encodeURIComponent(c.code)+'?'+detailQuery;const value=p.sort==='spendDesc'?crmMoney(life.purchasedSatang):p.sort==='profitDesc'?(life.pendingCostCount?'รอต้นทุน':crmMoney(life.profitSatang)):p.sort==='pointsDesc'?all.lifetimePoints.toLocaleString('th-TH')+' แต้ม':p.sort==='monthlyDesc'?crmMoney(life.monthlyAverageSatang):p.sort==='gapAsc'?(life.averageGapDays===null?'ยังไม่พอคำนวณ':life.averageGapDays.toFixed(1)+' วัน'):life.monthlyOrderAverage.toFixed(2)+' ครั้ง/เดือน';return <tr key={c.code}><td>{(page-1)*50+index+1}</td><th scope="row"><Link href={href}>{c.name??'ยังไม่ผูกชื่อผู้รับ'}</Link><div className="muted">{displayCustomerCode(c.code)} · {c.phone??'ยังไม่ผูกเบอร์'}</div></th><td><strong>{value}</strong></td><td><span className="pill">{membership.tiers.get(c.code)?.name??'ลูกค้าใหม่'}</span></td><td>{all.lifetimePoints.toLocaleString('th-TH')} แต้ม</td><td><Link href={'/admin/crm/'+encodeURIComponent(c.code)+'?returns=1'}>{all.lifetimeReturnedCount} ออเดอร์<div className="muted">{all.lifetimeReturnPercent===null?'ยังไม่มีรายการจัดส่ง':all.lifetimeReturnPercent.toFixed(1)+'%'}</div><small>ดูรายการ</small></Link></td><td>{crmDate(life.lastPurchaseAt)}</td><td><Link className="button secondary" href={href}>ดูรายละเอียด</Link></td></tr>;})}</tbody></table></div>{!customers.length&&<p>ไม่พบลูกค้า</p>}</section>
  <div className="filters">{page>1&&<Link href={'?'+new URLSearchParams({...query,page:String(page-1)})}>หน้าก่อน</Link>}{page*50<count&&<Link href={'?'+new URLSearchParams({...query,page:String(page+1)})}>หน้าถัดไป</Link>}</div>
  <p className="muted">ยอดสั่งซื้อสะสมไม่รวมยกเลิก คืนสินค้า และเคลม ยอดซื้อสำเร็จใช้เกณฑ์เดียวกับหน้ายอดขาย ส่วน COD ที่ยังไม่ได้รับเงินและออเดอร์ที่ยังไม่ผ่านเงื่อนไขจะแยกเป็นยอดรอดำเนินการ รายการไม่ทราบยอดจะไม่ถูกประมาณเป็นยอดซื้อ</p></>;
