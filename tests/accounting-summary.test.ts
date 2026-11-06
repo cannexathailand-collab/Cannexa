@@ -33,3 +33,18 @@ test('CSV exports the displayed totals, Thai BOM, pending notes, signed numbers 
  const r=summarizeAccounting({from:'2026-11-06',to:'2026-11-06'},[],[expense('return','PRODUCT_COST',-12345,undefined,'=HYPERLINK("bad")')]);
  const csv=accountingCsv(r,['ต้นทุนยังไม่ครบ']);assert.ok(csv.startsWith('\uFEFF'));assert.ok(csv.includes('ต้นทุนยังไม่ครบ'));assert.ok(csv.includes('-123.45'));assert.ok(csv.includes('123.45'));assert.ok(csv.includes("'=HYPERLINK"));assert.ok(csv.includes('รวม'));assert.equal(r.total.profitSatang,12345);
 });
+test('freight detail and CSV consolidate once per Bangkok day, even in monthly view',()=>{
+ const first=expense('one','FREIGHT',3500,'2026-11-05T17:00:00Z');
+ const entries=[first,first,expense('two','FREIGHT',4500,'2026-11-06T16:59:59Z'),expense('three','FREIGHT',6000,'2026-11-06T17:00:00Z'),expense('line','LINE',2000)];
+ for(const view of ['day','month']){
+  const r=summarizeAccounting({from:'2026-11-06',to:'2026-11-07'},[],entries,view);
+  const freight=r.entries.filter(e=>e.kind==='FREIGHT');assert.equal(freight.length,2);
+  assert.equal(freight.find(e=>e.id==='freight-day:2026-11-06')?.amountSatang,8000);
+  assert.equal(freight.find(e=>e.id==='freight-day:2026-11-07')?.amountSatang,6000);
+  assert.ok(freight.find(e=>e.id==='freight-day:2026-11-06')?.description.includes('2 พัสดุ'));
+  assert.equal(r.entries.filter(e=>e.kind==='LINE').length,1);
+  assert.equal(r.total.freightSatang,14000);assert.equal(r.total.expenseSatang,16000);assert.equal(r.total.profitSatang,-16000);
+  assert.equal(r.entries.reduce((n,e)=>n+e.amountSatang,0),r.total.expenseSatang);
+  const csv=accountingCsv(r);assert.equal(csv.split('\r\n').filter(line=>line.includes('freight-day:')).length,2);
+ }
+});

@@ -20,6 +20,16 @@ export function accountingMonthRange(month:string,range:AccountingRange){
 function empty(day:string):AccountingRow{return {day,count:0,revenueSatang:0,transferSatang:0,codSatang:0,productCostSatang:0,lineSatang:0,recurringSatang:0,freightSatang:0,commissionSatang:0,expenseSatang:0,profitSatang:0};}
 const fields=['count','revenueSatang','transferSatang','codSatang','productCostSatang','lineSatang','recurringSatang','freightSatang','commissionSatang','expenseSatang','profitSatang'] as const;
 function add(target:AccountingRow,source:AccountingRow){for(const field of fields)target[field]+=source[field];}
+function dailyFreightEntries(entries:ExpenseEntry[]):ExpenseEntry[]{
+ const other=entries.filter(e=>e.kind!=='FREIGHT');
+ const freight=Map.groupBy(entries.filter(e=>e.kind==='FREIGHT'),e=>bangkokDay(e.date));
+ const grouped=[...freight].map(([day,rows]):ExpenseEntry=>({
+  id:'freight-day:'+day,kind:'FREIGHT',date:dayStart(day),
+  description:'ค่าจัดส่งรวมประจำวัน ('+rows.length+' พัสดุ)',
+  amountSatang:rows.reduce((sum,e)=>sum+e.amountSatang,0),recipient:null,bankName:null,bankAccount:null
+ }));
+ return [...other,...grouped].sort((a,b)=>+b.date-+a.date||a.id.localeCompare(b.id));
+}
 export function summarizeAccounting(range:AccountingRange,revenue:RevenueDay[],expenses:ExpenseEntry[],view='day'){
  const days=new Map<string,AccountingRow>();
  for(let day=range.from;day<=range.to;day=shiftDay(day,1))days.set(day,empty(day));
@@ -38,7 +48,7 @@ export function summarizeAccounting(range:AccountingRange,revenue:RevenueDay[],e
  const daily=[...days.values()];for(const row of daily)row.profitSatang=row.revenueSatang-row.expenseSatang;
  const monthly=new Map<string,AccountingRow>(),total=empty('รวม');
  for(const row of daily){add(total,row);const month=row.day.slice(0,7);if(!monthly.has(month))monthly.set(month,empty(month));add(monthly.get(month)!,row);}
- return {range,view:view==='month'?'month':'day',daily,rows:view==='month'?[...monthly.values()]:daily,total,entries:[...unique.values()]};
+ return {range,view:view==='month'?'month':'day',daily,rows:view==='month'?[...monthly.values()]:daily,total,entries:dailyFreightEntries([...unique.values()])};
 }
 export type AccountingSummary=ReturnType<typeof summarizeAccounting>;
 export function accountingCsv(report:AccountingSummary,notices:string[]=[]){
