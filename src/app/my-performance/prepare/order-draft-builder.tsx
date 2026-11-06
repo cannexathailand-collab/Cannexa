@@ -1,17 +1,18 @@
 'use client';
 import {useState} from 'react';
-import {defaultOrderTemplate,draftFields,emptyOrderDraft,extractOrderDraft,orderDraftIssues,renderOrderDraft,differentDraftAddress,type OrderDraft} from '@/lib/order-draft';
+import {defaultOrderTemplate,draftFields,emptyOrderDraft,analyzeOrderDraft,orderDraftIssues,renderOrderDraft,differentDraftAddress,type OrderDraft} from '@/lib/order-draft';
 type Template={id:string;name:string;body:string};
 const columns=(Object.keys(draftFields) as (keyof OrderDraft)[]);
 export function OrderDraftBuilder({seller,initialTemplates,canManage=false}:{seller:string;initialTemplates:Template[];canManage?:boolean}){
  const [draft,setDraft]=useState<OrderDraft>({...emptyOrderDraft,seller}),[source,setSource]=useState(''),[lookup,setLookup]=useState(''),[ready,setReady]=useState(false),[templates,setTemplates]=useState(initialTemplates),[templateId,setTemplateId]=useState('standard'),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[lookupIssue,setLookupIssue]=useState(''),[copied,setCopied]=useState(false),[templateName,setTemplateName]=useState(''),[templateBody,setTemplateBody]=useState(defaultOrderTemplate),[saving,setSaving]=useState(false);
  const [addressComparison,setAddressComparison]=useState<{incoming:string;stored:string}|null>(null),[addressChoice,setAddressChoice]=useState('');
- const selected=templates.find(t=>t.id===templateId)??templates[0],preview=renderOrderDraft(selected?.body??defaultOrderTemplate,draft),issues=[...orderDraftIssues(draft),...(lookupIssue?[lookupIssue]:[]),...(addressComparison&&!addressChoice?['เลือกที่อยู่จัดส่งจากสองรายการก่อนคัดลอก']:[])];
- function field(key:keyof OrderDraft,value:string){setDraft(d=>({...d,[key]:value}));setCopied(false);if(key==='customerCode')setLookupIssue('');if(key==='address'&&addressComparison)setAddressChoice('custom');}
+ const [parseIssues,setParseIssues]=useState<Partial<Record<keyof OrderDraft,string>>>({});
+ const selected=templates.find(t=>t.id===templateId)??templates[0],preview=renderOrderDraft(selected?.body??defaultOrderTemplate,draft),issues=[...orderDraftIssues(draft),...Object.values(parseIssues),...(lookupIssue?[lookupIssue]:[]),...(addressComparison&&!addressChoice?['เลือกที่อยู่จัดส่งจากสองรายการก่อนคัดลอก']:[])];
+ function field(key:keyof OrderDraft,value:string){setDraft(d=>({...d,[key]:value}));setParseIssues(previous=>{const next={...previous};delete next[key];return next;});setCopied(false);if(key==='customerCode')setLookupIssue('');if(key==='address'&&addressComparison)setAddressChoice('custom');}
  async function copy(){try{await navigator.clipboard.writeText(preview);setCopied(true);}catch{setNotice('คัดลอกอัตโนมัติไม่ได้ เปิดข้อความด้านล่างแล้วเลือกคัดลอกได้');}}
  async function analyze(){
   setBusy(true);setCopied(false);setNotice('');setLookupIssue('');setAddressComparison(null);setAddressChoice('');
-  const parsed=extractOrderDraft(source),next={...emptyOrderDraft,...parsed,seller};if(!parsed.customerCode&&lookup.trim())parsed.customerCode=lookup.trim().toUpperCase();next.customerCode=parsed.customerCode??'';let info='จัดข้อมูลแล้ว ตรวจคอลัมน์ด้านล่างก่อนคัดลอก';
+  const analysis=analyzeOrderDraft(source),parsed=analysis.fields,next={...emptyOrderDraft,...parsed,seller};setParseIssues(analysis.issues);if(!parsed.customerCode&&lookup.trim())parsed.customerCode=lookup.trim().toUpperCase();next.customerCode=parsed.customerCode??'';let info='จัดข้อมูลแล้ว ตรวจคอลัมน์ด้านล่างก่อนคัดลอก';
   if(parsed.customerCode){try{const response=await fetch('/api/order-drafts/customer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:parsed.customerCode})});const data=await response.json();if(response.ok){next.customerCode=data.customerCode;next.recipient=parsed.recipient||data.recipient;next.phone=parsed.phone||data.phone;next.address=parsed.address||data.address;if(differentDraftAddress(parsed.address??'',data.address??''))setAddressComparison({incoming:parsed.address!,stored:data.address});info='จัดข้อมูลและเติมข้อมูลจากรหัสลูกค้าแล้ว ตรวจที่อยู่ สินค้า และยอดเงินสำหรับครั้งนี้';}else{setLookupIssue(data.error);info=data.error;}}catch{setLookupIssue('ยังตรวจรหัสลูกค้าไม่ได้');info='ยังตรวจรหัสลูกค้าไม่ได้ กรุณาลองใหม่';}}
   setDraft(next);setLookup(next.customerCode);setReady(true);setNotice(info);setBusy(false);
  }
