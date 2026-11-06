@@ -30,13 +30,16 @@ export function analyzeSales(rows:SaleRow[],input:SalesFilters={},now=new Date()
  const waitingCod=filtered.filter(s=>s.order?.payment==="COD"&&!!s.shipment&&hasActualDispatch(s.shipment)&&s.shipment.dispatchedAt&&bangkokDay(s.shipment.dispatchedAt)>=range.from&&bangkokDay(s.shipment.dispatchedAt)<=range.to&&s.receipt?.amountSatang!==s.revenueSatang&&!['RETURNED','CANCELLED','WITHDRAWN'].includes(s.order.status));
  return {range,month:range.from.slice(0,7),summary,groups,sources:salesSources(summary.rows),daily,previous,payment:payment??"",seller:input.seller??"",waitingCodCount:waitingCod.length,waitingCodSatang:waitingCod.reduce((n,s)=>n+s.revenueSatang,0),sellerOptions:[...new Set(rows.flatMap(s=>s.order?.sellerUsername?[s.order.sellerUsername]:[]))].sort()};
 }
-export async function salesReport(input?:string|SalesFilters){
- if(typeof input!=="string"&&input?.demo==="1")return analyzeSales(demoSalesRows(),input);
+export async function loadSalesRows(){
  const sales=await db.salesOrder.findMany({where:{status:{in:["PENDING","PAID","WAITING_COST","WAITING_COD"]}},orderBy:[{recognizedAt:{sort:"desc",nulls:"last"}},{createdAt:"desc"}]});
  const ids=sales.map(s=>s.orderId);
  const [orders,affiliates,shipments,receipts]=await Promise.all([db.orderIntake.findMany({where:{id:{in:ids}},select:{id:true,orderNumber:true,sellerUsername:true,sellerCode:true,payment:true,status:true,customerCode:true}}),db.affiliate.findMany({where:{id:{in:[...new Set(sales.map(s=>s.affiliateId))]}},select:{id:true,name:true,code:true}}),db.shipment.findMany({where:{orderId:{in:ids}}}),db.codReceipt.findMany({where:{tracking:{in:sales.flatMap(s=>s.tracking?[s.tracking]:[])}}})]);
  const codes=orders.flatMap(o=>o.customerCode?[o.customerCode]:[]),customers=codes.length?await db.customer.findMany({where:{code:{in:codes}},select:{code:true,legacy:true,referrerId:true,metaFbc:true,referrer:{select:{name:true,code:true}}}}):[],byCustomer=new Map(customers.map(c=>[c.code,c]));
  const byOrder=new Map(orders.map(o=>[o.id,o])),byAffiliate=new Map(affiliates.map(a=>[a.id,a])),byShipment=new Map(shipments.map(s=>[s.orderId,s])),byReceipt=new Map(receipts.map(r=>[r.tracking,r]));
  const rows=sales.map(s=>({...s,customer:byCustomer.get(byOrder.get(s.orderId)?.customerCode??'')??null,order:byOrder.get(s.orderId)??null,affiliate:byAffiliate.get(s.affiliateId)??null,shipment:byShipment.get(s.orderId)??null,receipt:s.tracking?byReceipt.get(s.tracking)??null:null}));
- return analyzeSales(rows,typeof input==="string"?{month:input}:input);
+ return rows;
+}
+export async function salesReport(input?:string|SalesFilters){
+ if(typeof input!=="string"&&input?.demo==="1")return analyzeSales(demoSalesRows(),input);
+ return analyzeSales(await loadSalesRows(),typeof input==="string"?{month:input}:input);
 }
