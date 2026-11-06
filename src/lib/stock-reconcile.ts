@@ -9,6 +9,7 @@ export async function reconcileAlreadyCounted(input:{requestKey:string;orderIds:
   await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended($1,0))','stock-sheet-add');
   const reservations=(await db.stockReservation.findMany({where:{orderId:{in:ids}}})).filter(r=>ids.includes(r.orderId));
   if(reservations.length!==ids.length)throw Error('STOCK_RESERVATION_NOT_FOUND');
+  if(reservations.some(r=>r.generation>0))throw Error('STOCK_RECONCILIATION_SUPERSEDED');
   const dispatches=await db.stockDispatch.findMany({where:{orderId:{in:ids}}});
   if(dispatches.some(d=>ids.includes(d.orderId)&&(d.historySavedAt||d.status==='POSTED')))throw Error('STOCK_DISPATCH_ALREADY_STARTED');
   const id='already-counted:'+input.requestKey,previous=await db.stockSheetOperation.findUnique({where:{id}});

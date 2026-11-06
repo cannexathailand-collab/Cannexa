@@ -6,6 +6,7 @@ import {applyFlowOperation} from './stock-flow-operation';
 import {orderStockItems,type OrderStockItem} from './order-stock-items';
 import {bangkokDay} from './sales-dates';
 const hash=(v:unknown)=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
+export const reservationOperationId=(r:{orderId:string;generation?:number})=>'reserve:'+r.orderId+(r.generation?':'+r.generation:'');
 export async function activateStockFlow(actor:string){
  return db.$transaction(async tx=>{
   await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended($1,0))','stock-sheet-add');
@@ -48,22 +49,23 @@ export async function syncStockReservationLocked(orderId:string){
   const order=await db.orderIntake.findUnique({where:{id:orderId}}),shipment=await db.shipment.findUnique({where:{orderId}});
   const release=!order||['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(order.status)||shipment?.fulfillmentStatus==='CANCELLED';
   const client=await stockGoogleClient();
-  const pending=await db.stockSheetOperation.findUnique({where:{id:'reserve:'+orderId}});
+  const pending=await db.stockSheetOperation.findUnique({where:{id:reservationOperationId(reservation)}});
   if(reservation.status==='QUEUED'&&(!release||pending)){
    const parsed=(reservation.items as unknown as OrderStockItem[]).length?{items:reservation.items as unknown as OrderStockItem[],issues:[]}:orderStockItems(order?.rawText??null);
    if(parsed.issues.length){await db.stockReservation.update({where:{orderId},data:{issues:parsed.issues}});return {status:'NEEDS_REVIEW'};}
    try{
-    await applyFlowOperation(client,'reserve:'+orderId,'RESERVE',reservation.actor,async()=>{const source=await readStockSheet(client);if(source.tab.title!==config.sourceSheet)throw Error('STOCK_SOURCE_CHANGED');return flowReservationPlan(parsed.items,source);});
+    await applyFlowOperation(client,reservationOperationId(reservation),'RESERVE',reservation.actor,async()=>{const source=await readStockSheet(client);if(source.tab.title!==config.sourceSheet)throw Error('STOCK_SOURCE_CHANGED');return flowReservationPlan(parsed.items,source,false,reservation.precounted,reservation.needsReconciliation);});
     await db.stockReservation.update({where:{orderId},data:{status:'RESERVED',items:parsed.items,issues:[]}});
     await db.auditLog.upsert({where:{id:'stock-reserve:'+orderId},create:{id:'stock-reserve:'+orderId,actor:reservation.actor,action:'STOCK_RESERVED',entityId:orderId,details:{orderNumber:reservation.orderNumber,items:parsed.items}},update:{}});
    }catch(error){const message=error instanceof Error?error.message:'';const missing=message.startsWith('STOCK_PRODUCT_NOT_FOUND ')?message.slice('STOCK_PRODUCT_NOT_FOUND '.length):null;const issue=missing?'ไม่พบรหัส '+missing+' ในชีตสต๊อก กรุณาตรวจรหัสหรือเพิ่มสินค้าก่อน':'ยังบันทึกจำนวนรอจ่ายไม่ได้ ตรวจข้อมูลสต๊อกและการเชื่อมต่อ แล้วลองใหม่';await db.stockReservation.update({where:{orderId},data:{issues:[issue]}});return {status:'NEEDS_REVIEW'};}
   }
   if(release){
+   if(reservation.needsReconciliation)return {status:"NEEDS_RECONCILIATION"};
    const current=await db.stockReservation.findUniqueOrThrow({where:{orderId}});
    const dispatch=await db.stockDispatch.findUnique({where:{orderId}});
    if(dispatch?.historySavedAt)return {status:'DISPATCH_IN_PROGRESS'};
    if(current.status==='RESERVED'){
-    await applyFlowOperation(client,'release:'+orderId,'RELEASE',reservation.actor,async()=>flowReservationPlan(current.items as unknown as OrderStockItem[],await readStockSheet(client),true));
+    await applyFlowOperation(client,'release:'+orderId,'RELEASE',reservation.actor,async()=>flowReservationPlan(current.items as unknown as OrderStockItem[],await readStockSheet(client),true,reservation.precounted));
     await db.auditLog.upsert({where:{id:'stock-release:'+orderId},create:{id:'stock-release:'+orderId,actor:'line-unsend',action:'STOCK_RESERVATION_RELEASED',entityId:orderId,details:{orderNumber:reservation.orderNumber,items:current.items}},update:{}});
    }
    await db.stockReservation.update({where:{orderId},data:{status:'RELEASED',issues:[]}});

@@ -381,6 +381,9 @@ model StockWorkflow {
 }
 model StockReservation {
  orderId String @id
+ precounted Boolean @default(false)
+ needsReconciliation Boolean @default(false)
+ generation Int @default(0)
  messageKey String @unique
  orderNumber String
  actor String

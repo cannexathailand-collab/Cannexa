@@ -19,6 +19,7 @@ export async function processFlowStockDispatch(orderId:string,actor:string){
   const [order,shipment]=await Promise.all([db.orderIntake.findUnique({where:{id:orderId}}),db.shipment.findUnique({where:{orderId}})]);
   const enrolled=await db.stockReservation.findUnique({where:{orderId}});
   if(enrolled&&['ALREADY_COUNTED','RECONCILING'].includes(enrolled.status))return {status:enrolled.status};
+  if(enrolled?.needsReconciliation)return {status:'NEEDS_RECONCILIATION',issues:['ต้องเทียบเลขออเดอร์กับยอดจ่ายเดิมก่อน เพื่อไม่ให้หักสต๊อกซ้ำ']};
   if(!pending){
    const workflow=await db.stockWorkflow.findUnique({where:{id:'active'}});
    if(!enrolled&&workflow&&order&&(order.createdAt<workflow.activeFrom||order.eventAt<workflow.activeFrom))return {status:'NOT_ELIGIBLE'};
@@ -61,7 +62,7 @@ export async function processFlowStockDispatch(orderId:string,actor:string){
    const source=await readStockSheet(client),issues:string[]=[];
    for(const i of items){const p=source.products.find(p=>p.code===i.code);if(!p)issues.push('ไม่พบรหัส '+i.code);else if(p.costSatang===null)issues.push(i.code+': ยังไม่ระบุต้นทุนต่อ G');}
    if(issues.length)return issue(issues,items);
-   const plan=flowDispatchPlan(items,source),savedAt=new Date();
+   const plan=flowDispatchPlan(items,source,reservation.precounted),savedAt=new Date();
    const costItems=items.map(i=>{
     const p=source.products.find(p=>p.code===i.code)!,change=plan.changes.find(c=>c.code===i.code)!;
     const costSatang=Number((BigInt(p.costSatang!)*BigInt(i.quantityMilliG)+500n)/1000n);
@@ -79,7 +80,7 @@ export async function processFlowStockDispatch(orderId:string,actor:string){
   const applied=await applyFlowOperation(client,'dispatch:'+orderId,'DISPATCH',actor,async()=>{
    const source=await readStockSheet(client);
    if(source.tab.title!==snapshot.sourceSheet)throw Error('STOCK_SOURCE_CHANGED');
-   const plan=flowDispatchPlan(snapshot.items,source);
+   const plan=flowDispatchPlan(snapshot.items,source,enrolled?.precounted??false);
    return {...plan,snapshot:{...snapshot,processedAt:new Date().toISOString(),items:snapshot.items.map(i=>{
     const c=plan.changes.find(c=>c.code===i.code)!;return {...i,issuedBefore:c.pendingBefore!,issuedAfter:c.pendingAfter,remainingBefore:c.remainingBefore!,remainingAfter:c.remainingAfter!};
    })}};

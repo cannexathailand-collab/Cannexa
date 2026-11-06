@@ -1,9 +1,9 @@
 import type {StockRow} from './stock-import';
 import type {OrderStockItem} from './order-stock-items';
-import {STOCK_AVAILABLE_HEADER,STOCK_PENDING_HEADER,stockAvailableFormula} from './stock-available';
+import {STOCK_PRECOUNTED_HEADER,STOCK_UNVERIFIED_HEADER,STOCK_AVAILABLE_HEADER,STOCK_PENDING_HEADER,stockAvailableFormula} from './stock-available';
 export const STOCK_COMPLETED_HEADER='ตัดสต๊อกสะสม (G)';
 export type FlowSource={tab:{sheetId:number;title:string};rows:unknown[][];products:StockRow[]};
-export type FlowChange={code:string;received:number|null;pendingBefore:number|null;pendingAfter:number;remainingBefore:number|null;remainingAfter:number|null;completedBefore:number;completedAfter:number};
+export type FlowChange={code:string;received:number|null;pendingBefore:number|null;pendingAfter:number;remainingBefore:number|null;remainingAfter:number|null;completedBefore:number;completedAfter:number;precountedBefore?:number;precountedAfter?:number;unverifiedBefore?:number;unverifiedAfter?:number};
 export type FlowPlan={sourceSheet:string;changes:FlowChange[];requests:any[]};
 export const milli=(n:number)=>{const v=Math.round(n*1000);if(!Number.isSafeInteger(v)||Math.abs(v-n*1000)>0.0001)throw Error('INVALID_STOCK_QUANTITY');return v;};
 const add=(a:number,b:number)=>(milli(a)+milli(b))/1000;
@@ -26,7 +26,7 @@ export function flowBaselinePlan(source:FlowSource):FlowPlan{
  requests.push({repeatCell:{range:{sheetId:source.tab.sheetId,startColumnIndex:13,endColumnIndex:14},cell:{userEnteredFormat:{backgroundColor:{red:0.88,green:0.96,blue:0.9},horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE',wrapStrategy:'WRAP',numberFormat:{type:'NUMBER',pattern:'#,##0.###'}}},fields:'userEnteredFormat'}},{updateDimensionProperties:{range:{sheetId:source.tab.sheetId,dimension:'COLUMNS',startIndex:13,endIndex:14},properties:{pixelSize:190},fields:'pixelSize'}});
  return {sourceSheet:source.tab.title,changes,requests};
 }
-export function flowReservationPlan(items:OrderStockItem[],source:FlowSource,release=false):FlowPlan{
+export function flowReservationPlan(items:OrderStockItem[],source:FlowSource,release=false,precounted=false,unverified=false):FlowPlan{
  if(source.rows[0]?.[12]!==STOCK_COMPLETED_HEADER)throw Error('STOCK_FLOW_NOT_READY');
  const changes:FlowChange[]=[],requests:any[]=[];
  for(const item of items){
@@ -34,28 +34,42 @@ export function flowReservationPlan(items:OrderStockItem[],source:FlowSource,rel
   if(p.receivedQuantity===null||p.remainingQuantity===null||p.issuedQuantity===null||p.completedQuantity===undefined||p.completedQuantity===null)throw Error('STOCK_QUANTITY_UNKNOWN '+item.code);
   if(milli(p.receivedQuantity)-milli(p.completedQuantity)!==milli(p.remainingQuantity))throw Error('STOCK_BALANCE_MISMATCH');
   const quantity=item.quantityMilliG/1000,pending=p.issuedQuantity;
-  if(release&&milli(pending)<item.quantityMilliG)throw Error('STOCK_PENDING_MISMATCH '+item.code);
-  const after=add(pending,release?-quantity:quantity);
-  changes.push({code:p.code,received:p.receivedQuantity,pendingBefore:pending,pendingAfter:after,remainingBefore:p.remainingQuantity,remainingAfter:p.remainingQuantity,completedBefore:p.completedQuantity,completedAfter:p.completedQuantity});
+  const credit=p.precountedPendingQuantity??0,unknown=p.unverifiedPendingQuantity??0;
+  if(unverified&&source.rows[0]?.[15]!==STOCK_UNVERIFIED_HEADER)throw Error('STOCK_UNVERIFIED_NOT_READY');
+  if(precounted&&source.rows[0]?.[14]!==STOCK_PRECOUNTED_HEADER)throw Error('STOCK_PRECOUNTED_NOT_READY');
+  if(release&&milli(precounted?credit:pending-credit)<item.quantityMilliG)throw Error('STOCK_PENDING_MISMATCH '+item.code);
+  const after=add(pending,release?-quantity:quantity),creditAfter=precounted?add(credit,release?-quantity:quantity):credit;
+  if(creditAfter<0||creditAfter>p.completedQuantity)throw Error('STOCK_PRECOUNTED_MISMATCH '+p.code);
+  const unknownAfter=unverified?add(unknown,release?-quantity:quantity):unknown;
+  if(unknownAfter<0)throw Error('STOCK_PENDING_MISMATCH');
+  const remainingAfter=precounted&&release?add(p.remainingQuantity,quantity):p.remainingQuantity,completedAfter=precounted&&release?add(p.completedQuantity,-quantity):p.completedQuantity;
+  changes.push({code:p.code,received:p.receivedQuantity,pendingBefore:pending,pendingAfter:after,remainingBefore:p.remainingQuantity,remainingAfter,completedBefore:p.completedQuantity,completedAfter,precountedBefore:credit,precountedAfter:creditAfter,unverifiedBefore:unknown,unverifiedAfter:unknownAfter});
   requests.push(stockNumberCell(source.tab.sheetId,p.sourceRow,5,after));
+  if(unverified)requests.push(stockNumberCell(source.tab.sheetId,p.sourceRow,15,unknownAfter));
+  if(precounted)requests.push(stockNumberCell(source.tab.sheetId,p.sourceRow,14,creditAfter));
+  if(precounted&&release)requests.push(stockNumberCell(source.tab.sheetId,p.sourceRow,12,completedAfter),stockBalanceFormula(source.tab.sheetId,p.sourceRow));
  }
  return {sourceSheet:source.tab.title,changes,requests};
 }
-export function flowDispatchPlan(items:OrderStockItem[],source:FlowSource):FlowPlan{
+export function flowDispatchPlan(items:OrderStockItem[],source:FlowSource,precounted=false):FlowPlan{
  if(source.rows[0]?.[12]!==STOCK_COMPLETED_HEADER)throw Error('STOCK_FLOW_NOT_READY');
  const changes:FlowChange[]=[],requests:any[]=[];
  for(const item of items){
   const p=source.products.find(p=>p.code===item.code);
   if(!p||p.receivedQuantity===null||p.remainingQuantity===null||p.issuedQuantity===null||p.completedQuantity==null)throw Error('STOCK_QUANTITY_UNKNOWN');
   if(milli(p.receivedQuantity)-milli(p.completedQuantity)!==milli(p.remainingQuantity))throw Error('STOCK_BALANCE_MISMATCH');
-  if(milli(p.issuedQuantity)<item.quantityMilliG||milli(p.remainingQuantity)<item.quantityMilliG)throw Error('STOCK_PENDING_MISMATCH');
-  const quantity=item.quantityMilliG/1000,pendingAfter=add(p.issuedQuantity,-quantity),remainingAfter=add(p.remainingQuantity,-quantity),completedAfter=add(p.completedQuantity,quantity);
-  changes.push({code:p.code,received:p.receivedQuantity,pendingBefore:p.issuedQuantity,pendingAfter,remainingBefore:p.remainingQuantity,remainingAfter,completedBefore:p.completedQuantity,completedAfter});
-  requests.push(stockNumberCell(source.tab.sheetId,p.sourceRow,5,pendingAfter),stockNumberCell(source.tab.sheetId,p.sourceRow,12,completedAfter),stockBalanceFormula(source.tab.sheetId,p.sourceRow));
+  const credit=p.precountedPendingQuantity??0,unknown=p.unverifiedPendingQuantity??0;
+  if(milli(precounted?credit:p.issuedQuantity-credit-unknown)<item.quantityMilliG||(!precounted&&milli(p.remainingQuantity)<item.quantityMilliG))throw Error('STOCK_PENDING_MISMATCH');
+  const unknownAfter=unknown;
+  const quantity=item.quantityMilliG/1000,pendingAfter=add(p.issuedQuantity,-quantity),remainingAfter=precounted?p.remainingQuantity:add(p.remainingQuantity,-quantity),completedAfter=precounted?p.completedQuantity:add(p.completedQuantity,quantity),creditAfter=precounted?add(credit,-quantity):credit;
+  changes.push({code:p.code,received:p.receivedQuantity,pendingBefore:p.issuedQuantity,pendingAfter,remainingBefore:p.remainingQuantity,remainingAfter,completedBefore:p.completedQuantity,completedAfter,precountedBefore:credit,precountedAfter:creditAfter,unverifiedBefore:unknown,unverifiedAfter:unknownAfter});
+  requests.push(stockNumberCell(source.tab.sheetId,p.sourceRow,5,pendingAfter));
+  if(precounted)requests.push(stockNumberCell(source.tab.sheetId,p.sourceRow,14,creditAfter));
+  else requests.push(stockNumberCell(source.tab.sheetId,p.sourceRow,12,completedAfter),stockBalanceFormula(source.tab.sheetId,p.sourceRow));
  }
  return {sourceSheet:source.tab.title,changes,requests};
 }
 export function verifyFlowPlan(plan:FlowPlan,source:FlowSource){
  const equal=(a:number|null|undefined,b:number|null)=>a===b||(typeof a==='number'&&typeof b==='number'&&milli(a)===milli(b));
- return plan.sourceSheet===source.tab.title&&plan.changes.every(c=>{const p=source.products.find(p=>p.code===c.code);return p&&equal(p.receivedQuantity,c.received)&&equal(p.issuedQuantity,c.pendingAfter)&&equal(p.remainingQuantity,c.remainingAfter)&&equal(p.completedQuantity,c.completedAfter)&&equal(source.rows[p.sourceRow-1]?.[13] as number,c.remainingAfter===null?null:(milli(c.remainingAfter)-milli(c.pendingAfter))/1000);});
+ return plan.sourceSheet===source.tab.title&&plan.changes.every(c=>{const p=source.products.find(p=>p.code===c.code);return p&&equal(p.receivedQuantity,c.received)&&equal(p.issuedQuantity,c.pendingAfter)&&equal(p.remainingQuantity,c.remainingAfter)&&equal(p.completedQuantity,c.completedAfter)&&equal(p.precountedPendingQuantity??0,c.precountedAfter??0)&&equal(p.unverifiedPendingQuantity??0,c.unverifiedAfter??0)&&equal((source.rows[p.sourceRow-1]?.[13]??null)===''?null:source.rows[p.sourceRow-1]?.[13] as number,c.remainingAfter===null||(c.unverifiedAfter??0)>0?null:(milli(c.remainingAfter)-milli(c.pendingAfter)+milli(c.precountedAfter??0))/1000);});
 }

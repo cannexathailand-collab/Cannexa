@@ -2,7 +2,7 @@ import {createHash,randomInt} from 'node:crypto';
 import {bangkokDay,dayStart,shiftDay} from './sales-dates';
 import {stockColumnStyles} from './stock-column-style';
 import type {StockRow} from './stock-import';
-import {stockAvailableQuantity,STOCK_AVAILABLE_HEADER} from './stock-available';
+import {stockAvailableQuantity,STOCK_AVAILABLE_HEADER,STOCK_PRECOUNTED_HEADER,STOCK_UNVERIFIED_HEADER} from './stock-available';
 
 export const stockHistoryTitle=(day:string)=>'ปิดยอด '+day;
 export function stockClosingDay(startDay:string,now=new Date()){
@@ -24,6 +24,8 @@ export function stockHistorySnapshot(day:string,source:Source,actor:string,sheet
   ...products.map(p=>['',p.name??'',p.code,p.costSatang===null?'':p.costSatang/100,p.receivedQuantity??'',p.issuedQuantity??'',p.remainingQuantity??'','',...Array.from({length:4},(_,i)=>{const v=source.rows[p.sourceRow-1]?.[i+8];return typeof v==='number'||typeof v==='string'?v:'';})])
  ];
  if(products.some(p=>p.completedQuantity!==undefined)){rows[0].push('ตัดสต๊อกสะสม (G)',STOCK_AVAILABLE_HEADER);rows[1].push('','');products.forEach((p,i)=>rows[i+2].push(p.completedQuantity??'',stockAvailableQuantity(p)??''));}
+ if(products.some(p=>p.precountedPendingQuantity!==undefined)){rows[0].push(STOCK_PRECOUNTED_HEADER);rows[1].push('');products.forEach((p,i)=>rows[i+2].push(p.precountedPendingQuantity??0));}
+ if(products.some(p=>p.unverifiedPendingQuantity!==undefined)){rows[0].push(STOCK_UNVERIFIED_HEADER);rows[1].push('');products.forEach((p,i)=>rows[i+2].push(p.unverifiedPendingQuantity??0));}
  const fingerprint=createHash('sha256').update(JSON.stringify({day,sourceSheet:source.tab.title,rows,products})).digest('hex');
  return {day,actor,sourceSheet:source.tab.title,capturedAt:source.readAt,products,rows,fingerprint,sheetId,sheetTitle:stockHistoryTitle(day)};
 }

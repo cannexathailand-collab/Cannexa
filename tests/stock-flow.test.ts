@@ -5,6 +5,7 @@ import {db} from '../src/lib/db';
 import {encryptGmail} from '../src/lib/gmail';
 import {activateStockFlow,queueStockOrder,syncStockReservation,assertNoStockReservations} from '../src/lib/stock-flow';
 import {reconcileAlreadyCounted} from '../src/lib/stock-reconcile';
+import {restorePendingOrders} from '../src/lib/stock-restore-pending';
 import {processStockDispatch} from '../src/lib/stock-dispatch';
 import {flowBaselinePlan,flowReservationPlan,flowDispatchPlan,STOCK_COMPLETED_HEADER} from '../src/lib/stock-flow-plan';
 import {stockRows} from '../src/lib/stock-import';
@@ -44,7 +45,7 @@ async function harness(t:TestContext){
   });
   replace(t,model,'updateMany',async({where,data}:any)=>{const rows=where[key]?.in?[...map.values()].filter((r:any)=>where[key].in.includes(r[key])):[find({where})];let count=0;for(const row of rows){if(row&&!(where.status?.not===row.status)){Object.assign(row,data);count++;}}return {count};});
  }
- const refresh=(sheet:any)=>{for(const i of sheet.formulas)sheet.rows[i][6]=Math.round((Number(sheet.rows[i][4])-Number(sheet.rows[i][12]))*1000)/1000;for(const i of sheet.availableFormulas)sheet.rows[i][13]=Math.round((Number(sheet.rows[i][6])-Number(sheet.rows[i][5]))*1000)/1000;};
+ const refresh=(sheet:any)=>{for(const i of sheet.formulas)sheet.rows[i][6]=Math.round((Number(sheet.rows[i][4])-Number(sheet.rows[i][12]))*1000)/1000;for(const i of sheet.availableFormulas)sheet.rows[i][13]=Number(sheet.rows[i][15]??0)>0?'':Math.round((Number(sheet.rows[i][6])-Number(sheet.rows[i][5])+Number(sheet.rows[i][14]??0))*1000)/1000;};
  replace(t,global,'fetch',async(input:any,init:any)=>{
   const url=String(input);if(url.includes('oauth2.googleapis.com'))return Response.json({access_token:'test',expires_in:3600});
   if(url.endsWith('/developerMetadata:search')){
@@ -170,5 +171,30 @@ test('LINE intake alone never records shipping history or deducts physical stock
  assert.equal((await processStockDispatch('new','owner')).status,'NOT_ELIGIBLE');assert.equal(h.dispatches.size,0);assert.ok(!h.events.includes('historyDb'));
  Object.assign(h.shipments.get('new'),{fulfillmentStatus:'DISPATCHED',dispatchedAt:new Date()});
  assert.equal((await processStockDispatch('new','owner')).status,'POSTED');assert.equal(h.rows[2][6],470);assert.equal(h.rows[2][5],0);
+});
+test('restore pending by order identity: precounted and new quantities share one pending total without double deduction',async t=>{
+ const h=await harness(t);h.addOrder('precounted',5);h.addOrder('normal',20);
+ for(const id of ['precounted','normal']){await queueStockOrder(id,true);await syncStockReservation(id);}
+ await reconcileAlreadyCounted({requestKey:'prior',orderIds:['precounted','normal']},'owner');
+ const request={requestKey:'restore',orderIds:['precounted','normal'],precountedOrderIds:['precounted'],reviewOrderIds:[]};
+ await restorePendingOrders(request,'owner');
+ for(const id of request.orderIds){assert.equal(h.reservations.get(id).generation,1);await syncStockReservation(id);}
+ assert.equal(h.rows[2][5],25);assert.equal(h.rows[2][14],5);assert.equal(h.rows[2][6],490);assert.equal(h.rows[2][13],470);
+ await restorePendingOrders(request,'owner');assert.equal(h.reservations.get('normal').status,'RESERVED');assert.equal(h.rows[2][5],25);
+ await assert.rejects(()=>reconcileAlreadyCounted({requestKey:'prior',orderIds:request.orderIds},'owner'),/SUPERSEDED/);
+ assert.equal((await processStockDispatch('precounted','owner')).status,'POSTED');
+ assert.equal(h.rows[2][5],20);assert.equal(h.rows[2][14],0);assert.equal(h.rows[2][6],490);assert.equal(h.rows[2][13],470);
+ assert.equal((await processStockDispatch('precounted','owner')).status,'POSTED');assert.equal(h.rows[2][6],490);
+ assert.equal((await processStockDispatch('normal','owner')).status,'POSTED');assert.equal(h.rows[2][6],470);assert.equal(h.rows[2][5],0);
+});
+test('unmatched legacy deductions remain visibly pending by order while preventing guessed availability and stock-out',async t=>{
+ const h=await harness(t);h.addOrder('uncertain',30);await queueStockOrder('uncertain',true);await syncStockReservation('uncertain');
+ await reconcileAlreadyCounted({requestKey:'prior',orderIds:['uncertain']},'owner');
+ await restorePendingOrders({requestKey:'restore',orderIds:['uncertain'],precountedOrderIds:[],reviewOrderIds:['uncertain']},'owner');
+ await syncStockReservation('uncertain');assert.equal(h.rows[2][5],30);assert.equal(h.rows[2][15],30);assert.equal(h.rows[2][13],'');assert.equal(h.rows[2][6],490);
+ assert.equal((await processStockDispatch('uncertain','owner')).status,'NEEDS_RECONCILIATION');assert.equal(h.dispatches.size,0);
+ await syncStockReservation('uncertain');assert.equal(h.rows[2][5],30);
+ h.addOrder('new',20);await queueStockOrder('new');await syncStockReservation('new');assert.equal(h.rows[2][5],50);
+ assert.equal((await processStockDispatch('new','owner')).status,'POSTED');assert.equal(h.rows[2][5],30);assert.equal(h.rows[2][6],470);assert.equal(h.rows[2][15],30);
 });
 
