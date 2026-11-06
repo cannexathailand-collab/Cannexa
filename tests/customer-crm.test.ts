@@ -36,6 +36,7 @@ test('lifetime averages include inactive months and do not invent repeat-purchas
  const summary=summarizeCustomerOrders(orders,[first,second]);
  const life=customerLifetimeStats(summary,new Date('2026-11-05'),new Date('2026-11-07'));
  assert.equal(life.months,3);assert.equal(life.monthlyAverageSatang,66667);assert.equal(life.averageGapDays,61);assert.equal(life.days,67);
+ assert.equal(life.currentMonthPurchases,1);assert.equal(life.currentMonthSpentSatang,100000);assert.equal(life.currentMonthProfitSatang,null);
  assert.equal(customerLifetimeStats(summarizeCustomerOrders([orders[0]],[first]),new Date('2026-09-01')).averageGapDays,null);
 });
 

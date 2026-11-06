@@ -195,6 +195,7 @@ model CrmPointRule {
 }
 model CrmTierSettings {
  id String @id
+ rules Json?
  vipTopPercent Int @default(20)
  goldTopPercent Int @default(40)
  silverTopPercent Int @default(70)
