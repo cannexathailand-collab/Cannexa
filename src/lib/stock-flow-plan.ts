@@ -3,7 +3,7 @@ import type {OrderStockItem} from './order-stock-items';
 import {STOCK_PRECOUNTED_HEADER,STOCK_UNVERIFIED_HEADER,STOCK_AVAILABLE_HEADER,STOCK_PENDING_HEADER,stockAvailableFormula} from './stock-available';
 export const STOCK_COMPLETED_HEADER='ตัดสต๊อกสะสม (G)';
 export type FlowSource={tab:{sheetId:number;title:string};rows:unknown[][];products:StockRow[]};
-export type FlowChange={code:string;received:number|null;pendingBefore:number|null;pendingAfter:number;remainingBefore:number|null;remainingAfter:number|null;completedBefore:number;completedAfter:number;precountedBefore?:number;precountedAfter?:number;unverifiedBefore?:number;unverifiedAfter?:number};
+export type FlowChange={code:string;received:number|null;receivedBefore?:number|null;pendingBefore:number|null;pendingAfter:number;remainingBefore:number|null;remainingAfter:number|null;completedBefore:number;completedAfter:number;precountedBefore?:number;precountedAfter?:number;unverifiedBefore?:number;unverifiedAfter?:number};
 export type FlowPlan={sourceSheet:string;changes:FlowChange[];requests:any[]};
 export const milli=(n:number)=>{const v=Math.round(n*1000);if(!Number.isSafeInteger(v)||Math.abs(v-n*1000)>0.0001)throw Error('INVALID_STOCK_QUANTITY');return v;};
 const add=(a:number,b:number)=>(milli(a)+milli(b))/1000;
@@ -63,11 +63,14 @@ export function flowDispatchPlan(items:OrderStockItem[],source:FlowSource,precou
   const credit=p.precountedPendingQuantity??0,unknown=p.unverifiedPendingQuantity??0;
   if(milli(precounted?credit:p.issuedQuantity-credit-unknown)<item.quantityMilliG)throw Error('STOCK_PENDING_MISMATCH');
   const unknownAfter=unknown;
-  const quantity=item.quantityMilliG/1000,pendingAfter=add(p.issuedQuantity,-quantity),remainingAfter=precounted?p.remainingQuantity:add(p.remainingQuantity,-quantity),completedAfter=precounted?p.completedQuantity:add(p.completedQuantity,quantity),creditAfter=precounted?add(credit,-quantity):credit;
-  changes.push({code:p.code,received:p.receivedQuantity,pendingBefore:p.issuedQuantity,pendingAfter,remainingBefore:p.remainingQuantity,remainingAfter,completedBefore:p.completedQuantity,completedAfter,precountedBefore:credit,precountedAfter:creditAfter,unverifiedBefore:unknown,unverifiedAfter:unknownAfter});
+  const quantity=item.quantityMilliG/1000,pendingAfter=add(p.issuedQuantity,-quantity),remainingAfter=precounted?p.remainingQuantity:add(p.remainingQuantity,-quantity),creditAfter=precounted?add(credit,-quantity):credit;
+  // Roll the latest balance into the next opening quantity. Keep only deductions
+  // backing unresolved legacy credits so their cancellation can still restore stock.
+  const completedAfter=creditAfter,receivedAfter=add(remainingAfter,creditAfter);
+  changes.push({code:p.code,received:receivedAfter,receivedBefore:p.receivedQuantity,pendingBefore:p.issuedQuantity,pendingAfter,remainingBefore:p.remainingQuantity,remainingAfter,completedBefore:p.completedQuantity,completedAfter,precountedBefore:credit,precountedAfter:creditAfter,unverifiedBefore:unknown,unverifiedAfter:unknownAfter});
   requests.push(stockNumberCell(source.tab.sheetId,p.sourceRow,5,pendingAfter));
   if(precounted)requests.push(stockNumberCell(source.tab.sheetId,p.sourceRow,14,creditAfter));
-  else requests.push(stockNumberCell(source.tab.sheetId,p.sourceRow,12,completedAfter),stockBalanceFormula(source.tab.sheetId,p.sourceRow));
+  requests.push(stockNumberCell(source.tab.sheetId,p.sourceRow,4,receivedAfter),stockNumberCell(source.tab.sheetId,p.sourceRow,12,completedAfter),stockBalanceFormula(source.tab.sheetId,p.sourceRow));
  }
  return {sourceSheet:source.tab.title,changes,requests};
 }

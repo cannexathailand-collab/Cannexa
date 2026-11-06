@@ -67,7 +67,7 @@ export async function processFlowStockDispatch(orderId:string,actor:string){
    const costItems=items.map(i=>{
     const p=source.products.find(p=>p.code===i.code)!,change=plan.changes.find(c=>c.code===i.code)!;
     const costSatang=Number((BigInt(p.costSatang!)*BigInt(i.quantityMilliG)+500n)/1000n);
-    return {...i,name:p.name,unitCostSatang:p.costSatang!,costSatang,issuedBefore:change.pendingBefore!,issuedAfter:change.pendingAfter,remainingBefore:change.remainingBefore!,remainingAfter:change.remainingAfter!};
+    return {...i,name:p.name,unitCostSatang:p.costSatang!,costSatang,issuedBefore:change.pendingBefore!,issuedAfter:change.pendingAfter,remainingBefore:change.remainingBefore!,remainingAfter:change.remainingAfter!,receivedBefore:p.receivedQuantity!,receivedAfter:change.received!,completedBefore:change.completedBefore,completedAfter:change.completedAfter};
    });
    const totalCostSatang=costItems.reduce((n,i)=>n+i.costSatang,0);
    if(!Number.isSafeInteger(totalCostSatang)||totalCostSatang>2147483647)return issue(['ต้นทุนรวมมากเกินขอบเขตที่รองรับ']);
@@ -83,7 +83,7 @@ export async function processFlowStockDispatch(orderId:string,actor:string){
    if(source.tab.title!==snapshot.sourceSheet)throw Error('STOCK_SOURCE_CHANGED');
    const plan=flowDispatchPlan(snapshot.items,source,enrolled?.precounted??false);
    return {...plan,snapshot:{...snapshot,processedAt:new Date().toISOString(),items:snapshot.items.map(i=>{
-    const c=plan.changes.find(c=>c.code===i.code)!;return {...i,issuedBefore:c.pendingBefore!,issuedAfter:c.pendingAfter,remainingBefore:c.remainingBefore!,remainingAfter:c.remainingAfter!};
+    const c=plan.changes.find(c=>c.code===i.code)!;return {...i,issuedBefore:c.pendingBefore!,issuedAfter:c.pendingAfter,remainingBefore:c.remainingBefore!,remainingAfter:c.remainingAfter!,receivedBefore:c.receivedBefore!,receivedAfter:c.received!,completedBefore:c.completedBefore,completedAfter:c.completedAfter};
    })}};
   });
   const done=await db.stockSheetOperation.findUniqueOrThrow({where:{id:'dispatch:'+orderId}});

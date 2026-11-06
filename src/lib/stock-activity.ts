@@ -11,6 +11,7 @@ export function presentStockActivity(log:AuditLog){
  if(log.action==='STOCK_DISPATCH_COST_RECORDED'&&typeof d.dispatchedAt==='string'){
   const dispatchedAt=new Date(d.dispatchedAt);
   if(Number.isFinite(+dispatchedAt))event.summary.push('จัดส่งจริง: '+dispatchedAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'}));
+  if(Array.isArray(d.items))for(const item of d.items)if(typeof item.receivedBefore==='number'&&typeof item.receivedAfter==='number')event.summary.push(item.code+' · ยอดตั้งต้นก่อนตัด: '+quantity(item.receivedBefore)+' → ยอดยกมารอบใหม่: '+quantity(item.receivedAfter));
  }
  if(['STOCK_RECEIVED','STOCK_PRODUCT_ADDED'].includes(log.action)){
   event.summary.push('จำนวนรับ: '+quantity(d.receivedBefore)+' → '+quantity(d.receivedAfter),'คงเหลือ: '+quantity(d.remainingBefore)+' → '+quantity(d.remainingAfter));

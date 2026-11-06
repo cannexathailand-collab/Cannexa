@@ -60,8 +60,14 @@ async function harness(t:TestContext){
    const requests=JSON.parse(init.body).requests;
    const archive=requests.some((r:any)=>r.appendCells&&r.appendCells.sheetId!==5);
    if(archive&&state.failArchive)throw Error('Archive unavailable');
-   const deduction=requests.some((r:any)=>r.updateCells?.start.sheetId===5&&r.updateCells.start.columnIndex===12&&r.updateCells.rows[0].values[0].userEnteredValue.numberValue>10);
-   if(deduction){assert.ok(state.events.includes('historyDb'));assert.ok(state.events.includes('archive'));state.events.push('deduction');}
+   const dispatchOperation=[...state.operations.values()].find(op=>op.kind==='DISPATCH'&&requests.some((r:any)=>r.createDeveloperMetadata?.developerMetadata.metadataValue===op.fingerprint));
+   const deduction=!!dispatchOperation;
+   if(dispatchOperation){
+    const orderId=dispatchOperation.id.slice('dispatch:'.length),dispatch=state.dispatches.get(orderId);
+    assert.ok(dispatch?.historySavedAt);
+    assert.ok([...state.sheets.values()].some(sheet=>sheet.title.startsWith('จัดส่ง ')&&sheet.rows.some((row:any[])=>row[9]===orderId)));
+    assert.ok(state.events.includes('historyDb'));assert.ok(state.events.includes('archive'));state.events.push('deduction');
+   }
    if(archive)state.events.push('archive');
    for(const r of requests){
     if(r.addSheet){const p=r.addSheet.properties;state.sheets.set(p.sheetId,{...p,rows:[],formulas:new Set<number>(),availableFormulas:new Set<number>()});}
@@ -83,7 +89,8 @@ async function harness(t:TestContext){
   const at=new Date(Date.now()+1000);state.orders.set(id,{id,messageKey:'message-'+id,orderNumber:'ORDER-'+id,sellerUsername:'admin-test',createdAt:at,eventAt:at,status:'TRANSFER_RECORDED',payment:'โอน',rawText:'รายการสินค้า\nA1 x '+quantity+' G\nยอดรวม: 300'});
   state.shipments.set(id,{orderId:id,tracking,fulfillmentStatus:'DISPATCHED',dispatchedAt:at,status:'MATCHED',reportAt:at,importId:'import1'});
  };
- await activateStockFlow('owner');return {...state,state,addOrder};
+ const applyRequests=async(requests:unknown[])=>{const result=await fetch('https://sheets.googleapis.com/v4/spreadsheets/test:batchUpdate',{method:'POST',body:JSON.stringify({requests})});assert.equal(result.ok,true);};
+ await activateStockFlow('owner');return {...state,state,addOrder,applyRequests};
 }
 test('baseline keeps physical balance, new products use independent completed totals, and malformed baseline fails closed',()=>{
  const rows=fresh(),plan=flowBaselinePlan(source(rows));assert.equal(plan.changes[0].remainingAfter,490);assert.equal(plan.changes[0].pendingAfter,0);assert.equal(plan.changes[0].completedAfter,10);
@@ -94,31 +101,37 @@ test('baseline keeps physical balance, new products use independent completed to
  rows[2][12]='taken';assert.throws(()=>flowBaselinePlan(source(rows)));
  const wrong=fresh();wrong[2][6]=10;assert.throws(()=>flowBaselinePlan(source(wrong)),/BASELINE_INCONSISTENT/);
 });
-test('reserve leaves balance unchanged; history is saved first; partial shipping clears only that order; repeated submission never deducts twice',async t=>{
+test('partial dispatch rolls the received balance forward after history, clears only that order, and preserves availability and archives on replay',async t=>{
  const h=await harness(t);assert.equal(h.rows[2][6],490);assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][12],10);
  assert.equal(h.state.workflow.activeFrom.toISOString(),'2026-01-01T00:00:00.000Z');
- const backup=[...h.sheets.values()].find(s=>s.title.startsWith('ก่อนเริ่มรอบ'));assert.equal(backup.rows[2][5],10);assert.equal(backup.rows[2][6],490);
+ const backup=[...h.sheets.values()].find(s=>s.title.startsWith('ก่อนเริ่มรอบ'));assert.equal(backup.rows[2][5],10);assert.equal(backup.rows[2][6],490);const baselineArchive=structuredClone(backup.rows);
  h.addOrder('o1');h.addOrder('o2',100);await queueStockOrder('o1');await queueStockOrder('o2');await syncStockReservation('o1');await syncStockReservation('o2');await syncStockReservation('o1');
  assert.equal(h.rows[2][5],300);assert.equal(h.rows[2][6],490);assert.equal(h.rows[2][13],190);await assert.rejects(()=>assertNoStockReservations(['A1']),/PENDING_ORDERS/);
- assert.equal((await processStockDispatch('o1','owner')).status,'POSTED');assert.equal(h.rows[2][5],100);assert.equal(h.rows[2][6],290);assert.equal(h.rows[2][12],210);assert.equal(h.rows[2][13],190);
+ assert.equal((await processStockDispatch('o1','owner')).status,'POSTED');assert.equal(h.rows[2][4],290);assert.equal(h.rows[2][5],100);assert.equal(h.rows[2][6],290);assert.equal(h.rows[2][12],0);assert.equal(h.rows[2][13],190);
+ const firstItem=h.dispatches.get('o1').historySnapshot.items[0];assert.equal(firstItem.receivedBefore,500);assert.equal(firstItem.receivedAfter,290);assert.equal(firstItem.completedBefore,10);assert.equal(firstItem.completedAfter,0);
  assert.ok(h.events.indexOf('historyDb')<h.events.indexOf('archive'));assert.ok(h.events.indexOf('archive')<h.events.indexOf('deduction'));
- assert.equal((await processStockDispatch('o1','owner')).status,'POSTED');assert.equal(h.rows[2][6],290);
- assert.equal((await processStockDispatch('o2','owner')).status,'POSTED');assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][6],190);assert.equal(h.rows[2][13],190);
+ assert.equal((await processStockDispatch('o1','owner')).status,'POSTED');assert.equal(h.rows[2][4],290);assert.equal(h.rows[2][6],290);assert.equal(h.rows[2][12],0);
+ assert.equal((await processStockDispatch('o2','owner')).status,'POSTED');assert.equal(h.rows[2][4],190);assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][6],190);assert.equal(h.rows[2][12],0);assert.equal(h.rows[2][13],190);
  const archived=[...h.sheets.values()].find(s=>s.title.startsWith('จัดส่ง '));assert.equal(archived.rows.length,3);assert.equal(h.dispatches.get('o1').totalCostSatang,30000);
- h.rows[2][3]=99;await processStockDispatch('o1','owner');assert.equal(h.dispatches.get('o1').totalCostSatang,30000);
+ assert.equal(archived.rows.slice(1).reduce((sum:number,row:any[])=>sum+row[6],0),300);assert.equal(archived.rows.slice(1).reduce((sum:number,row:any[])=>sum+row[8],0),450);
+ const shipmentArchive=structuredClone(archived.rows),historySnapshots=structuredClone([...h.dispatches.values()].map(d=>d.historySnapshot));
+ h.rows[2][3]=99;await processStockDispatch('o1','owner');await processStockDispatch('o2','owner');
+ assert.equal(h.dispatches.get('o1').totalCostSatang,30000);assert.equal(h.dispatches.get('o2').totalCostSatang,15000);
+ assert.deepEqual(archived.rows,shipmentArchive);assert.deepEqual(backup.rows,baselineArchive);assert.deepEqual([...h.dispatches.values()].map(d=>d.historySnapshot),historySnapshots);
+ assert.equal(h.events.filter(e=>e==='deduction').length,2);
 });
 test('missing cost waits; history database and Sheets archive failures do not deduct; later retries retain frozen cost',async t=>{
  const h=await harness(t);h.addOrder('o1');await queueStockOrder('o1');await syncStockReservation('o1');h.rows[2][3]=null;
  assert.equal((await processStockDispatch('o1','owner')).status,'WAITING_COST');assert.equal(h.rows[2][5],200);assert.equal(h.rows[2][6],490);assert.ok(!h.events.includes('historyDb'));
  h.rows[2][3]=1.5;h.state.failHistory=true;assert.equal((await processStockDispatch('o1','owner')).status,'NEEDS_REVIEW');assert.equal(h.rows[2][6],490);
- h.state.failHistory=false;h.state.failArchive=true;assert.equal((await processStockDispatch('o1','owner')).status,'HISTORY_SAVED');assert.equal(h.rows[2][5],200);assert.equal(h.rows[2][6],490);
- h.state.failArchive=false;h.rows[2][3]=9;assert.equal((await processStockDispatch('o1','owner')).status,'POSTED');assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][6],290);assert.equal(h.dispatches.get('o1').totalCostSatang,30000);
+ h.state.failHistory=false;h.state.failArchive=true;assert.equal((await processStockDispatch('o1','owner')).status,'HISTORY_SAVED');assert.equal(h.rows[2][4],500);assert.equal(h.rows[2][5],200);assert.equal(h.rows[2][6],490);assert.equal(h.rows[2][12],10);
+ h.state.failArchive=false;h.rows[2][3]=9;assert.equal((await processStockDispatch('o1','owner')).status,'POSTED');assert.equal(h.rows[2][4],290);assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][6],290);assert.equal(h.rows[2][12],0);assert.equal(h.dispatches.get('o1').totalCostSatang,30000);
 });
 test('lost deduction response and final database failure recover without duplicate history, changed cost or consuming another pending order',async t=>{
  const h=await harness(t);h.addOrder('o1');h.addOrder('o2',50);await queueStockOrder('o1');await queueStockOrder('o2');await syncStockReservation('o1');await syncStockReservation('o2');
- h.state.loseDeduction=true;assert.equal((await processStockDispatch('o1','owner')).status,'HISTORY_SAVED');assert.equal(h.rows[2][5],50);assert.equal(h.rows[2][6],290);
+ h.state.loseDeduction=true;assert.equal((await processStockDispatch('o1','owner')).status,'HISTORY_SAVED');assert.equal(h.rows[2][4],290);assert.equal(h.rows[2][5],50);assert.equal(h.rows[2][6],290);assert.equal(h.rows[2][12],0);
  h.state.failFinal=true;assert.equal((await processStockDispatch('o1','owner')).status,'HISTORY_SAVED');assert.equal(h.rows[2][6],290);
- assert.equal((await processStockDispatch('o1','owner')).status,'POSTED');assert.equal(h.rows[2][5],50);assert.equal(h.events.filter(e=>e==='deduction').length,1);
+ assert.equal((await processStockDispatch('o1','owner')).status,'POSTED');assert.equal(h.rows[2][4],290);assert.equal(h.rows[2][5],50);assert.equal(h.rows[2][12],0);assert.equal(h.events.filter(e=>e==='deduction').length,1);
  const archived=[...h.sheets.values()].find(s=>s.title.startsWith('จัดส่ง '));assert.equal(archived.rows.length,2);
  h.orders.get('o2').status='CANCELLED';await syncStockReservation('o2');assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][6],290);
  h.addOrder('duplicate',20,'TRACK-o1');assert.equal((await processStockDispatch('duplicate','owner')).status,'NEEDS_REVIEW');assert.equal(h.rows[2][6],290);
@@ -140,19 +153,36 @@ test('confirmed oversold shipments keep negative stock and positive costs, wait 
  assert.equal((await processStockDispatch('oversold','owner')).status,'NOT_ELIGIBLE');assert.equal(h.dispatches.size,0);
  Object.assign(h.shipments.get('oversold'),{fulfillmentStatus:'DISPATCHED',dispatchedAt:new Date()});
  assert.equal((await processStockDispatch('oversold','owner')).status,'POSTED');
- assert.equal(h.rows[2][4],0);assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][6],-200);assert.equal(h.rows[2][12],200);assert.equal(h.rows[2][13],-200);
+ assert.equal(h.rows[2][4],-200);assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][6],-200);assert.equal(h.rows[2][12],0);assert.equal(h.rows[2][13],-200);
  assert.equal(h.dispatches.get('oversold').totalCostSatang,30000);
  assert.ok(h.events.indexOf('historyDb')<h.events.indexOf('archive'));assert.ok(h.events.indexOf('archive')<h.events.indexOf('deduction'));
  h.addOrder('waiting-cost',50);await queueStockOrder('waiting-cost');await syncStockReservation('waiting-cost');h.rows[2][3]=null;
  assert.equal((await processStockDispatch('waiting-cost','owner')).status,'WAITING_COST');assert.equal(h.rows[2][6],-200);assert.equal(h.rows[2][5],50);assert.equal(h.rows[2][13],-250);
  h.rows[2][3]=2;
- assert.equal((await processStockDispatch('waiting-cost','owner')).status,'POSTED');assert.equal(h.rows[2][6],-250);assert.equal(h.rows[2][5],0);
+ assert.equal((await processStockDispatch('waiting-cost','owner')).status,'POSTED');assert.equal(h.rows[2][4],-250);assert.equal(h.rows[2][6],-250);assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][12],0);
  assert.equal(h.dispatches.get('waiting-cost').totalCostSatang,10000);
  h.rows[2][3]=9;await processStockDispatch('oversold','owner');await processStockDispatch('waiting-cost','owner');
  assert.equal(h.rows[2][6],-250);assert.equal(h.events.filter(e=>e==='deduction').length,2);
  const expenses=stockCostExpenses([...h.dispatches.values()]);assert.equal(expenses.length,2);assert.equal(expenses.reduce((total,e)=>total+e.amountSatang,0),40000);
  const restock=stockReceiptPlan(newStockProduct.parse({requestKey:'ad83d6b7-84b5-4b42-b45f-fdf7285c80cf',code:'A1',cost:9,quantity:250,prices:[]}),source(h.rows));
- assert.equal(restock.result.remainingAfter,0);assert.equal(restock.result.receivedAfter,250);
+ assert.equal(restock.result.remainingAfter,0);assert.equal(restock.result.receivedBefore,-250);assert.equal(restock.result.receivedAfter,0);
+ await h.applyRequests(restock.requests);assert.equal(h.rows[2][4],0);assert.equal(h.rows[2][6],0);assert.equal(h.rows[2][12],0);assert.equal(h.rows[2][13],0);
+ assert.equal(h.events.filter(e=>e==='deduction').length,2);
+});
+
+test('receiving a new round adds to the carried balance and subsequent dispatch preserves the remaining order',async t=>{
+ const h=await harness(t);h.addOrder('first',200);await queueStockOrder('first');await syncStockReservation('first');
+ assert.equal((await processStockDispatch('first','owner')).status,'POSTED');assert.equal(h.rows[2][4],290);assert.equal(h.rows[2][12],0);
+ const archived=[...h.sheets.values()].find(s=>s.title.startsWith('จัดส่ง ')),firstArchive=structuredClone(archived.rows[1]),firstHistory=structuredClone(h.dispatches.get('first').historySnapshot);
+ const receipt=stockReceiptPlan(newStockProduct.parse({requestKey:'ad83d6b7-84b5-4b42-b45f-fdf7285c80cf',code:'A1',cost:9,quantity:100,prices:[]}),source(h.rows));
+ assert.equal(receipt.result.receivedBefore,290);assert.equal(receipt.result.receivedAfter,390);assert.equal(receipt.result.remainingAfter,390);
+ await h.applyRequests(receipt.requests);assert.equal(h.rows[2][4],390);assert.equal(h.rows[2][6],390);assert.equal(h.rows[2][12],0);assert.equal(h.rows[2][13],390);
+ for(const [id,quantity]of [['next',50],['pending',25]]as const){h.addOrder(id,quantity);await queueStockOrder(id);await syncStockReservation(id);}
+ assert.equal(h.rows[2][5],75);assert.equal(h.rows[2][13],315);
+ assert.equal((await processStockDispatch('next','owner')).status,'POSTED');
+ assert.equal(h.rows[2][4],340);assert.equal(h.rows[2][5],25);assert.equal(h.rows[2][6],340);assert.equal(h.rows[2][12],0);assert.equal(h.rows[2][13],315);
+ assert.equal(h.reservations.get('pending').status,'RESERVED');assert.equal(h.events.filter(e=>e==='deduction').length,2);
+ assert.deepEqual(archived.rows[1],firstArchive);assert.deepEqual(h.dispatches.get('first').historySnapshot,firstHistory);assert.equal(h.dispatches.get('first').totalCostSatang,30000);
 });
 test('explicitly included old pending orders can dispatch later without backdating completed shipments',async t=>{
  const h=await harness(t);h.addOrder('old',20);
@@ -199,20 +229,25 @@ test('LINE intake alone never records shipping history or deducts physical stock
  Object.assign(h.shipments.get('new'),{fulfillmentStatus:'DISPATCHED',dispatchedAt:new Date()});
  assert.equal((await processStockDispatch('new','owner')).status,'POSTED');assert.equal(h.rows[2][6],470);assert.equal(h.rows[2][5],0);
 });
-test('restore pending by order identity: precounted and new quantities share one pending total without double deduction',async t=>{
- const h=await harness(t);h.addOrder('precounted',5);h.addOrder('normal',20);
- for(const id of ['precounted','normal']){await queueStockOrder(id,true);await syncStockReservation(id);}
- await reconcileAlreadyCounted({requestKey:'prior',orderIds:['precounted','normal']},'owner');
- const request={requestKey:'restore',orderIds:['precounted','normal'],precountedOrderIds:['precounted'],reviewOrderIds:[]};
+test('rolling dispatch retains only residual precounted credits and never deducts restored orders twice, including after a lost response',async t=>{
+ const h=await harness(t);h.addOrder('precounted',3);h.addOrder('precounted-later',5);h.addOrder('normal',20);
+ const orderIds=['precounted','precounted-later','normal'];
+ for(const id of orderIds){await queueStockOrder(id,true);await syncStockReservation(id);}
+ await reconcileAlreadyCounted({requestKey:'prior',orderIds},'owner');
+ const request={requestKey:'restore',orderIds,precountedOrderIds:['precounted','precounted-later'],reviewOrderIds:[]};
  await restorePendingOrders(request,'owner');
  for(const id of request.orderIds){assert.equal(h.reservations.get(id).generation,1);await syncStockReservation(id);}
- assert.equal(h.rows[2][5],25);assert.equal(h.rows[2][14],5);assert.equal(h.rows[2][6],490);assert.equal(h.rows[2][13],470);
- await restorePendingOrders(request,'owner');assert.equal(h.reservations.get('normal').status,'RESERVED');assert.equal(h.rows[2][5],25);
+ assert.equal(h.rows[2][5],28);assert.equal(h.rows[2][14],8);assert.equal(h.rows[2][6],490);assert.equal(h.rows[2][13],470);
+ await restorePendingOrders(request,'owner');assert.equal(h.reservations.get('normal').status,'RESERVED');assert.equal(h.rows[2][5],28);
  await assert.rejects(()=>reconcileAlreadyCounted({requestKey:'prior',orderIds:request.orderIds},'owner'),/SUPERSEDED/);
- assert.equal((await processStockDispatch('precounted','owner')).status,'POSTED');
- assert.equal(h.rows[2][5],20);assert.equal(h.rows[2][14],0);assert.equal(h.rows[2][6],490);assert.equal(h.rows[2][13],470);
- assert.equal((await processStockDispatch('precounted','owner')).status,'POSTED');assert.equal(h.rows[2][6],490);
- assert.equal((await processStockDispatch('normal','owner')).status,'POSTED');assert.equal(h.rows[2][6],470);assert.equal(h.rows[2][5],0);
+ h.state.loseDeduction=true;assert.equal((await processStockDispatch('precounted','owner')).status,'HISTORY_SAVED');
+ assert.equal(h.rows[2][4],495);assert.equal(h.rows[2][5],25);assert.equal(h.rows[2][14],5);assert.equal(h.rows[2][6],490);assert.equal(h.rows[2][12],5);assert.equal(h.rows[2][13],470);
+ assert.equal((await processStockDispatch('precounted','owner')).status,'POSTED');assert.equal(h.rows[2][4],495);assert.equal(h.rows[2][6],490);assert.equal(h.rows[2][12],5);
+ assert.equal((await processStockDispatch('normal','owner')).status,'POSTED');
+ assert.equal(h.rows[2][4],475);assert.equal(h.rows[2][5],5);assert.equal(h.rows[2][6],470);assert.equal(h.rows[2][12],5);assert.equal(h.rows[2][14],5);assert.equal(h.rows[2][13],470);
+ assert.equal((await processStockDispatch('precounted-later','owner')).status,'POSTED');
+ assert.equal(h.rows[2][4],470);assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][6],470);assert.equal(h.rows[2][12],0);assert.equal(h.rows[2][14],0);assert.equal(h.rows[2][13],470);
+ assert.equal(h.events.filter(e=>e==='deduction').length,3);assert.equal([...h.sheets.values()].find(s=>s.title.startsWith('จัดส่ง ')).rows.length,4);
 });
 test('unmatched legacy deductions remain visibly pending by order while preventing guessed availability and stock-out',async t=>{
  const h=await harness(t);h.addOrder('uncertain',30);await queueStockOrder('uncertain',true);await syncStockReservation('uncertain');

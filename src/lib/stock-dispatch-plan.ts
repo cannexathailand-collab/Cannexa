@@ -1,5 +1,5 @@
 import type {StockRow} from './stock-import';import type {OrderStockItem} from './order-stock-items';import {stockColumnStyles} from './stock-column-style';
-export type StockCostItem={code:string;name:string|null;quantityMilliG:number;unitCostSatang:number;costSatang:number;issuedBefore:number;issuedAfter:number;remainingBefore:number;remainingAfter:number};
+export type StockCostItem={code:string;name:string|null;quantityMilliG:number;unitCostSatang:number;costSatang:number;issuedBefore:number;issuedAfter:number;remainingBefore:number;remainingAfter:number;receivedBefore?:number;receivedAfter?:number;completedBefore?:number;completedAfter?:number};
 export type StockOutSnapshot={orderId:string;orderNumber:string;tracking:string;payment:string|null;dispatchedAt:string;sourceSheet:string;items:StockCostItem[];totalCostSatang:number;processedAt:string};
 const milli=(n:number)=>{const v=Math.round(n*1000);if(!Number.isSafeInteger(v)||Math.abs(n*1000-v)>0.0001)throw Error('ข้อมูลจำนวนในชีตไม่ถูกต้อง');return v;};
 export function stockDispatchPlan(order:{id:string;orderNumber:string;payment:string|null},shipment:{tracking:string;dispatchedAt:Date},items:OrderStockItem[],source:{tab:{sheetId:number;title:string};rows:unknown[][];products:StockRow[]},formulas:Map<string,{issued?:string;remaining?:string}>,metadataKey:string){
