@@ -1,3 +1,4 @@
+import {prepareStockDailyClose} from './stock-history';
 import {createHash} from 'node:crypto';import {z} from 'zod';import {db} from './db';import {stockCode} from './stock-code';import {stockDeleteFingerprint} from './stock-delete';import {stockGoogleClient,readStockSheet} from './stock-google';import type {StockRow} from './stock-import';
 export const stockDeleteBatchInput=z.object({requestKey:z.uuid(),confirmation:z.string().trim().pipe(z.literal('ลบ')),items:z.array(z.object({code:stockCode,fingerprint:z.string().regex(/^[a-f0-9]{64}$/)})).min(1).max(500).refine(items=>new Set(items.map(i=>i.code)).size===items.length)});
 type BatchInput=z.infer<typeof stockDeleteBatchInput>;
@@ -18,6 +19,7 @@ export async function deleteStockProducts(input:BatchInput,actor:string){return 
  // Commit the pre-delete snapshot independently before the external atomic write.
  // A lost Google response or an outer transaction rollback must not lose history.
  if(!saved)saved=await db.stockDeleteBatch.create({data:{id:input.requestKey,fingerprint,actor,sourceSheet:source.tab.title,items:products}});
+ await prepareStockDailyClose(client,actor);
  await client(':batchUpdate',{method:'POST',body:JSON.stringify({requests:[...stockDeleteRanges(products,source.tab.sheetId),{createDeveloperMetadata:{developerMetadata:{metadataKey:key,metadataValue:JSON.stringify({fingerprint,count:products.length,sourceSheet:source.tab.title}),location:{spreadsheet:true},visibility:'DOCUMENT'}}}]})});
  const after=await readStockSheet(client);if(after.products.some(p=>input.items.some(item=>item.code===p.code)))throw Error('STOCK_DELETE_NOT_CONFIRMED');
  return finish(false);

@@ -9,3 +9,5 @@ test('lost append response is recovered from source marker without a second prod
  try{const input=newStockProduct.parse({requestKey:'ad83d6b7-84b5-4b42-b45f-fdf7285c80cf',code:'NT21',name:'Example',cost:18,quantity:100,prices:[]});await assert.rejects(()=>appendStockProduct(input,'owner'),/Network response lost/);assert.equal((await appendStockProduct(input,'owner')).replayed,true);assert.equal(writes,1);assert.equal(audit.size,1);await appendStockProduct(input,'owner');assert.equal(audit.size,1);const received=await appendStockProduct({...input,name:'',cost:null,requestKey:'18b03bf1-3b71-494c-bf12-7816f76889f6'},'owner');assert.equal(received.mode,'RECEIVED');assert.equal(writes,2);assert.equal(rows[2][4],200);assert.equal(rows[2][5],0);assert.equal(rows[2][6],200);assert.equal(rows.length,3);}finally{global.fetch=originalFetch;(db.stockSheetsConnection as any).findUnique=originalConnection;(db as any).$transaction=originalTransaction;if(previousSecret===undefined)delete process.env.SESSION_SECRET;else process.env.SESSION_SECRET=previousSecret;}
 });
 
+
+(db.stockHistoryConfig as any).findUnique=async()=>null;

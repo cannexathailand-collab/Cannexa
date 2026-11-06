@@ -12,3 +12,5 @@ test('bulk delete aborts all on a stale item, keeps durable snapshots, and recov
  await assert.rejects(()=>deleteStockProducts(input,'owner'),/Response lost/);assert.equal(batches.get(requestKey).status,'PENDING');assert.equal(batches.get(requestKey).items.length,2);assert.deepEqual(rows.slice(2).map(r=>r[2]),['B1','D1']);assert.equal(audits.size,0);
  assert.equal((await deleteStockProducts(input,'owner')).replayed,true);assert.equal(batches.get(requestKey).status,'COMPLETED');assert.equal(audits.size,2);assert.equal((await deleteStockProducts(input,'owner')).count,2);assert.equal(writes,1);assert.equal(rows[2][4],30);assert.equal(rows[3][4],40);assert.equal(audits.get('stock-delete-batch:'+requestKey+':A1').details.snapshot.remainingQuantity,20);
 });
+
+(db.stockHistoryConfig as any).findUnique=async()=>null;

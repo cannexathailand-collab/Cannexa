@@ -20,3 +20,5 @@ test('missing cost is durable, cost fill retries same order, lost Google respons
  rows[2][3]=1.5;assert.equal((await processStockDispatch('o1','owner')).status,'NEEDS_REVIEW');assert.equal(rows[2][6],290);assert.equal((await processStockDispatch('o1','owner')).status,'POSTED');rows[2][3]=99;assert.equal((await processStockDispatch('o1','owner')).status,'POSTED');assert.equal(writes,1);assert.equal(parents.get('o1').totalCostSatang,30000);assert.equal(audits.size,1);assert.equal((await processStockDispatch('o2','owner')).status,'NEEDS_REVIEW');assert.equal(writes,1);
  const costInput={requestKey:'ad83d6b7-84b5-4b42-b45f-fdf7285c80cf',code:'A1',expectedCostSatang:9900,cost:2};assert.equal((await updateStockCost(costInput,'owner')).replayed,false);assert.equal(rows[2][3],2);assert.equal((await updateStockCost(costInput,'owner')).replayed,true);assert.equal(writes,2);assert.equal(parents.get('o1').totalCostSatang,30000);await assert.rejects(()=>updateStockCost({...costInput,requestKey:'ad83d6b7-84b5-4b42-b45f-fdf7285c80ce'},'owner'),/PRODUCT_CHANGED/);
 });
+
+(db.stockHistoryConfig as any).findUnique=async()=>null;

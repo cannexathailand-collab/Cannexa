@@ -299,6 +299,27 @@ model GmailOAuthAttempt {
  consumedAt DateTime?
 }
 
+model StockHistoryConfig {
+ id String @id
+ enabled Boolean @default(true)
+ startDay String
+ createdAt DateTime @default(now())
+}
+model StockDailySnapshot {
+ day String @id
+ actor String
+ sourceSheet String
+ capturedAt DateTime
+ products Json
+ rows Json
+ fingerprint String
+ sheetId Int @unique
+ sheetTitle String @unique
+ status String @default("PENDING")
+ exportedAt DateTime?
+ createdAt DateTime @default(now())
+}
+
 model StockProduct {
  issuedQuantity Decimal? @db.Decimal(18, 3)
  remainingQuantity Decimal? @db.Decimal(18, 3)

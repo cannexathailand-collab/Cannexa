@@ -1,3 +1,4 @@
+import {prepareStockDailyClose} from './stock-history';
 import {receiptKey,recoverReceipt,stockReceiptPlan,type StockReceiptResult} from './stock-receipt';
 import {createSign} from 'node:crypto';import {z} from 'zod';import {db} from './db';import {decryptGmail} from './gmail';import {stockRows} from './stock-import';import {latestStockTab,type NewStockProduct} from './stock-product-input';
 import {stockFederationConfig,federatedStockToken} from './stock-federation';
@@ -28,7 +29,8 @@ export async function appendStockProduct(input:NewStockProduct,actor:string){
   const before=await readStockSheet(client),existing=before.products.find(p=>p.code===input.code);let formula:string|undefined;
   if(existing){const cell=await client('/values/'+encodeURIComponent("'"+before.tab.title+"'!G"+existing.sourceRow)+'?valueRenderOption=FORMULA');const value=cell.values?.[0]?.[0];if(typeof value==='string'&&value.startsWith('='))formula=value;}
   const plan=stockReceiptPlan(input,before,formula);
-  await client(':batchUpdate',{method:'POST',body:JSON.stringify({requests:plan.requests})});
+  await prepareStockDailyClose(client,actor);
+ await client(':batchUpdate',{method:'POST',body:JSON.stringify({requests:plan.requests})});
   const after=await readStockSheet(client),written=after.products.find(p=>p.code===input.code);
   if(!written||written.receivedQuantity!==plan.result.receivedAfter||written.remainingQuantity!==plan.result.remainingAfter||written.name!==plan.result.nameAfter||written.costSatang!==plan.result.costAfter)throw new Error('STOCK_WRITE_NOT_CONFIRMED');
   await audit(plan.result);return {...plan.result,replayed:false};
