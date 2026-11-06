@@ -2,6 +2,7 @@ import {stockAvailableFormula,STOCK_PRECOUNTED_HEADER,STOCK_UNVERIFIED_HEADER} f
 import {STOCK_COMPLETED_HEADER} from './stock-flow-plan';
 import {createHash} from 'node:crypto';import type {NewStockProduct} from './stock-product-input';import {stockSheetRow} from './stock-product-input';import type {StockRow} from './stock-import';
 import {stockColumnStyles} from './stock-column-style';
+import {stockNaturalSortRequests} from './stock-sort';
 export type StockReceiptResult={code:string;mode:'CREATED'|'RECEIVED';quantity:number;receivedBefore:number|null;receivedAfter:number|null;remainingBefore:number|null;remainingAfter:number|null;sourceSheet:string;fingerprint:string;nameBefore:string|null;nameAfter:string|null;costBefore:number|null;costAfter:number|null};
 export const receiptKey=(requestKey:string)=>'cannexa-stock-receipt-'+requestKey;
 export const receiptFingerprint=(input:NewStockProduct)=>createHash('sha256').update(JSON.stringify(input)).digest('hex');
@@ -14,7 +15,7 @@ export function stockReceiptPlan(input:NewStockProduct,source:{tab:{sheetId:numb
  const numberCell=(columnIndex:number,n:number)=>({updateCells:{start:{sheetId:source.tab.sheetId,rowIndex:existing!.sourceRow-1,columnIndex},rows:[{values:[{userEnteredValue:{numberValue:n}}]}],fields:'userEnteredValue'}});
  if(existing){if(existing.costSatang===null&&input.cost!==null)requests.push(numberCell(3,input.cost));if(!existing.name&&input.name)requests.push({updateCells:{start:{sheetId:source.tab.sheetId,rowIndex:existing.sourceRow-1,columnIndex:1},rows:[{values:[{userEnteredValue:{stringValue:input.name}}]}],fields:'userEnteredValue'}});if(input.quantity>0){requests.push(numberCell(4,receivedAfter!));if(!remainingFormula?.startsWith('='))requests.push(numberCell(6,remainingAfter!));}}
  else{const values:any[]=stockSheetRow(input,source.rows[1]?.slice(8,12)).map(value=>({userEnteredValue:typeof value==='number'?{numberValue:value}:{stringValue:value}}));if(source.rows[0]?.[12]===STOCK_COMPLETED_HEADER){values.push({userEnteredValue:{numberValue:0}},{userEnteredValue:{formulaValue:stockAvailableFormula}});values[6]={userEnteredValue:{formulaValue:'=INDEX(E:E,ROW())-INDEX(M:M,ROW())'}};}if(source.rows[0]?.[14]===STOCK_PRECOUNTED_HEADER)values.push({userEnteredValue:{numberValue:0}});if(source.rows[0]?.[15]===STOCK_UNVERIFIED_HEADER)values.push({userEnteredValue:{numberValue:0}});requests.push({appendCells:{sheetId:source.tab.sheetId,rows:[{values}],fields:'userEnteredValue'}});}
- requests.push({sortRange:{range:{sheetId:source.tab.sheetId,startRowIndex:2,endRowIndex:Math.max(source.rows.length,3)+(existing?0:1),startColumnIndex:0,endColumnIndex:source.tab.gridProperties?.columnCount??26},sortSpecs:[{dimensionIndex:2,sortOrder:'ASCENDING'}]}});
+ requests.push(...stockNaturalSortRequests(source,existing?undefined:input.code));
  requests.push(...stockColumnStyles(source.tab.sheetId,Math.max(source.rows.length,3)+(existing?0:1)));
  requests.push({createDeveloperMetadata:{developerMetadata:{metadataKey:receiptKey(input.requestKey),metadataValue:JSON.stringify(result),location:{spreadsheet:true},visibility:'DOCUMENT'}}});
  return {requests,result};

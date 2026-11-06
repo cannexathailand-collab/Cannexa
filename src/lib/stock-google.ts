@@ -18,7 +18,22 @@ export async function stockGoogleClient(override?:StockConnectionConfig){const c
  return async(path:string,init:RequestInit={})=>{const response=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+STOCK_SHEET_ID+path,{...init,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},cache:'no-store',signal:AbortSignal.timeout(10000)});if(!response.ok){if(connection&&response.status===401)cache.delete(connection.revision);const error=await response.json().catch(()=>null);const disabled=Array.isArray(error?.error?.details)&&error.error.details.some((d:{reason?:string})=>d.reason==='SERVICE_DISABLED');throw new Error(disabled?'STOCK_SHEETS_API_DISABLED':response.status===403?'STOCK_SHEET_PERMISSION_DENIED':'STOCK_SHEET_REQUEST_FAILED');}return response.json();};
 }
 type GoogleClient=Awaited<ReturnType<typeof stockGoogleClient>>;
-export async function readStockSheet(client?:GoogleClient){const request=client??await stockGoogleClient();const metadata=await request('?fields=sheets(properties(sheetId,title,gridProperties(rowCount,columnCount)))');const tab=latestStockTab(metadata.sheets.map((s:{properties:Parameters<typeof latestStockTab>[0][number]})=>s.properties));const limit=tab.gridProperties?.rowCount??1000;if(limit>10000)throw new Error('STOCK_SHEET_TOO_LARGE');const result=await request('/values/'+encodeURIComponent("'"+tab.title+"'!A1:Z"+limit)+'?valueRenderOption=UNFORMATTED_VALUE');const rows:unknown[][]=result.values??[];if(rows[0]?.[2]!=='รายการ'||rows[0]?.[4]!=='จำนวนรับ'||!['จำนวนจ่าย','จำนวนรอจ่าย'].includes(String(rows[0]?.[5]))||rows[0]?.[6]!=='จำนวนคงเหลือ')throw new Error('STOCK_HEADERS_CHANGED');return {tab,rows,products:stockRows(rows,{costColumnConfirmed:true}),readAt:new Date()};}
+export async function readStockSheet(client?:GoogleClient){
+ const request=client??await stockGoogleClient();
+ const metadata=await request('?fields=sheets(properties(sheetId,title,gridProperties(rowCount,columnCount)))');
+ const tab=latestStockTab(metadata.sheets.map((s:{properties:Parameters<typeof latestStockTab>[0][number]})=>s.properties));
+ const limit=tab.gridProperties?.rowCount??1000;if(limit>10000)throw new Error('STOCK_SHEET_TOO_LARGE');
+ const width=tab.gridProperties?.columnCount??26;if(!Number.isInteger(width)||width<12||width>18278)throw Error('STOCK_SHEET_COLUMNS_INVALID');
+ let lastColumn='';for(let n=width;n>0;n=Math.floor((n-1)/26))lastColumn=String.fromCharCode(65+(n-1)%26)+lastColumn;
+ const range='/values/'+encodeURIComponent("'"+tab.title+"'!A1:"+lastColumn+limit);
+ const [values,formulas]=await Promise.all([request(range+'?valueRenderOption=UNFORMATTED_VALUE'),request(range+'?valueRenderOption=FORMULA')]);
+ const numericRows:unknown[][]=values.values??[],formulaRows:unknown[][]=formulas.values??[];
+ // Blank-result formulas still occupy rows for appendCells. Use them only to
+ // preserve the physical extent; product parsing must use calculated values.
+ const rows:unknown[][]=Array.from({length:Math.max(numericRows.length,formulaRows.length)},(_,index)=>numericRows[index]??[]);
+ if(rows[0]?.[2]!=='รายการ'||rows[0]?.[4]!=='จำนวนรับ'||!['จำนวนจ่าย','จำนวนรอจ่าย'].includes(String(rows[0]?.[5]))||rows[0]?.[6]!=='จำนวนคงเหลือ')throw new Error('STOCK_HEADERS_CHANGED');
+ return {tab,rows,products:stockRows(rows,{costColumnConfirmed:true}),readAt:new Date()};
+}
 export async function appendStockProduct(input:NewStockProduct,actor:string){
  return db.$transaction(async tx=>{
   await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended($1,0))','stock-sheet-add');

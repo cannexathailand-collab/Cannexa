@@ -1,6 +1,32 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {generateKeyPairSync,createVerify} from 'node:crypto';import {serviceAssertion,readStockSheet,appendStockProduct,stockServiceConfig} from '../src/lib/stock-google';import {encryptGmail} from '../src/lib/gmail';import {db} from '../src/lib/db';import {newStockProduct} from '../src/lib/stock-product-input';
+import {stockReceiptPlan} from '../src/lib/stock-receipt';
 test('service account assertions are short-lived, signed, and request Sheets access only',()=>{const {privateKey,publicKey}=generateKeyPairSync('rsa',{modulusLength:2048});const config=stockServiceConfig.parse({type:'service_account',client_email:'test@example.iam.gserviceaccount.com',private_key:privateKey.export({type:'pkcs8',format:'pem'})});const jwt=serviceAssertion(config,1000000),[head,body,signature]=jwt.split('.'),payload=JSON.parse(Buffer.from(body,'base64url').toString());assert.equal(payload.exp-payload.iat,3600);assert.equal(payload.scope,'https://www.googleapis.com/auth/spreadsheets');assert.ok(createVerify('RSA-SHA256').update(head+'.'+body).verify(publicKey,signature,'base64url'));});
 test('live stock reads derive values from the latest sheet and reject changed column headers',async()=>{let valid=true;const client=async(path:string)=>path.startsWith('?')?{sheets:[{properties:{sheetId:5,title:'5.11.69',gridProperties:{rowCount:200}}}]}:{values:[[null,null,valid?'รายการ':'changed',null,'จำนวนรับ','จำนวนจ่าย','จำนวนคงเหลือ'],[],[null,'Example','NT1',18,100,2,98]]};assert.equal((await readStockSheet(client)).products[0].remainingQuantity,98);valid=false;await assert.rejects(()=>readStockSheet(client),/HEADERS_CHANGED/);});
+test('stock source includes all existing columns and trailing nonproduct rows before appending and sorting',async()=>{
+ let requested='';const tail=Array(27).fill(null);tail[26]='existing note';
+ const rows=[[null,null,'รายการ',null,'จำนวนรับ','จำนวนจ่าย','จำนวนคงเหลือ'],[],[null,'Example','CG2',1,100,0,100],tail];
+ const source=await readStockSheet(async(path:string)=>{if(path.startsWith('?'))return {sheets:[{properties:{sheetId:5,title:'5.11.69',gridProperties:{rowCount:200,columnCount:27}}}]};requested=decodeURIComponent(path);return {values:rows};});
+ assert.match(requested,/A1:AA200/);assert.equal(source.rows.length,4);assert.equal(source.rows[3][26],'existing note');assert.equal(source.products.length,1);
+});
+
+test('blank-result formulas preserve the append row while product parsing uses calculated values',async()=>{
+ const rows=[[null,null,'รายการ',null,'จำนวนรับ','จำนวนจ่าย','จำนวนคงเหลือ'],[],[null,'Example','CG2',1,100,0,100]];
+ const formulaProduct=[null,'Example','="CG2"',1,'=50+50',0,'=E3-F3'];
+ const tail=Array(27).fill(null);tail[26]='=""';
+ const formulas=[rows[0],rows[1],formulaProduct,[],[],tail],requests:string[]=[];
+ const source=await readStockSheet(async(path:string)=>{
+  if(path.startsWith('?'))return {sheets:[{properties:{sheetId:5,title:'5.11.69',gridProperties:{rowCount:200,columnCount:27}}}]};
+  requests.push(decodeURIComponent(path));return {values:path.endsWith('=FORMULA')?formulas:rows};
+ });
+ assert.equal(requests.length,2);assert.ok(requests.every(path=>path.includes('A1:AA200')));
+ assert.ok(requests.some(path=>path.endsWith('=FORMULA')));assert.ok(requests.some(path=>path.endsWith('=UNFORMATTED_VALUE')));
+ assert.equal(source.rows.length,6);assert.deepEqual(source.rows.slice(3),[[],[],[]]);assert.equal(rows.length,3);
+ assert.equal(source.products.length,1);assert.equal(source.products[0].code,'CG2');assert.equal(source.products[0].receivedQuantity,100);
+ const plan=stockReceiptPlan(newStockProduct.parse({requestKey:'ad83d6b7-84b5-4b42-b45f-fdf7285c80cf',code:'CG1',name:'New',cost:1,quantity:10,prices:[]}),source);
+ const rank=(plan.requests.find((r:any)=>r.updateCells?.start.columnIndex===27) as any).updateCells;
+ assert.deepEqual(rank.rows.map((r:any)=>r.values[0].userEnteredValue.numberValue),[2,3,4,5,1]);
+ assert.equal((plan.requests.find((r:any)=>r.sortRange) as any).sortRange.range.endRowIndex,7);
+});
 test('lost append response is recovered from source marker without a second product or duplicate audit',async()=>{
  const previousSecret=process.env.SESSION_SECRET;process.env.SESSION_SECRET='stock-test-secret';const originalFetch=global.fetch,originalConnection=db.stockSheetsConnection.findUnique,originalTransaction=db.$transaction;
  const {privateKey}=generateKeyPairSync('rsa',{modulusLength:2048});const config={type:'service_account',client_email:'test@example.iam.gserviceaccount.com',private_key:privateKey.export({type:'pkcs8',format:'pem'})};const rows:unknown[][]=[[null,null,'รายการ',null,'จำนวนรับ','จำนวนจ่าย','จำนวนคงเหลือ'],[]];let writes=0,lose=true;const audit=new Map(),metadata=new Map();

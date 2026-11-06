@@ -1,4 +1,5 @@
 import {stockAvailableQuantity} from '@/lib/stock-available';
+import {compareStockCodes} from '@/lib/stock-sort';
 import {StockDispatchHistory} from '@/app/stock-dispatch-history';
 import Link from 'next/link';
 import {requireAdminPage} from '@/lib/auth';
@@ -22,7 +23,7 @@ export default async function StockHistory({searchParams}:{searchParams:Promise<
  const today=bangkokDay(new Date()),latestClosedDay=shiftDay(today,-1);
  const day=stockHistoryDate(params.day,today),q=(params.q??'').trim().slice(0,100),filter=stockFilter(params.filter);
  const snapshot=await db.stockDailySnapshot.findUnique({where:{day}});
- const all=snapshot?.products as StockRow[]|undefined,products=filterStockProducts(all??[],q,filter);
+ const all=snapshot?.products as StockRow[]|undefined,products=filterStockProducts(all??[],q,filter).sort((a,b)=>compareStockCodes(a.code,b.code));
  const pendingMode=all?.some(p=>p.completedQuantity!==undefined);
  const baseline=await db.stockSheetOperation.findUnique({where:{id:'baseline-v1'}});
  const backup=(baseline?.snapshot as any)?.archive;

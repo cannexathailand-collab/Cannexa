@@ -1,4 +1,5 @@
 import {stockAvailableQuantity} from '@/lib/stock-available';
+import {compareStockCodes} from '@/lib/stock-sort';
 import Link from 'next/link';
 import {StockReservationStatus} from '@/app/stock-reservation-status';
 import {StockActivity} from '@/app/stock-activity';
@@ -24,7 +25,7 @@ export default async function Stock({searchParams}:{searchParams:Promise<{q?:str
  const priceColumnsByCode=new Map<string,StockPriceColumn[]>();let products:StockRow[]=[],sourceSheet='',readAt:Date|null=null,live=false,sourceError=false;
  if(connection){try{const source=await readStockSheet();products=source.products;sourceSheet=source.tab.title;readAt=source.readAt;for(const p of source.products)priceColumnsByCode.set(p.code,stockPriceColumns(source.rows[p.sourceRow-1]??[],source.rows[1]??[]));live=true;}catch{sourceError=true;}}
  if(!live){const cached=await db.stockProduct.findMany({orderBy:[{sourceRow:'asc'},{code:'asc'}]});products=cached.map(p=>({code:p.code,name:p.name,costSatang:p.costSatang,sourceRow:p.sourceRow,receivedQuantity:p.receivedQuantity?.toNumber()??null,issuedQuantity:p.issuedQuantity?.toNumber()??null,remainingQuantity:p.remainingQuantity?.toNumber()??null,salePrices:(p.salePrices as StockPrice[])}));sourceSheet=cached[0]?.sourceSheet??'';readAt=cached[0]?.importedAt??null;}
- products.sort((a,b)=>a.code.localeCompare(b.code,'en'));
+ products.sort((a,b)=>compareStockCodes(a.code,b.code));
  const catalog=products.map(({code,name,costSatang,receivedQuantity,issuedQuantity,remainingQuantity,salePrices,completedQuantity,precountedPendingQuantity,unverifiedPendingQuantity})=>({code,name,costSatang,receivedQuantity,issuedQuantity,remainingQuantity,salePrices,completedQuantity,precountedPendingQuantity,unverifiedPendingQuantity}));
  const total=products.length;products=filterStockProducts(products,q,filter);
  return <><div className="intro sales-header"><div><div className="eyebrow">บัญชี / สต๊อก</div><h1>สต๊อกสินค้า</h1><p className="muted">รหัสสินค้า ชื่อสินค้า จำนวนรับ–รอจ่าย คงเหลือ ต้นทุน และราคาขาย</p></div><div className="actions"><Link className="button secondary" href="/admin/stock/history">รายการย้อนหลัง</Link><StockAddForm requestKey={randomUUID()} enabled={live} catalog={catalog}/></div></div>

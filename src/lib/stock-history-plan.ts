@@ -1,4 +1,5 @@
 import {createHash,randomInt} from 'node:crypto';
+import {compareStockCodes} from './stock-sort';
 import {bangkokDay,dayStart,shiftDay} from './sales-dates';
 import {stockColumnStyles} from './stock-column-style';
 import type {StockRow} from './stock-import';
@@ -17,7 +18,7 @@ type Source={tab:{sheetId:number;title:string};rows:unknown[][];products:StockRo
 export function stockHistorySnapshot(day:string,source:Source,actor:string,sheetId=randomInt(1,2_000_000_000)){
  dayStart(day);
  if(day>=bangkokDay(source.readAt))throw Error('STOCK_DAY_NOT_FINISHED');
- const products=source.products.map(p=>({...p,salePrices:p.salePrices.map(price=>({...price}))})).sort((a,b)=>a.code.localeCompare(b.code,'en'));
+ const products=source.products.map(p=>({...p,salePrices:p.salePrices.map(price=>({...price}))})).sort((a,b)=>compareStockCodes(a.code,b.code));
  const rows:(string|number)[][]=[
   ['ยอดปิด '+day,'ชื่อสินค้า','รายการ','ต้นทุน (บาท/G)','จำนวนรับ (G)',source.products.some(p=>p.completedQuantity!==undefined)?'จำนวนรอจ่าย (G)':'จำนวนจ่าย (G)','คงเหลือ (G)','','ราคาขาย (บาท)','','',''],
   [source.readAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'}),'','','','','','','',...Array.from({length:4},(_,i)=>String(source.rows[1]?.[i+8]??''))],
