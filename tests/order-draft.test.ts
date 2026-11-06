@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {defaultOrderTemplate,emptyOrderDraft,extractOrderDraft,renderOrderDraft,orderDraftIssues} from '../src/lib/order-draft';
+import {defaultOrderTemplate,emptyOrderDraft,extractOrderDraft,renderOrderDraft,orderDraftIssues,differentDraftAddress} from '../src/lib/order-draft';
 import {orderTemplateIssues} from '../src/lib/order-templates';
 import {parseOrderText} from '../src/lib/order-parser';
 import {quotedTotal} from '../src/lib/shipment-matching';
@@ -18,4 +18,19 @@ test('custom templates must preserve fields and an order format accepted by the 
  assert.ok(orderTemplateIssues(defaultOrderTemplate.replace('{{เบอร์โทร}}','')).length>0);
  assert.ok(orderTemplateIssues('หัวข้อก่อน\n'+defaultOrderTemplate).length>0);
  assert.ok(orderTemplateIssues(defaultOrderTemplate+'\nยอดรวม: {{ยอดตามข้อความ}}').length>0);
+});
+test('address comparison ignores formatting and flags a genuinely different destination',()=>{
+ assert.equal(differentDraftAddress('10 ต.บางรัก\nจ.กรุงเทพ 10200','10 ตำบลบางรัก จังหวัดกรุงเทพ 10200'),false);
+ assert.equal(differentDraftAddress('20 ถนนใหม่ กรุงเทพ 10100','10 ถนนเดิม กรุงเทพ 10200'),true);
+ assert.equal(differentDraftAddress('','10 ถนนเดิม'),false);
+ const parsed=extractOrderDraft('ลูกค้า\n0812345678\n10 ถนนทดสอบ\nกรุงเทพ 10200\nสินค้า: CG13 20g');assert.equal(parsed.address,'10 ถนนทดสอบ\nกรุงเทพ 10200');
+});
+test('raw inline shipping contact, unlabelled SKU and COD amount are separated into columns',()=>{
+ const parsed=extractOrderDraft('ส่งน.ส.ทดสอบ ใจดี 12/34 ถ.ทดลอง1 ต.ในเมือง อ.เมือง จ.บุรีรัมย์ 31000 โทร0812345678\n\nTM2 50g\n\nCod 350\n\nL. demo999');
+ assert.equal(parsed.recipient,'น.ส.ทดสอบ ใจดี');assert.equal(parsed.address,'12/34 ถ.ทดลอง1 ต.ในเมือง อ.เมือง จ.บุรีรัมย์ 31000');assert.equal(parsed.phone,'0812345678');assert.equal(parsed.products,'TM2 50g');assert.equal(parsed.payment,'COD');assert.equal(parsed.amount,'350.00');assert.equal(parsed.customerCode,undefined);
+ assert.deepEqual(orderDraftIssues({...emptyOrderDraft,...parsed,seller:'seller'}),[]);
+});
+test('unlabelled multiline address preceding phone is kept as one address',()=>{
+ const parsed=extractOrderDraft('ผู้รับ\nชื่อ : TEST\nตัวอย่างริมน้ำเลข28\nบ้านเกิด9 11000\nเมืองนนทบุรี,นนทบุรี.ไทย\n0812345678\n\nNT16 5g\n\nCod 200\n\nL. demo');
+ assert.equal(parsed.recipient,'TEST');assert.equal(parsed.address,'ตัวอย่างริมน้ำเลข28\nบ้านเกิด9 11000\nเมืองนนทบุรี,นนทบุรี.ไทย');assert.equal(parsed.products,'NT16 5g');assert.equal(parsed.amount,'200.00');assert.deepEqual(orderDraftIssues({...emptyOrderDraft,...parsed,seller:'seller'}),[]);
 });
