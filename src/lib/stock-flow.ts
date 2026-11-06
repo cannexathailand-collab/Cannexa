@@ -44,7 +44,7 @@ export async function syncStockReservation(orderId:string){
 export async function syncStockReservationLocked(orderId:string){
   const config=await db.stockWorkflow.findUnique({where:{id:'active'}});if(!config?.enabled)return {status:'DISABLED'};
   const reservation=await db.stockReservation.findUnique({where:{orderId}});if(!reservation)return {status:'NOT_FOUND'};
-  if(['CONSUMED','RELEASED'].includes(reservation.status))return {status:reservation.status};
+  if(['CONSUMED','RELEASED','ALREADY_COUNTED','RECONCILING'].includes(reservation.status))return {status:reservation.status};
   const order=await db.orderIntake.findUnique({where:{id:orderId}}),shipment=await db.shipment.findUnique({where:{orderId}});
   const release=!order||['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(order.status)||shipment?.fulfillmentStatus==='CANCELLED';
   const client=await stockGoogleClient();

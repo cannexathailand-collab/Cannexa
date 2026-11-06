@@ -15,7 +15,7 @@ export async function archiveFlowBaseline(client:StockClient,archive:any){
  if(!stockHistoryValuesMatch(archive.rows,values.values??[]))throw Error('STOCK_HISTORY_NOT_CONFIRMED');
 }
 // Caller owns stock-sheet-add. Commit recovery data outside that transaction.
-export async function applyFlowOperation(client:StockClient,id:string,kind:string,actor:string,build:(saved:any)=>Promise<FlowPlan&Record<string,any>>){
+export async function applyFlowOperation(client:StockClient,id:string,kind:string,actor:string,build:(saved:any)=>Promise<FlowPlan&Record<string,any>>,beforeWrite?:()=>Promise<void>){
  let saved=await db.stockSheetOperation.findUnique({where:{id}});
  if(saved?.status==='APPLIED')return saved.snapshot as any;
  const key='stock-flow-'+hash(id).slice(0,32);
@@ -26,6 +26,7 @@ export async function applyFlowOperation(client:StockClient,id:string,kind:strin
  }else{
   const plan=await build(saved?.snapshot),fingerprint=hash(plan);
   saved=await db.stockSheetOperation.upsert({where:{id},create:{id,kind,sourceSheet:plan.sourceSheet,snapshot:plan as any,fingerprint},update:{snapshot:plan as any,fingerprint,sourceSheet:plan.sourceSheet}});
+  await beforeWrite?.();
   await prepareStockDailyClose(client,actor);
   if(plan.archive)await archiveFlowBaseline(client,plan.archive);
   await client(':batchUpdate',{method:'POST',body:JSON.stringify({requests:[...plan.requests,{createDeveloperMetadata:{developerMetadata:{metadataKey:key,metadataValue:fingerprint,location:{spreadsheet:true},visibility:'DOCUMENT'}}}]})});

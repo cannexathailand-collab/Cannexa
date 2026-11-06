@@ -4,6 +4,7 @@ import {generateKeyPairSync} from 'node:crypto';
 import {db} from '../src/lib/db';
 import {encryptGmail} from '../src/lib/gmail';
 import {activateStockFlow,queueStockOrder,syncStockReservation,assertNoStockReservations} from '../src/lib/stock-flow';
+import {reconcileAlreadyCounted} from '../src/lib/stock-reconcile';
 import {processStockDispatch} from '../src/lib/stock-dispatch';
 import {flowBaselinePlan,flowReservationPlan,flowDispatchPlan,STOCK_COMPLETED_HEADER} from '../src/lib/stock-flow-plan';
 import {stockRows} from '../src/lib/stock-import';
@@ -18,7 +19,7 @@ async function harness(t:TestContext){
  t.after(()=>{if(originalSecret===undefined)delete process.env.SESSION_SECRET;else process.env.SESSION_SECRET=originalSecret;});
  const {privateKey}=generateKeyPairSync('rsa',{modulusLength:2048});
  replace(t,db.stockSheetsConnection,'findUnique',async()=>({revision:'flow-test-'+Math.random(),encryptedConfig:encryptGmail({type:'service_account',client_email:'test@example.iam.gserviceaccount.com',private_key:privateKey.export({type:'pkcs8',format:'pem'})})}));
- const state={workflow:null as any,rows:fresh(),operations:new Map<string,any>(),reservations:new Map<string,any>(),dispatches:new Map<string,any>(),orders:new Map<string,any>(),shipments:new Map<string,any>(),audits:new Map<string,any>(),sheets:new Map<number,any>(),markers:new Map<string,any>(),events:[] as string[],failHistory:false,failArchive:false,loseDeduction:false,failFinal:false};
+ const state={workflow:null as any,rows:fresh(),operations:new Map<string,any>(),reservations:new Map<string,any>(),dispatches:new Map<string,any>(),orders:new Map<string,any>(),shipments:new Map<string,any>(),audits:new Map<string,any>(),sheets:new Map<number,any>(),markers:new Map<string,any>(),events:[] as string[],failHistory:false,failArchive:false,loseDeduction:false,failFinal:false,loseReconcile:false};
  state.sheets.set(5,{sheetId:5,title:'5.11.69',rows:state.rows,formulas:new Set<number>(),availableFormulas:new Set<number>()});
  replace(t,db,'$transaction',async(fn:any)=>fn(db));
  replace(t,db,'$queryRawUnsafe',async()=>[]);
@@ -41,7 +42,7 @@ async function harness(t:TestContext){
    if(model===db.stockDispatch&&data.status==='POSTED'&&state.failFinal){state.failFinal=false;throw Error('Final DB unavailable');}
    const previous=find({where});assert.ok(previous);const next={...previous,...data};map.set(previous[key],next);return next;
   });
-  replace(t,model,'updateMany',async({where,data}:any)=>{const row=find({where});if(row&&!(where.status?.not===row.status)){Object.assign(row,data);return {count:1};}return {count:0};});
+  replace(t,model,'updateMany',async({where,data}:any)=>{const rows=where[key]?.in?[...map.values()].filter((r:any)=>where[key].in.includes(r[key])):[find({where})];let count=0;for(const row of rows){if(row&&!(where.status?.not===row.status)){Object.assign(row,data);count++;}}return {count};});
  }
  const refresh=(sheet:any)=>{for(const i of sheet.formulas)sheet.rows[i][6]=Math.round((Number(sheet.rows[i][4])-Number(sheet.rows[i][12]))*1000)/1000;for(const i of sheet.availableFormulas)sheet.rows[i][13]=Math.round((Number(sheet.rows[i][6])-Number(sheet.rows[i][5]))*1000)/1000;};
  replace(t,global,'fetch',async(input:any,init:any)=>{
@@ -64,6 +65,7 @@ async function harness(t:TestContext){
     if(r.createDeveloperMetadata){const m=r.createDeveloperMetadata.developerMetadata;state.markers.set(m.metadataKey,m);}
     if(r.deleteDeveloperMetadata)state.markers.delete(r.deleteDeveloperMetadata.dataFilter.developerMetadataLookup.metadataKey);
    }
+   if(state.loseReconcile&&requests.some((r:any)=>r.createDeveloperMetadata)&&[...state.reservations.values()].some(r=>r.status==='RECONCILING')){state.loseReconcile=false;throw Error('Lost reconciliation response');}
    if(deduction&&state.loseDeduction){state.loseDeduction=false;throw Error('Lost Google response');}
    return Response.json({});
   }
@@ -136,5 +138,37 @@ test('explicitly included old pending orders can dispatch later without backdati
  await queueStockOrder('historical',true);
  assert.equal((await processStockDispatch('historical','owner')).status,'NOT_ELIGIBLE');
  assert.equal(h.rows[2][6],470);
+});
+test('already-counted reconciliation removes only duplicate pending demand and blocks later retries and dispatches',async t=>{
+ const h=await harness(t);
+ for(const [id,qty] of [['old1',100],['old2',50],['new',20]] as const){h.addOrder(id,qty);await queueStockOrder(id,true);await syncStockReservation(id);}
+ h.addOrder('missing',10);h.orders.get('missing').rawText='รายการสินค้า\nMISSING x 10 G\nยอดรวม: 100';await queueStockOrder('missing',true);await syncStockReservation('missing');
+ assert.equal(h.rows[2][5],170);
+ const request={requestKey:'same-request',orderIds:['old1','old2','missing']};
+ const result=await reconcileAlreadyCounted(request,'owner');assert.equal(result.releasedQuantityG,150);
+ assert.equal(h.rows[2][5],20);assert.equal(h.rows[2][6],490);assert.equal(h.rows[2][12],10);assert.equal(h.rows[2][13],470);
+ for(const id of request.orderIds){assert.equal(h.reservations.get(id).status,'ALREADY_COUNTED');assert.equal((await queueStockOrder(id,true))?.status,'ALREADY_COUNTED');assert.equal((await syncStockReservation(id)).status,'ALREADY_COUNTED');assert.equal((await processStockDispatch(id,'owner')).status,'ALREADY_COUNTED');assert.ok(!h.dispatches.has(id));}
+ assert.equal((await reconcileAlreadyCounted(request,'owner')).replayed,true);assert.equal(h.rows[2][5],20);
+ assert.equal([...h.audits.values()].filter(a=>a.action==='STOCK_ALREADY_COUNTED').length,3);
+ await assert.rejects(()=>reconcileAlreadyCounted({...request,orderIds:['new']},'owner'),/REQUEST_CHANGED/);
+ assert.equal((await processStockDispatch('new','owner')).status,'POSTED');assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][6],470);
+ await assert.rejects(()=>reconcileAlreadyCounted({requestKey:'completed',orderIds:['new']},'owner'),/DISPATCH_ALREADY_STARTED/);
+});
+test('lost reconciliation response blocks dispatch and recovers without releasing unrelated quantities twice',async t=>{
+ const h=await harness(t);for(const id of ['old','new']){h.addOrder(id,30);await queueStockOrder(id,true);await syncStockReservation(id);}
+ const request={requestKey:'recover-request',orderIds:['old']};h.state.loseReconcile=true;
+ await assert.rejects(()=>reconcileAlreadyCounted(request,'owner'),/Lost reconciliation/);
+ assert.equal(h.reservations.get('old').status,'RECONCILING');assert.equal(h.rows[2][5],30);
+ assert.equal((await processStockDispatch('old','owner')).status,'RECONCILING');assert.equal((await syncStockReservation('old')).status,'RECONCILING');
+ await assert.rejects(()=>reconcileAlreadyCounted({...request,requestKey:'different'},'owner'),/RECONCILIATION_IN_PROGRESS/);
+ await reconcileAlreadyCounted(request,'owner');assert.equal(h.reservations.get('old').status,'ALREADY_COUNTED');assert.equal(h.rows[2][5],30);assert.equal(h.rows[2][6],490);
+});
+test('LINE intake alone never records shipping history or deducts physical stock before actual dispatch',async t=>{
+ const h=await harness(t);h.addOrder('new',20);h.shipments.get('new').fulfillmentStatus='UNCONFIRMED';h.shipments.get('new').dispatchedAt=null;
+ await queueStockOrder('new');await syncStockReservation('new');
+ assert.equal(h.rows[2][5],20);assert.equal(h.rows[2][6],490);
+ assert.equal((await processStockDispatch('new','owner')).status,'NOT_ELIGIBLE');assert.equal(h.dispatches.size,0);assert.ok(!h.events.includes('historyDb'));
+ Object.assign(h.shipments.get('new'),{fulfillmentStatus:'DISPATCHED',dispatchedAt:new Date()});
+ assert.equal((await processStockDispatch('new','owner')).status,'POSTED');assert.equal(h.rows[2][6],470);assert.equal(h.rows[2][5],0);
 });
 

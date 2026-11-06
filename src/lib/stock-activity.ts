@@ -21,7 +21,7 @@ export function presentStockActivity(log:AuditLog){
   if(!d.name&&d.snapshot.name)event.summary.push('ชื่อ: '+d.snapshot.name);
   event.summary.push('ต้นทุนก่อนลบ: '+cost(d.snapshot.costSatang));
  }
- if(['STOCK_RESERVED','STOCK_RESERVATION_RELEASED'].includes(log.action)){event.summary.push('ออเดอร์: '+d.orderNumber);if(Array.isArray(d.items))for(const i of d.items)event.summary.push(i.code+' · '+quantity(i.quantityMilliG/1000));}
+ if(['STOCK_RESERVED','STOCK_RESERVATION_RELEASED','STOCK_ALREADY_COUNTED'].includes(log.action)){event.summary.push('ออเดอร์: '+d.orderNumber);if(Array.isArray(d.items))for(const i of d.items)event.summary.push(i.code+' · '+quantity(i.quantityMilliG/1000));}
  return event;
 }
 export async function stockActivityReport(input:{day?:string;page?:string},now=new Date()){

@@ -18,6 +18,7 @@ export async function processFlowStockDispatch(orderId:string,actor:string){
   if(pending?.status==='POSTED')return {status:'POSTED',replayed:true};
   const [order,shipment]=await Promise.all([db.orderIntake.findUnique({where:{id:orderId}}),db.shipment.findUnique({where:{orderId}})]);
   const enrolled=await db.stockReservation.findUnique({where:{orderId}});
+  if(enrolled&&['ALREADY_COUNTED','RECONCILING'].includes(enrolled.status))return {status:enrolled.status};
   if(!pending){
    const workflow=await db.stockWorkflow.findUnique({where:{id:'active'}});
    if(!enrolled&&workflow&&order&&(order.createdAt<workflow.activeFrom||order.eventAt<workflow.activeFrom))return {status:'NOT_ELIGIBLE'};
