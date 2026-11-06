@@ -185,6 +185,14 @@ model CustomerCodeDelivery {
  sentAt DateTime?
  createdAt DateTime @default(now())
 }
+model CrmPointRule {
+ id String @id @default(cuid())
+ enabled Boolean @default(false)
+ satangPerPoint Int
+ effectiveAt DateTime @default(now())
+ createdBy String
+ @@index([effectiveAt])
+}
 model MetaPurchase {
  orderId String @id
  eventId String @unique
