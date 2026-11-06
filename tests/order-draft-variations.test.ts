@@ -32,3 +32,10 @@ test('numbered English recipient and address starting with house label are not c
  const result=analyzeOrderDraft('2\nAdam Example-Batal\n+66 81-234-5678\nบ้านเลขที่ 116/10 หมู่ 7 ตำบลทดสอบ อำเภอเมือง จังหวัดลพบุรี 15000 ประเทศไทย\nAF8 10g\nAF2 10g\nโอน 900\nL. Adam Example-Batal');
  assert.deepEqual(result.issues,{});assert.equal(result.fields.recipient,'Adam Example-Batal');assert.ok(result.fields.address?.startsWith('บ้านเลขที่ 116/10'));assert.equal(result.fields.phone,'0812345678');assert.equal(result.fields.products,'AF8 10g\nAF2 10g');assert.equal(result.fields.amount,'900.00');
 });
+test('COD accepts capitalization, punctuation and separators around amount',()=>{
+ for(const label of ['COD','cod','Cod.','c.o.d.','C O D','CoD'])for(const separator of [' ',': ',' = ','- ',' . ']){
+  const result=analyzeOrderDraft(label+separator+'285');assert.equal(result.fields.payment,'COD',label+separator);assert.equal(result.fields.amount,'285.00',label+separator);
+ }
+ const result=analyzeOrderDraft('95/36หมู่6 ต.ตัวอย่าง อ.เมือง จ.ทดสอบ\nนครนายก,26000\nโทร เบอร์0812345678ครับ\nAF1. 5g\nCod. 285\nทดสอบ');assert.equal(result.fields.payment,'COD');assert.equal(result.fields.recipient,'ทดสอบ');assert.equal(result.fields.phone,'0812345678');
+ for(const [text,payment]of [['ปลายทาง 285','COD'],['โอน.','โอน'],['เคลม.','เคลม'],['CLAIM','เคลม']])assert.equal(analyzeOrderDraft(text).fields.payment,payment);
+});

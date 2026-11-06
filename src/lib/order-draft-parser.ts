@@ -8,10 +8,10 @@ const productPattern=/^[A-Za-z][A-Za-z0-9._-]*\s*(?:[x×*]\s*)?\d+(?:\.\d+)?\s*(
 const metadata=/^(?:L\.|LINE\s*[:.]|ไลน์\s*[:：]|ผู้รับ\s*$|ผู้ส่ง\s*$|หมายเหตุ\s*[:：]|ขอบคุณ|ฝาก|รบกวน)/i;
 const addressSignal=/บ้านเลขที่|เลขที่|ตำบล|อำเภอ|จังหวัด|แขวง|เขต|ถนน|ซอย|หมู่|กรุงเทพ|[ตอจถซม]\.\s*|\b\d{5}\b/;
 const phonePattern=/(?<!\d)(?:\+?66(?:0)?\d{8,9}|0\d{8,9})(?!\d)/g;
-const paymentPattern=/^(COD|เก็บเงินปลายทาง|เก็บปลายทาง|โอนแล้ว|โอนเงิน|โอน|เคลม|เครม)(?:\s*[:=\-]?\s*฿?\s*([\d,]+(?:\.\d{1,2})?)(?:\.-)?\s*(?:บาท|฿)?)?$/i;
+const paymentPattern=/^(C[.\s]*O[.\s]*D\.?|เก็บเงินปลายทาง|เก็บปลายทาง|ปลายทาง|โอนแล้ว|โอนเงิน|โอน|เคลม|เครม|claim)(?:\s*[.:=\-]?\s*฿?\s*([\d,]+(?:\.\d{1,2})?)(?:\.-)?\s*(?:บาท|฿)?)?\s*[.:]?$/i;
 function normalizePhone(value:string){const digits=value.replace(/\D/g,'');return digits.startsWith('660')?'0'+digits.slice(3):digits.startsWith('66')?'0'+digits.slice(2):digits;}
 function phones(line:string){return line.replace(/[\s()-]/g,'').match(phonePattern)?.map(normalizePhone)??[];}
-function payment(value:string){return /^(?:COD|เก็บ(?:เงิน)?ปลายทาง)$/i.test(value)?'COD':/^โอน|transfer|bank transfer$/i.test(value)?'โอน':/เคลม|เครม|claim/i.test(value)?'เคลม':value.trim();}
+function payment(value:string){return /^(?:COD|(?:เก็บ(?:เงิน)?)?ปลายทาง)$/i.test(value.replace(/[.\s]/g,''))?'COD':/^โอน|transfer|bank transfer$/i.test(value)?'โอน':/เคลม|เครม|claim/i.test(value)?'เคลม':value.trim();}
 function cleanMoney(value:string){return moneySatang(value.replace(/บาท|฿|THB/gi,'').replace(/\.-$/,'').trim());}
 function cleanPrefix(line:string){return line.replace(/^(?:ส่ง(?:ถึง)?|จัดส่ง(?:ให้)?|ผู้รับ)\s*[:：]?\s*/,'').trim();}
 export function analyzeOrderDraft(text:string):DraftAnalysis{
@@ -41,7 +41,7 @@ export function analyzeOrderDraft(text:string):DraftAnalysis{
   if(used.has(index))continue;
   if(metadata.test(line)){used.add(index);continue;}
   const pay=line.match(paymentPattern);if(pay){add('payment',pay[1]);if(pay[2])add('amount',pay[2]);used.add(index);continue;}
-  const suffixPay=line.match(/^฿?\s*([\d,]+(?:\.\d{1,2})?)\s*(?:บาท)?\s*(COD|โอน)$/i);if(suffixPay){add('payment',suffixPay[2]);add('amount',suffixPay[1]);used.add(index);continue;}
+  const suffixPay=line.match(/^฿?\s*([\d,]+(?:\.\d{1,2})?)\s*(?:บาท)?\s*(C[.\s]*O[.\s]*D\.?|โอน)$/i);if(suffixPay){add('payment',suffixPay[2]);add('amount',suffixPay[1]);used.add(index);continue;}
   if(productPattern.test(line)){products.push(line);used.add(index);continue;}
   if(/^[A-Z]{1,3}\d{4}$/i.test(line)){add('customerCode',line.toUpperCase());used.add(index);continue;}
   const matches=phones(line);phoneValues.push(...matches);
