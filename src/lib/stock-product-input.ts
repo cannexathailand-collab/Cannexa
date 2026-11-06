@@ -1,7 +1,7 @@
 import {z} from 'zod';
 import {stockCode} from './stock-code';
 const number=(max:number,precision:number)=>z.union([z.number(),z.string().trim().min(1)]).pipe(z.coerce.number<string|number>().finite().min(0).max(max).refine(n=>Math.abs(n*10**precision-Math.round(n*10**precision))<0.00001));
-export const newStockProduct=z.object({requestKey:z.uuid(),code:stockCode,name:z.string().trim().max(200).default(''),cost:z.preprocess(v=>v===undefined||v===null||v===''?null:v,number(21474836.47,2).nullable()),quantity:number(999999999,3),prices:z.array(z.object({pack:z.string().trim().min(1).max(30).regex(/^[\p{L}\p{N} ._-]+$/u),price:number(21474836.47,2)})).max(4).refine(p=>new Set(p.map(x=>x.pack.toUpperCase())).size===p.length)});
+export const newStockProduct=z.object({requestKey:z.uuid(),code:stockCode,name:z.string().trim().max(200).default(''),cost:z.preprocess(v=>v===undefined||v===null||v===''?null:v,number(21474836.47,2).nullable()),quantity:number(999999999,3),prices:z.array(z.object({pack:z.string().trim().min(1).max(30).regex(/^[\p{L}\p{M}\p{N} ._-]+$/u),price:number(21474836.47,2)})).max(4).refine(p=>new Set(p.map(x=>x.pack.toUpperCase())).size===p.length)});
 export type NewStockProduct=z.infer<typeof newStockProduct>;
 export function stockSheetRow(input:NewStockProduct){if(!input.name||input.cost===null)throw new Error('STOCK_NEW_PRODUCT_DETAILS_REQUIRED');return ['',input.name,input.code,input.cost,input.quantity,0,input.quantity,'Cannexa:'+input.requestKey,...input.prices.map(p=>p.pack+'/'+p.price)];}
 export function latestStockTab(tabs:{sheetId:number;title:string;gridProperties?:{rowCount?:number;columnCount?:number}}[]){
