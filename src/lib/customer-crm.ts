@@ -1,12 +1,13 @@
 import type {OrderIntake,Shipment} from '@prisma/client';
 import {db} from './db';
 import {isRecognizedSale,type SaleRow} from './sales-report';
+import {hasActualDispatch} from './sales-recognition';
 import {quotedTotal} from './shipment-matching';
 import {orderShipmentStatus} from './order-shipment-status';
 import {purchasePoints,type PointRule} from './crm-points';
 import {bangkokDay,salesRange} from './sales-dates';
 type Cost={orderId:string;status:string;totalCostSatang:number|null};
-export type CrmFilters={from?:string;to?:string;view?:string};
+export type CrmFilters={from?:string;to?:string;view?:string;returns?:string};
 export function crmRange(filters:CrmFilters){return salesRange({from:filters.from||'2000-01-01',to:filters.to||bangkokDay(new Date())});}
 
 export function summarizeCustomerOrders(orders:OrderIntake[],sales:SaleRow[],shipments:Shipment[]=[],costs:Cost[]=[],rules:PointRule[]=[],filters?:CrmFilters){
@@ -15,21 +16,24 @@ export function summarizeCustomerOrders(orders:OrderIntake[],sales:SaleRow[],shi
  const byCost=new Map(costs.map(c=>[c.orderId,c]));
  const history=[...new Map(orders.map(o=>[o.id,o])).values()].map(order=>{
   const sale=bySale.get(order.id),shipment=byShipment.get(order.id)??sale?.shipment;
+  const returned=order.payment!=='เคลม'&&(order.status==='RETURNED'||shipment?.status==='RETURNED'||shipment?.fulfillmentStatus==='RETURNED');
   const excluded=!!order.withdrawnAt||['RETURNED','CANCELLED','WITHDRAWN'].includes(order.status)||!!shipment&&['RETURNED','CANCELLED','WITHDRAWN'].includes(shipment.status)||!!shipment&&['RETURNED','CANCELLED'].includes(shipment.fulfillmentStatus)||!['โอน','COD'].includes(order.payment??'');
   const recognized=!excluded&&!!sale&&isRecognizedSale(sale);
+  const shipped=returned||!excluded&&!!shipment&&hasActualDispatch(shipment);
   const amountSatang=sale?.revenueSatang??quotedTotal(order.rawText??'');
   const cost=byCost.get(order.id),costReady=cost?.status==='POSTED'&&cost.totalCostSatang!==null&&shipment?.freightSatang!==null&&shipment?.freightSatang!==undefined&&!!shipment.freightReportAt;
   const profitSatang=recognized&&costReady?amountSatang!-cost!.totalCostSatang!-shipment!.freightSatang!:null;
   const points=recognized?purchasePoints(amountSatang!,sale!.recognizedAt!,rules):0;
-  return {order,amountSatang,excluded,recognized,profitSatang,points,tracking:shipment?.tracking??null,status:recognized?'ซื้อสำเร็จ':excluded?'ไม่นับยอดซื้อ':sale?.status==='WAITING_COD'?'รอรับเงิน COD':order.status==='NEEDS_REVIEW'?'รอตรวจสอบ':orderShipmentStatus(order.status,shipment?.tracking,shipment?.fulfillmentStatus,shipment?.dispatchedAt).label};
+  return {order,amountSatang,excluded,recognized,returned,shipped,profitSatang,points,tracking:shipment?.tracking??null,status:returned?'ไม่รับสินค้า · ตีกลับ':recognized?'ซื้อสำเร็จ':excluded?'ไม่นับยอดซื้อ':sale?.status==='WAITING_COD'?'รอรับเงิน COD':order.status==='NEEDS_REVIEW'?'รอตรวจสอบ':orderShipmentStatus(order.status,shipment?.tracking,shipment?.fulfillmentStatus,shipment?.dispatchedAt).label};
  }).sort((a,b)=>+b.order.eventAt-+a.order.eventAt||a.order.id.localeCompare(b.order.id));
  const range=filters?crmRange(filters):null;
  const selected=range?history.filter(h=>{const day=bangkokDay(h.order.eventAt);return day>=range.from&&day<=range.to;}):history;
  const active=selected.filter(h=>!h.excluded),completed=active.filter(h=>h.recognized),pending=active.filter(h=>!h.recognized);
  const total=(rows:typeof history)=>rows.reduce((n,h)=>n+(h.amountSatang??0),0);
+ const returnedCount=selected.filter(h=>h.returned).length,shippedCount=selected.filter(h=>h.shipped).length,lifetimeReturnedCount=history.filter(h=>h.returned).length,lifetimeShippedCount=history.filter(h=>h.shipped).length;
  const periods=new Map<string,{period:string;revenueSatang:number;profitSatang:number;pendingCost:number;points:number}>();
  for(const h of completed){const day=bangkokDay(h.order.eventAt),key=filters?.view==='year'?day.slice(0,4):filters?.view==='month'?day.slice(0,7):day;const p=periods.get(key)??{period:key,revenueSatang:0,profitSatang:0,pendingCost:0,points:0};p.revenueSatang+=h.amountSatang!;p.profitSatang+=h.profitSatang??0;p.pendingCost+=h.profitSatang===null?1:0;p.points+=h.points;periods.set(key,p);}
- return {history:selected,allHistory:history,orderCount:active.length,purchaseCount:completed.length,orderedSatang:total(active),purchasedSatang:total(completed),pendingSatang:total(pending),pendingCount:pending.length,unknownAmountCount:active.filter(h=>h.amountSatang===null).length,lastOrderedAt:active[0]?.order.eventAt??null,profitSatang:completed.reduce((n,h)=>n+(h.profitSatang??0),0),pendingCostCount:completed.filter(h=>h.profitSatang===null).length,points:completed.reduce((n,h)=>n+h.points,0),lifetimePoints:history.reduce((n,h)=>n+h.points,0),periods:[...periods.values()].sort((a,b)=>b.period.localeCompare(a.period))};
+ return {history:selected,allHistory:history,returnedCount,shippedCount,returnPercent:shippedCount?returnedCount/shippedCount*100:null,lifetimeReturnedCount,lifetimeShippedCount,lifetimeReturnPercent:lifetimeShippedCount?lifetimeReturnedCount/lifetimeShippedCount*100:null,orderCount:active.length,purchaseCount:completed.length,orderedSatang:total(active),purchasedSatang:total(completed),pendingSatang:total(pending),pendingCount:pending.length,unknownAmountCount:active.filter(h=>h.amountSatang===null).length,lastOrderedAt:active[0]?.order.eventAt??null,profitSatang:completed.reduce((n,h)=>n+(h.profitSatang??0),0),pendingCostCount:completed.filter(h=>h.profitSatang===null).length,points:completed.reduce((n,h)=>n+h.points,0),lifetimePoints:history.reduce((n,h)=>n+h.points,0),periods:[...periods.values()].sort((a,b)=>b.period.localeCompare(a.period))};
 }
 export function customerLifetimeStats(summary:ReturnType<typeof summarizeCustomerOrders>,createdAt:Date,now=new Date()){
  const history=summary.allHistory,completed=history.filter(h=>h.recognized),dates=completed.map(h=>h.order.eventAt).sort((a,b)=>+a-+b);

@@ -53,3 +53,20 @@ test('CRM rejects stale recognition when dispatched COD does not have a matching
  const result=summarizeCustomerOrders([order],[{...cod,receipt:{...cod.receipt!,amountSatang:40000}}]);
  assert.equal(result.purchaseCount,0);assert.equal(result.pendingSatang,50000);
 });
+
+test('not-accepted count includes only returned orders, once each, and supports date ranges',()=>{
+ const base={id:'return',orderNumber:'return',payment:'COD',rawText:'COD: 500',status:'RETURNED',eventAt:new Date('2026-11-05T06:00Z'),withdrawnAt:null} as OrderIntake;
+ const cancelled={...base,id:'cancel',status:'CANCELLED'},withdrawn={...base,id:'withdraw',status:'WITHDRAWN'},pending={...base,id:'pending',status:'WAITING_SHIPMENT'};
+ const result=summarizeCustomerOrders([base,base,cancelled,withdrawn,pending],[]);
+ assert.equal(result.returnedCount,1);assert.equal(result.lifetimeReturnedCount,1);assert.equal(result.history.find(h=>h.order.id==='return')!.status,'ไม่รับสินค้า · ตีกลับ');
+ assert.equal(result.shippedCount,1);assert.equal(result.returnPercent,100);
+ const filtered=summarizeCustomerOrders([base],[],[],[],[],{from:'2026-11-06',to:'2026-11-07'});
+ assert.equal(filtered.returnedCount,0);assert.equal(filtered.lifetimeReturnedCount,1);
+ assert.equal(filtered.returnPercent,null);assert.equal(filtered.lifetimeReturnPercent,100);
+ const shipment={orderId:'pending',status:'RETURNED',fulfillmentStatus:'RETURNED'} as any;
+ assert.equal(summarizeCustomerOrders([pending],[],[shipment]).returnedCount,1);
+ const sent={orderId:'pending',status:'MATCHED',fulfillmentStatus:'DISPATCHED',dispatchedAt:new Date()} as any;
+ const half=summarizeCustomerOrders([base,pending,cancelled,withdrawn],[],[sent]);
+ assert.equal(half.shippedCount,2);assert.equal(half.returnPercent,50);
+ assert.equal(summarizeCustomerOrders([{...base,payment:'เคลม'}],[]).returnedCount,0);
+});
