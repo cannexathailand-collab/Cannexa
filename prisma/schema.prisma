@@ -323,6 +323,32 @@ model StockSheetsConnection {
  connectedAt DateTime @default(now())
 }
 
+model StockIntegrationConfig {
+ id String @id
+ enabled Boolean @default(false)
+ activeFrom DateTime
+ createdAt DateTime @default(now())
+}
+
+model StockDispatch {
+ id String @id @default(cuid())
+ orderId String @unique
+ orderNumber String
+ candidateTracking String?
+ tracking String? @unique
+ payment String?
+ status String @default("PENDING")
+ issues Json @default("[]")
+ items Json @default("[]")
+ totalCostSatang Int?
+ sourceSheet String?
+ dispatchedAt DateTime?
+ processedAt DateTime?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@index([status,dispatchedAt])
+}
+
 model Expense {
  items Json @default("[]")
  replyStatus String @default("NOT_SENT")
