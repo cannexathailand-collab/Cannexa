@@ -1,0 +1,3 @@
+import {admin} from '@/lib/auth';
+import {orderManagement,orderListCsv} from '@/lib/order-management';
+export async function GET(req:Request){try{await admin();}catch{return new Response('Unauthorized',{status:401});}try{const data=await orderManagement(Object.fromEntries(new URL(req.url).searchParams));return new Response(orderListCsv(data),{headers:{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="orders.csv"','Cache-Control':'private, no-store'}});}catch(e){return new Response(e instanceof Error&&e.message==='INVALID_DATE_RANGE'?'ช่วงวันที่ไม่ถูกต้อง':'ส่งออกข้อมูลไม่สำเร็จ',{status:e instanceof Error&&e.message==='INVALID_DATE_RANGE'?400:500});}}
