@@ -6,6 +6,7 @@ import {encryptGmail} from '../src/lib/gmail';
 import {activateStockFlow,queueStockOrder,syncStockReservation,assertNoStockReservations} from '../src/lib/stock-flow';
 import {reconcileAlreadyCounted} from '../src/lib/stock-reconcile';
 import {restorePendingOrders} from '../src/lib/stock-restore-pending';
+import {STOCK_UNVERIFIED_HEADER} from '../src/lib/stock-available';
 import {processStockDispatch} from '../src/lib/stock-dispatch';
 import {flowBaselinePlan,flowReservationPlan,flowDispatchPlan,STOCK_COMPLETED_HEADER} from '../src/lib/stock-flow-plan';
 import {stockRows} from '../src/lib/stock-import';
@@ -196,5 +197,13 @@ test('unmatched legacy deductions remain visibly pending by order while preventi
  await syncStockReservation('uncertain');assert.equal(h.rows[2][5],30);
  h.addOrder('new',20);await queueStockOrder('new');await syncStockReservation('new');assert.equal(h.rows[2][5],50);
  assert.equal((await processStockDispatch('new','owner')).status,'POSTED');assert.equal(h.rows[2][5],30);assert.equal(h.rows[2][6],470);assert.equal(h.rows[2][15],30);
+});
+test('a newly registered code can show order demand without inventing its opening balance or cost',async t=>{
+ const h=await harness(t);h.rows[2][4]=null;h.rows[2][6]=null;h.rows[2][3]=null;h.rows[2][12]=0;h.rows[0][15]=STOCK_UNVERIFIED_HEADER;h.rows[2][15]=0;
+ h.sheets.get(5).formulas.delete(2);
+ h.addOrder('pending',30);await queueStockOrder('pending');h.reservations.get('pending').needsReconciliation=true;
+ assert.equal((await syncStockReservation('pending')).status,'RESERVED');
+ assert.equal(h.rows[2][5],30);assert.equal(h.rows[2][15],30);assert.equal(h.rows[2][4],null);assert.equal(h.rows[2][6],null);assert.equal(h.rows[2][3],null);assert.equal(h.rows[2][13],'');
+ assert.equal((await processStockDispatch('pending','owner')).status,'NEEDS_RECONCILIATION');assert.equal(h.dispatches.size,0);
 });
 

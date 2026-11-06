@@ -31,8 +31,10 @@ export function flowReservationPlan(items:OrderStockItem[],source:FlowSource,rel
  const changes:FlowChange[]=[],requests:any[]=[];
  for(const item of items){
   const p=source.products.find(p=>p.code===item.code);if(!p)throw Error('STOCK_PRODUCT_NOT_FOUND '+item.code);
-  if(p.receivedQuantity===null||p.remainingQuantity===null||p.issuedQuantity===null||p.completedQuantity===undefined||p.completedQuantity===null)throw Error('STOCK_QUANTITY_UNKNOWN '+item.code);
-  if(milli(p.receivedQuantity)-milli(p.completedQuantity)!==milli(p.remainingQuantity))throw Error('STOCK_BALANCE_MISMATCH');
+  if(p.issuedQuantity===null||p.completedQuantity==null)throw Error('STOCK_QUANTITY_UNKNOWN '+item.code);
+  if((p.receivedQuantity===null)!==(p.remainingQuantity===null))throw Error('STOCK_QUANTITY_UNKNOWN '+item.code);
+  if(precounted&&(p.receivedQuantity===null||p.remainingQuantity===null))throw Error('STOCK_QUANTITY_UNKNOWN '+item.code);
+  if(p.receivedQuantity!==null&&p.remainingQuantity!==null&&milli(p.receivedQuantity)-milli(p.completedQuantity)!==milli(p.remainingQuantity))throw Error('STOCK_BALANCE_MISMATCH');
   const quantity=item.quantityMilliG/1000,pending=p.issuedQuantity;
   const credit=p.precountedPendingQuantity??0,unknown=p.unverifiedPendingQuantity??0;
   if(unverified&&source.rows[0]?.[15]!==STOCK_UNVERIFIED_HEADER)throw Error('STOCK_UNVERIFIED_NOT_READY');
@@ -42,7 +44,7 @@ export function flowReservationPlan(items:OrderStockItem[],source:FlowSource,rel
   if(creditAfter<0||creditAfter>p.completedQuantity)throw Error('STOCK_PRECOUNTED_MISMATCH '+p.code);
   const unknownAfter=unverified?add(unknown,release?-quantity:quantity):unknown;
   if(unknownAfter<0)throw Error('STOCK_PENDING_MISMATCH');
-  const remainingAfter=precounted&&release?add(p.remainingQuantity,quantity):p.remainingQuantity,completedAfter=precounted&&release?add(p.completedQuantity,-quantity):p.completedQuantity;
+  const remainingAfter=precounted&&release?add(p.remainingQuantity!,quantity):p.remainingQuantity,completedAfter=precounted&&release?add(p.completedQuantity,-quantity):p.completedQuantity;
   changes.push({code:p.code,received:p.receivedQuantity,pendingBefore:pending,pendingAfter:after,remainingBefore:p.remainingQuantity,remainingAfter,completedBefore:p.completedQuantity,completedAfter,precountedBefore:credit,precountedAfter:creditAfter,unverifiedBefore:unknown,unverifiedAfter:unknownAfter});
   requests.push(stockNumberCell(source.tab.sheetId,p.sourceRow,5,after));
   if(unverified)requests.push(stockNumberCell(source.tab.sheetId,p.sourceRow,15,unknownAfter));

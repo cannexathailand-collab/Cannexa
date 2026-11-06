@@ -10,4 +10,4 @@ export function stockAvailableQuantity(product:{remainingQuantity:number|null;is
  if(product.issuedQuantity==null)return null;
  return Math.round((product.remainingQuantity-product.issuedQuantity+(product.precountedPendingQuantity??0))*1000)/1000;
 }
-export const stockAvailableFormula='=IF(N(INDEX(P:P,ROW()))>0,"",INDEX(G:G,ROW())-INDEX(F:F,ROW())+N(INDEX(O:O,ROW())))';
+export const stockAvailableFormula='=IF(OR(INDEX(G:G,ROW())="",N(INDEX(P:P,ROW()))>0),"",INDEX(G:G,ROW())-INDEX(F:F,ROW())+N(INDEX(O:O,ROW())))';
