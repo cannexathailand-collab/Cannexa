@@ -11,9 +11,9 @@ export default async function AdminLayout({children}:{children:React.ReactNode})
  const owner=a.role==="owner", manage=owner||a.role==="admin"||a.role==="manager", approve=owner||a.role==="admin";
  const connected=mockMode()?false:!!await lineSettings();
  return <div className="shell"><aside className="sidebar"><Link href="/admin" className="brand"><span className="mark">↗</span> Affiliate OS</Link><div className="muted small" style={{marginTop:10}}>LINE OA · TRACKING SYSTEM</div><SidebarNavigation>
- <Link href="/admin">ภาพรวมระบบ</Link>
+ <Link href="/admin">Affiliate</Link>
  {owner&&<Link href="/admin/users">จัดการผู้ใช้</Link>}
- {manage&&<Link href="/admin/affiliates">จัดการ Affiliate</Link>}
+ {manage&&<Link href="/admin/affiliates">ตั้งค่า Affiliate</Link>}
  {manage&&<Link href="/admin/customers">รหัสลูกค้า</Link>}
  {manage&&<details aria-label="CRM" className="accounting-menu" open><summary>CRM</summary><div className="accounting-submenu"><Link href="/admin/crm">ข้อมูลลูกค้า</Link><Link href="/admin/crm/tiers">ระดับสมาชิกและเกณฑ์จัดกลุ่ม</Link><Link href="/admin/crm/points">ตั้งค่าสะสมแต้ม</Link></div></details>}
  {approve&&<details aria-label="บัญชี" className="accounting-menu"><summary>บัญชี</summary><div className="accounting-submenu">

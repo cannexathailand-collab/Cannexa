@@ -6,7 +6,7 @@ const money=(n:number)=>'฿'+(n/100).toLocaleString('th-TH',{minimumFractionDig
 export function AffiliatePerformanceTable({rows}:{rows:AffiliatePerformance[]}){
  const [view,setView]=useState('sales'),[open,setOpen]=useState<string|null>(null);
  return <section className="card affiliate-performance">
-  <header><div><h2>ผลงาน Affiliate</h2><p>ยอดขายและค่าคอมของแต่ละคนในช่วงที่เลือก</p></div><a className="button secondary" href="/admin/affiliates">จัดการ Affiliate ↗</a></header>
+  <header><div><h2>ผลงาน Affiliate</h2><p>ยอดขายและค่าคอมของแต่ละคนในช่วงที่เลือก</p></div><a className="button secondary" href="/admin/affiliates">ตั้งค่า Affiliate ↗</a></header>
   <div className="affiliate-tabs" role="group" aria-label="มุมมองผลงาน Affiliate">
    <button type="button" aria-pressed={view==='sales'} onClick={()=>setView('sales')}>ยอดขายและค่าคอม</button>
    <button type="button" aria-pressed={view==='referrals'} onClick={()=>setView('referrals')}>การแนะนำลูกค้า</button>
