@@ -2,10 +2,11 @@ import {NextRequest,NextResponse} from "next/server";
 import {consume} from "@/lib/oauth";
 import {exchange} from "@/lib/line";
 import {recordLogin} from "@/lib/tracking";
-import {userKey,sha,signToken} from "@/lib/crypto";
+import {userKey,sha} from "@/lib/crypto";
 import {baseUrl,mockMode} from "@/lib/config";
 import {db} from "@/lib/db";
 import {lineSettings} from "@/lib/line-settings";
+import {lineCustomerDestination} from "@/lib/line-customer-destination";
 export async function GET(req:NextRequest){
  if(mockMode())return new Response("Real callback disabled in mock mode",{status:409});
  let clickId:string|undefined;
@@ -21,8 +22,8 @@ export async function GET(req:NextRequest){
   const customer=await recordLogin(a.clickId,userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?result.userId:connection.settings.botId+":"+result.userId),result.friendFlag,changed==="true"?true:changed==="false"?false:null);
   const originalClick=await db.click.findUniqueOrThrow({where:{id:customer.clickId}});
   await db.customer.upsert({where:{code:customer.customerCode},create:{code:customer.customerCode,conversionId:customer.id,referrerId:customer.affiliateId,metaFbc:originalClick.metaFbc},update:{}});
-  const res=NextResponse.redirect(baseUrl()+"/result");
-  res.cookies.set('customer_result',signToken({id:customer.id,exp:Date.now()+600000}),{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'lax',path:'/result',maxAge:600});
+  const res=NextResponse.redirect(lineCustomerDestination(connection.settings.basicId,result.friendFlag));
+  res.cookies.set('customer_result','',{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'lax',path:'/result',maxAge:0});
   res.cookies.delete("oauth_"+sha(state).slice(0,16));return res;
  }catch{
   if(clickId)await db.click.update({where:{id:clickId},data:{loginResult:"FAILED"}});
