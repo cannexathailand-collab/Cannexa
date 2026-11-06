@@ -51,9 +51,10 @@ export function summarizeAccounting(range:AccountingRange,revenue:RevenueDay[],e
  return {range,view:view==='month'?'month':'day',daily,rows:view==='month'?[...monthly.values()]:daily,total,entries:dailyFreightEntries([...unique.values()])};
 }
 export type AccountingSummary=ReturnType<typeof summarizeAccounting>;
-export function accountingCsv(report:AccountingSummary,notices:string[]=[]){
+export function accountingCsv(report:AccountingSummary&{sources?:{name:string;customers:number;orders:number;revenueSatang:number}[]},notices:string[]=[]){
  const numeric=(n:number)=>(n/100).toFixed(2);
  const line=(r:AccountingRow)=>[r.day,r.count,numeric(r.revenueSatang),numeric(r.transferSatang),numeric(r.codSatang),numeric(r.productCostSatang),numeric(r.lineSatang),numeric(r.recurringSatang),numeric(r.freightSatang),numeric(r.commissionSatang),numeric(r.expenseSatang),numeric(r.profitSatang)];
  const rows:(string|number)[][]=[['บัญชีสรุป',report.view==='month'?'รายเดือน':'รายวัน',report.range.from,report.range.to],['เกณฑ์การคำนวณ',accountingBasis],...notices.map(n=>['หมายเหตุ',n]),[],['งวด','จำนวนยอดขาย','ยอดขาย (บาท)','ยอดโอน (บาท)','ยอด COD (บาท)','ต้นทุนสินค้าสุทธิ (บาท)','รายจ่าย LINE (บาท)','รายจ่ายประจำ (บาท)','ค่าขนส่ง (บาท)','ค่าคอมจ่ายแล้ว (บาท)','ต้นทุนและค่าใช้จ่ายรวม (บาท)','กำไร/ขาดทุนตามรายการที่บันทึก (บาท)'],...report.rows.map(line),line(report.total),[],['รายละเอียดต้นทุนและค่าใช้จ่าย'],['วันที่','เลขรายการ','ประเภท','รายละเอียด','จำนวนเงิน (บาท)'],...report.entries.map(e=>[bangkokDay(e.date),e.id,accountingKinds[e.kind],e.description,numeric(e.amountSatang)])];
+ if(report.sources)rows.push([],['ยอดขายตามแหล่งที่มา'],['ช่องทาง / ผู้แนะนำ','ลูกค้าที่ซื้อไม่ซ้ำ','ออเดอร์','ยอดขาย (บาท)'],...report.sources.map(s=>[s.name,s.customers,s.orders,numeric(s.revenueSatang)]));
  return '\uFEFF'+rows.map(row=>row.map(v=>typeof v==='number'?String(v):/^-?\d+\.\d{2}$/.test(v)?v:csvCell(v)).join(',')).join('\r\n');
 }

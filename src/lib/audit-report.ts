@@ -33,7 +33,7 @@ export async function auditReport(filters:AuditFilters={}){
  const [affiliates,orders]=await Promise.all([affiliateIds.length?db.affiliate.findMany({where:{id:{in:affiliateIds}},select:{id:true,name:true,code:true}}):[],sales.length?db.orderIntake.findMany({where:{id:{in:sales.map(s=>s.orderId)}},select:{id:true,orderNumber:true,sellerUsername:true}}):[]]);
  const names=new Map(affiliates.map(a=>[a.id,a.name+' · '+a.code])),orderMap=new Map(orders.map(o=>[o.id,o])),lookup=new Map<string,AuditItem[]>(),references=new Map(names);
  for(const f of friends){const item={label:'ค่าคอมเพิ่มเพื่อน · '+(names.get(f.conversion.affiliateId)??'Affiliate เดิม'),amountSatang:f.amountSatang};lookup.set('friend:'+f.id,[item]);lookup.set('conversion:'+f.conversionId,[item]);}
- for(const s of sales){const order=orderMap.get(s.orderId);lookup.set('sale:'+s.id,[{label:'ค่าคอมยอดขาย · '+(order?.sellerUsername??names.get(s.affiliateId)??'ผู้ขายเดิม')+' · '+(order?.orderNumber??'ออเดอร์เดิม'),amountSatang:s.paidAmountSatang??s.commissionSatang??0}]);}
+ for(const s of sales){const order=orderMap.get(s.orderId);lookup.set('sale:'+s.id,[{label:'ค่าคอมยอดขาย · '+(names.get(s.affiliateId)??order?.sellerUsername??'ผู้ขายเดิม')+' · '+(order?.orderNumber??'ออเดอร์เดิม'),amountSatang:s.paidAmountSatang??s.commissionSatang??0}]);}
  for(const e of expenses){references.set(e.id,e.expenseNumber);const items=expenseItems(e);if(items.length)lookup.set('expense:'+e.id,items.map(i=>({label:i.description,amountSatang:i.amountSatang})));}
  return {range,type,events:logs.map(log=>presentAudit(log,lookup,references))};
 }

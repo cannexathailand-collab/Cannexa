@@ -1,10 +1,18 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {summarizeSales,analyzeSales,type SaleRow} from "../src/lib/sales-report";
+import {summarizeSales,analyzeSales,salesSources,type SaleRow} from "../src/lib/sales-report";
 import {bangkokDay,salesRange,shiftMonth,compareRevenue,parseDispatchTime} from "../src/lib/sales-dates";
 const sent=new Date("2026-11-05T17:05:00Z");
 const row=(id:string,values:Record<string,unknown>={}):SaleRow=>({id,orderId:id,affiliateId:"affiliate",paymentMethod:"TRANSFER",status:"PENDING",revenueSatang:10000,commissionSatang:200,paidAmountSatang:null,tracking:"TRACK-"+id,recognizedAt:sent,createdAt:new Date("2026-10-01"),order:{id,orderNumber:id,sellerUsername:"ink123",sellerCode:"Ink123",payment:"โอน",status:"TRANSFER_RECORDED"},affiliate:{id:"affiliate",name:"Affiliate",code:"11155"},shipment:{tracking:"TRACK-"+id,orderId:id,fulfillmentStatus:"DISPATCHED",dispatchedAt:sent,status:"MATCHED_TRANSFER",codSatang:10000,dispatchEvidence:"ใบรับฝากจริง"},receipt:null,...values}) as SaleRow;
 const cod=(id:string,values:Record<string,unknown>={})=>row(id,{paymentMethod:"COD",order:{...row(id).order,payment:"COD",status:"MATCHED_SHIPMENT"},receipt:{tracking:"TRACK-"+id,amountSatang:10000},...values});
+test('source totals reconcile and repeat buyers count once independently of selling staff',()=>{
+ const old={code:'OLD',legacy:true,referrerId:'a',referrer:{name:'A',code:'A'},metaFbc:null};
+ const fresh={...old,code:'NEW',legacy:false};
+ const results=salesSources([row('1',{customer:old}),row('2',{customer:old}),row('3',{customer:fresh}),row('4',{customer:{...fresh,code:'META',metaFbc:'tracked'}})]);
+ assert.equal(results.reduce((n,r)=>n+r.revenueSatang,0),40000);
+ const legacy=results.find(r=>r.key==='legacy')!;assert.equal(legacy.customers,1);assert.equal(legacy.orders,2);assert.equal(legacy.revenueSatang,20000);
+ assert.ok(results.some(r=>r.key==='meta'));assert.ok(results.some(r=>r.key==='affiliate:a'));
+});
 test("sales exclude unshipped paid transfers, tracking labels and freight reports without dispatch proof",()=>{
  for(const status of ["PENDING","PAID"]){const base=row(status,{status});assert.equal(summarizeSales([{...base,recognizedAt:null}]).count,0);assert.equal(summarizeSales([{...base,shipment:{...base.shipment!,fulfillmentStatus:"UNCONFIRMED",dispatchedAt:null}}]).count,0);}
  assert.equal(summarizeSales([row("sent")]).count,1);

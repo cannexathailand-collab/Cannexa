@@ -40,6 +40,7 @@ model Affiliate {
  link TrackingLink?
  clicks Click[]
  conversions Conversion[]
+ customers Customer[]
 }
 model TrackingLink {
  id String @id @default(cuid())
@@ -80,7 +81,7 @@ model OAuthAttempt {
 model Conversion {
  id String @id @default(cuid())
  customerCode String @unique @default(dbgenerated("customer_code()"))
- customerOrders OrderIntake[]
+ customerProfile Customer?
  source String @default("LINE")
  userKey String @unique
  clickId String @unique
@@ -160,6 +161,30 @@ model MetaConnection {
  id String @id
  datasetId String
 }
+model Customer {
+ code String @id @default(dbgenerated("customer_code()"))
+ conversionId String? @unique
+ conversion Conversion? @relation(fields:[conversionId],references:[id],onDelete:Restrict)
+ identityKey String? @unique
+ name String?
+ phone String?
+ referrerId String?
+ referrer Affiliate? @relation(fields:[referrerId],references:[id],onDelete:Restrict)
+ metaFbc String?
+ legacy Boolean @default(false)
+ createdAt DateTime @default(now())
+ orders OrderIntake[]
+}
+model MetaPurchase {
+ orderId String @id
+ eventId String @unique
+ payload Json
+ status String @default("PENDING")
+ attempts Int @default(0)
+ lastError String?
+ sentAt DateTime?
+ createdAt DateTime @default(now())
+}
 
 model OrderGroup {
  purpose String @default("ORDER")
@@ -185,7 +210,8 @@ model OrderBot {
 model OrderIntake {
  id String @id @default(cuid())
  customerCode String?
- customer Conversion? @relation(fields:[customerCode],references:[customerCode],onDelete:Restrict)
+ customer Customer? @relation(fields:[customerCode],references:[code],onDelete:Restrict)
+ commissionAffiliateId String?
  eventKey String @unique
  messageKey String @unique
  groupKey String

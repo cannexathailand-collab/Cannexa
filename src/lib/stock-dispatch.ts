@@ -1,4 +1,5 @@
 import {prepareStockDailyClose} from './stock-history';
+import {processMetaPurchases} from './meta-purchase';
 import {db} from './db';import {sha} from './crypto';import {stockGoogleClient,readStockSheet} from './stock-google';import {orderStockItems} from './order-stock-items';import {stockDispatchPlan,type StockOutSnapshot} from './stock-dispatch-plan';
 import {stockDispatchEligible} from './stock-dispatch-eligibility';
 export {stockDispatchEligible} from './stock-dispatch-eligibility';
@@ -66,5 +67,6 @@ export async function processPendingStockDispatches(actor:string,limit=1,priorit
  const ready=ids.filter(id=>!done.has(id)&&!confirmation.failedOrderIds.includes(id));
  for(const id of ready.slice(0,limit)){const result=await processStockDispatch(id,actor);processed++;if(result.status==='POSTED')posted++;}
  await enqueueStockDispatches(ready.slice(limit));
+ await processMetaPurchases().catch(()=>{});
  return {processed,posted};
 }

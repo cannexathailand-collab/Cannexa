@@ -24,5 +24,5 @@ export async function accountingReport(input:AccountingFilters={}){
  if(pendingExpenses)notices.push('รายจ่าย '+pendingExpenses+' รายการยังรอจ่ายหรือรอตรวจสอบ จึงยังไม่รวมในยอด');
  if(expenses.undatedCount)notices.push('ค่าคอมเก่า '+expenses.undatedCount+' รายการไม่ทราบวันที่จ่าย ยังจัดเข้างวดไม่ได้');
  if(sales.waitingCodCount)notices.push('COD '+sales.waitingCodCount+' ออเดอร์รอรับเงิน '+(sales.waitingCodSatang/100).toFixed(2)+' บาท ยังไม่รวมเป็นยอดขาย');
- return {...summary,notices,missingCosts,waitingCodSatang:sales.waitingCodSatang,pendingCommissionSatang:sales.summary.pendingCommissionSatang};
+ return {...summary,sources:sales.sources,notices,missingCosts,waitingCodSatang:sales.waitingCodSatang,pendingCommissionSatang:sales.summary.pendingCommissionSatang};
 }

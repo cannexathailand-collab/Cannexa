@@ -10,11 +10,13 @@ function harness(enabled=true){
  db.orderGroup.upsert=(async({where,create}:any)=>{if(!groups.has(where.id))groups.set(where.id,{...create,enabled});return groups.get(where.id);}) as any;
  const tx:any={shipment:{updateMany:async()=>({count:0})},$queryRawUnsafe:async()=>[],orderGroup:{findUnique:async({where}:any)=>groups.get(where.id)},affiliate:{findMany:async({where}:any)=>{assert.equal(where.OR[0].code.mode,"insensitive");assert.equal(where.OR[1].accounts.some.username.mode,"insensitive");return [{id:"seller",salesCommissionBasis:"REVENUE",salesCommissionBps:1000}];}},orderMessageWithdrawal:{findUnique:async({where}:any)=>withdrawn.has(where.messageKey)?{}:null,upsert:async({where}:any)=>withdrawn.add(where.messageKey)},auditLog:{create:async()=>({})},salesOrder:{findMany:async({where}:any)=>sales.filter(s=>where.orderId.in.includes(s.orderId)&&s.status!=="CANCELLED"),update:async({where,data}:any)=>{Object.assign(sales.find(s=>s.id===where.id),data);},create:async({data}:any)=>{assert.ok(!sales.some(s=>s.orderId===data.orderId));data.id="sale-"+sales.length;sales.push(data);return data;},updateMany:async({where,data}:any)=>{const selected=sales.filter(s=>where.orderId.in.includes(s.orderId)&&where.status.in.includes(s.status));selected.forEach(s=>Object.assign(s,data));return {count:selected.length};}},orderIntake:{deleteMany:async({where}:any)=>{for(let i=rows.length-1;i>=0;i--)if(rows[i].messageKey===where.messageKey&&rows[i].groupKey===where.groupKey)rows.splice(i,1);return {count:1};},findMany:async({where}:any)=>rows.filter(r=>r.messageKey===where.messageKey&&r.groupKey===where.groupKey),findFirst:async({where}:any)=>rows.find(r=>where.OR.some((q:any)=>(q.messageKey&&q.messageKey===r.messageKey)||(q.eventKey&&q.eventKey===r.eventKey))),create:async({data}:any)=>{const row={id:"order-"+rows.length,...data};rows.push(row);return row;},updateMany:async({where,data}:any)=>{rows.filter(r=>r.messageKey===where.messageKey&&r.groupKey===where.groupKey).forEach(r=>Object.assign(r,data));}}};
  db.$transaction=(async(fn:any)=>fn(tx)) as any;
+ const customers:any[]=[];
+ tx.customer={findUnique:async({where}:any)=>customers.find(c=>where.code?c.code===where.code:c.identityKey===where.identityKey)??null,update:async({where,data}:any)=>Object.assign(customers.find(c=>c.code===where.code),data),upsert:async({where,create}:any)=>{let c=customers.find(c=>c.identityKey===where.identityKey);if(!c){c={code:'CUS-'+String(customers.length+1).padStart(8,'0'),...create};customers.push(c);}return c;}};
  return {rows,groups,tx,sales};
 }
 function event(message="m1"):OrderEvent{return {webhookEventId:"e-"+message,type:"message",timestamp:Date.now(),source:{type:"group",groupId:"group",userId:"person"},message:{type:"text",id:message,text:"รหัสผู้ขาย: ADM001\nผู้รับ: ตัวอย่าง\nโทร: 0812345678\nที่อยู่: 1\nชำระเงิน: COD\nยอดรวม: 2560"}};}
 test('customer code links an order without replacing the seller or rewarding the referrer again',async()=>{
- const h=harness();h.tx.conversion={findFirst:async({where}:any)=>where.customerCode==='CUS-00000001'&&where.source==='LINE'?{customerCode:where.customerCode}:null};
+ const h=harness();await h.tx.customer.upsert({where:{identityKey:'seed'},create:{referrerId:'seller'}});
  h.tx.orderIntake.update=async({where,data}:any)=>Object.assign(h.rows.find(r=>r.id===where.id),data);
  const e=event();e.message!.text+='\nรหัสลูกค้า: cus-00000001';const order=await receiveOrderEvent('bot-a',e);
  assert.equal(order?.customerCode,'CUS-00000001');assert.equal(order?.affiliateId,'seller');assert.equal(h.sales.length,0);
@@ -26,6 +28,16 @@ test("shared affiliate orders belong to the matching employee, ambiguous code as
  const h=harness();h.tx.affiliate.findMany=async()=>[{id:"seller",salesCommissionBasis:"REVENUE",salesCommissionBps:200,accounts:[{username:"adm001"},{username:"other"}]}];
  await receiveOrderEvent("bot-a",event());assert.equal(h.rows[0].sellerUsername,"adm001");
  const e=event("ambiguous");e.message!.text=e.message!.text!.replace("ADM001","11155");await receiveOrderEvent("bot-a",e);assert.equal(h.rows[1].sellerUsername,null);
+});
+test('automatic customer survives repeat purchase and a different selling employee with one commission per order',async()=>{
+ const h=harness();let current='first';
+ const first={id:'first',salesCommissionBasis:'REVENUE',salesCommissionBps:200},second={id:'second',salesCommissionBasis:'REVENUE',salesCommissionBps:500};
+ h.tx.affiliate.findMany=async()=>[current==='first'?first:second];h.tx.affiliate.findUnique=async()=>first;
+ const make=(id:string)=>{const e=event(id);e.message!.text=e.message!.text!.replace('ชำระเงิน: COD','ชำระเงิน: โอน');return e;};
+ const one=await receiveOrderEvent('bot-a',make('first-order'));current='second';
+ const two=await receiveOrderEvent('bot-a',make('second-order'));await receiveOrderEvent('bot-a',make('second-order'));
+ assert.equal(one?.customerCode,two?.customerCode);assert.equal(two?.affiliateId,'second');assert.equal(two?.commissionAffiliateId,'first');
+ assert.equal(h.sales.length,2);assert.deepEqual(h.sales.map(s=>s.commissionBps),[200,200]);assert.deepEqual(h.sales.map(s=>s.affiliateId),['first','first']);
 });
 test("repeated webhook and message IDs save once, identical separate messages save twice",async()=>{
  const h=harness();await receiveOrderEvent("bot-a",event());await receiveOrderEvent("bot-a",event());await receiveOrderEvent("bot-a",{...event(),webhookEventId:"redelivered"});await receiveOrderEvent("bot-a",event("m2"));assert.equal(h.rows.length,2);assert.notEqual(h.rows[0].orderNumber,h.rows[1].orderNumber);assert.equal(h.rows[0].status,"WAITING_SHIPMENT");

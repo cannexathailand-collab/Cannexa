@@ -6,7 +6,9 @@ function fixture(payment="โอน"){
  const order:any={id:"order",affiliateId:"seller",payment,status:"TRANSFER_RECORDED",rawText:"ยอดรวม: 100 บาท",salesCommissionBasis:"REVENUE",salesCommissionBps:200};
  const shipment:any={tracking:"T1",orderId:order.id,fulfillmentStatus:"DISPATCHED",dispatchedAt:date,dispatchEvidence:"ใบรับฝาก",status:"MATCHED",codSatang:10000};
  let sale:any=null,receipt:any=null;const audits:any[]=[];
+ const lock=async()=>[];
  const tx:any={salesOrder:{findUnique:async()=>sale,create:async({data}:any)=>sale={id:"sale",...data},update:async({data}:any)=>sale={...sale,...data}},codReceipt:{findUnique:async()=>receipt},auditLog:{create:async({data}:any)=>audits.push(data)}};
+ tx.$queryRawUnsafe=lock;
  return {tx,order,shipment,audits,get sale(){return sale;},set sale(v:any){sale=v;},set receipt(v:any){receipt=v;}};
 }
 test("transfer recognition uses dispatch date and retry creates no duplicate or extra audit",async()=>{const h=fixture();await reconcileSalesRecognition(h.tx,h.order,h.shipment,"owner");assert.equal(h.sale.recognizedAt,date);assert.equal(h.sale.commissionSatang,200);assert.equal(h.audits.length,1);await reconcileSalesRecognition(h.tx,h.order,h.shipment,"owner");assert.equal(h.audits.length,1);});

@@ -75,6 +75,7 @@ test('LINE and Gmail flow persists sales once, rereads exact revenue, and preser
  const h=isolatedPersistence(t),at=Date.now(),day=86400000,shipmentAt=new Date(at-day),receiptAt=new Date(at-3600000),returnAt=new Date(at-1000);
  const env={SESSION_SECRET:process.env.SESSION_SECRET,USER_HASH_SECRET:process.env.USER_HASH_SECRET};process.env.SESSION_SECRET='isolated-sales-flow';process.env.USER_HASH_SECRET='isolated-sales-flow';t.after(()=>{for(const [key,value]of Object.entries(env))if(value===undefined)delete process.env[key];else process.env[key]=value;});
  h.model('orderGroup',{enabled:true,purpose:'ORDER'},[['id']]);h.model('orderMessageWithdrawal',{},[['messageKey']]);
+ h.model('customer',{code:'CUS-00000001'},[['identityKey']]);
  h.model('affiliate').seed({id:'seller',name:'Test seller',code:'ADM001',active:true,archivedAt:null,salesCommissionBasis:'REVENUE',salesCommissionBps:1000,accounts:[{username:'adm001',role:'employee',active:true}]});
  h.model('orderIntake',{},[['id'],['messageKey'],['eventKey']]);h.model('salesOrder',{tracking:null,recognizedAt:null,paidAt:null,paidAmountSatang:null},[['id'],['orderId'],['tracking']]);
  h.model('shipment',{orderId:null,status:'WAITING_ORDER',fulfillmentStatus:'UNCONFIRMED',dispatchedAt:null,dispatchEvidence:null},[['tracking'],['orderId']]);h.model('codReceipt',{},[['tracking']]);

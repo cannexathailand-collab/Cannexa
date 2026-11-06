@@ -11,8 +11,12 @@ export default async function MetaPixelSettings({searchParams}: {searchParams: P
  const friends = await db.conversion.count({where:{affiliate:{code:metaAdCode},source:mockMode()?"MOCK":"LINE",status:"VERIFIED_NEW_FRIEND"}});
  const adUrl = baseUrl()+"/r/"+metaAdCode;
  const configured = connection && metaSettings();
+ const purchases=await db.metaPurchase.groupBy({by:['status'],_count:true});
  return <section className="card">
   <h1>Meta Pixel</h1>
+  <h2>ยอดซื้อจากลูกค้า Meta</h2>
+  <p>ส่งเมื่อออเดอร์ผูกรหัสลูกค้าและยืนยันยอดขายแล้ว แต่ละออเดอร์ใช้รหัสเหตุการณ์เดิมเมื่อส่งซ้ำ</p>
+  {purchases.length?purchases.map(p=><p key={p.status}>{({SENT:'ส่งสำเร็จ',PENDING:'รอส่ง',RETRY:'รอลองใหม่',SENDING:'กำลังส่ง',NEEDS_REVIEW:'รอตรวจสอบ',CANCELLED:'ยกเลิก'} as Record<string,string>)[p.status]??p.status}: {p._count} รายการ</p>):<p>ยังไม่มียอดซื้อที่เข้าเงื่อนไขส่ง</p>}
   <p>ส่งเหตุการณ์เมื่อ Cannexa ยืนยันว่าเพิ่มเพื่อน LINE OA สำเร็จจากลิงก์โฆษณา</p>
   <p><strong>สถานะ:</strong> {configured ? "ตั้งค่าครบ รอทดสอบรับเหตุการณ์ใน Meta" : "ยังตั้งค่าการส่งเหตุการณ์ไม่ครบ"}</p>
   {status === "saved" && <p role="status">บันทึก Pixel / Dataset ID แล้ว</p>}

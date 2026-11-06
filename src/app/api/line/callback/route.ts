@@ -19,6 +19,8 @@ export async function GET(req:NextRequest){
   const result=await exchange(code,a.verifier,a.nonce,connection.settings);
   const changed=req.nextUrl.searchParams.get("friendship_status_changed");
   const customer=await recordLogin(a.clickId,userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?result.userId:connection.settings.botId+":"+result.userId),result.friendFlag,changed==="true"?true:changed==="false"?false:null);
+  const originalClick=await db.click.findUniqueOrThrow({where:{id:customer.clickId}});
+  await db.customer.upsert({where:{code:customer.customerCode},create:{code:customer.customerCode,conversionId:customer.id,referrerId:customer.affiliateId,metaFbc:originalClick.metaFbc},update:{}});
   const res=NextResponse.redirect(baseUrl()+"/result");
   res.cookies.set('customer_result',signToken({id:customer.id,exp:Date.now()+600000}),{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'lax',path:'/result',maxAge:600});
   res.cookies.delete("oauth_"+sha(state).slice(0,16));return res;

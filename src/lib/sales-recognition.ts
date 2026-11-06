@@ -8,6 +8,8 @@ export async function revokeSalesRecognition(tx:Prisma.TransactionClient,sale:{i
  await tx.auditLog.create({data:{actor,action:"SALES_RECOGNITION_REVERSED",entityId:sale.id,details:{orderId:sale.orderId,tracking:sale.tracking,amountSatang:sale.revenueSatang,dispatchedAt:sale.recognizedAt.toISOString(),reason}}});
 }
 export async function reconcileSalesRecognition(tx:Prisma.TransactionClient,order:OrderIntake,shipment:Shipment,actor:string){
+ const commissionAffiliateId=order.commissionAffiliateId??order.affiliateId;
+ if(commissionAffiliateId)await userLock(tx,'commission-payout:'+commissionAffiliateId);
  const previous=await tx.salesOrder.findUnique({where:{orderId:order.id}});
  if(!hasActualDispatch(shipment)||!["โอน","COD"].includes(order.payment??"")||["RETURNED","CANCELLED","WITHDRAWN"].includes(order.status)){
   if(previous)await revokeSalesRecognition(tx,previous,actor,"ไม่เข้าเงื่อนไขจัดส่งจริง");return;
@@ -22,7 +24,7 @@ export async function reconcileSalesRecognition(tx:Prisma.TransactionClient,orde
  const commission=previous?.status==="PAID"?previous.commissionSatang:!received||profit?null:Math.round(amount*bps/10000);
  const recognizedAt=received?shipment.dispatchedAt!:null;
  const values={tracking:shipment.tracking,recognizedAt,status,commissionSatang:commission,paymentEvidence:cod?(received?"COD_RECEIPT":"AWAITING_COD_RECEIPT"):"DECLARED_TRANSFER"};
- const sale=previous?await tx.salesOrder.update({where:{id:previous.id},data:values}):await tx.salesOrder.create({data:{...values,orderId:order.id,affiliateId:order.affiliateId,paymentMethod:cod?"COD":"TRANSFER",revenueSatang:amount,commissionBasis:order.salesCommissionBasis,commissionBps:bps}});
+ const sale=previous?await tx.salesOrder.update({where:{id:previous.id},data:values}):await tx.salesOrder.create({data:{...values,orderId:order.id,affiliateId:commissionAffiliateId!,paymentMethod:cod?"COD":"TRANSFER",revenueSatang:amount,commissionBasis:order.salesCommissionBasis,commissionBps:bps}});
  if((previous?.recognizedAt?.getTime()??null)!==(recognizedAt?.getTime()??null))await tx.auditLog.create({data:{actor,action:"SALES_RECOGNITION_CHANGED",entityId:sale.id,details:{orderId:order.id,tracking:shipment.tracking,amountSatang:amount,previousDispatchedAt:previous?.recognizedAt?.toISOString()??null,dispatchedAt:recognizedAt?.toISOString()??null,evidence:shipment.dispatchEvidence}}});
 }
 export async function updateShipmentFulfillment(orderId:string,action:"DISPATCHED"|"RETURNED"|"CANCELLED",actor:string,evidence:string,dispatchedAt?:Date){
