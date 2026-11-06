@@ -1,26 +1,12 @@
 import {randomUUID} from 'node:crypto';
 import type {CrmPointPromotion} from '@prisma/client';
 import {bangkokDay,shiftDay} from '@/lib/sales-dates';
-function PromotionForm({promotion,editable}:{promotion?:CrmPointPromotion;editable:boolean}){
- const today=bangkokDay(new Date());
- return <form action="/api/admin/crm/promotions" method="post"><fieldset disabled={!editable} style={{border:0,padding:0,margin:0}}>
-  {promotion&&<input type="hidden" name="id" value={promotion.id}/>}<input type="hidden" name="requestKey" value={promotion?.requestKey??randomUUID()}/>
-  <label>ชื่อโปรโมชั่น<input name="name" maxLength={120} required defaultValue={promotion?.name??''} placeholder="เช่น โบนัสสมาชิกเดือนนี้"/></label>
-  <div className="stats">
-   <label>เริ่มวันที่<input type="date" name="from" required defaultValue={promotion?bangkokDay(promotion.startsAt):today}/></label>
-   <label>ถึงวันที่<input type="date" name="to" required defaultValue={promotion?bangkokDay(new Date(+promotion.endsAt-1)):shiftDay(today,6)}/></label>
-   <label>ยอดซื้อขั้นต่ำต่อออเดอร์ (บาท)<input type="number" name="minimumBaht" min="0.01" max="21474836.47" step="0.01" required defaultValue={promotion?promotion.minimumSatang/100:''}/></label>
-   <label>ชนิดโบนัส<select name="bonusType" defaultValue={promotion?.bonusType??'PERCENT'}><option value="PERCENT">เพิ่มเป็น % ของแต้มปกติ</option><option value="POINTS">เพิ่มเป็นจำนวนแต้ม</option></select></label>
-  </div>
-  <label>ค่าโบนัส<input type="number" name="bonusValue" min="1" max="1000000" step="1" required defaultValue={promotion?.bonusValue??''} placeholder="เช่น 70"/><small>หากเลือกเปอร์เซ็นต์ ใส่ 70 คือเพิ่มอีก 70% ของแต้มปกติ (ตั้งได้ 1–1,000%)</small></label>
-  <label><input type="checkbox" name="enabled" defaultChecked={promotion?.enabled??false}/> เปิดใช้โปรโมชั่น</label>
-  <button type="submit">{promotion?'บันทึกโปรโมชั่น':'สร้างโปรโมชั่น'}</button>
- </fieldset></form>;
-}
-export function CrmPointPromotions({promotions,editable,pointsEnabled}:{promotions:CrmPointPromotion[];editable:boolean;pointsEnabled:boolean}){
- const now=new Date();
- return <section aria-label="โปรโมชั่นแต้มโบนัส"><h2>โปรโมชั่นแต้มโบนัส</h2><p>รับโบนัสเพิ่มจากแต้มปกติ เมื่อยอดซื้อในออเดอร์ถึงขั้นต่ำภายในช่วงโปรโมชั่น</p>{!pointsEnabled&&<p className="notice">บันทึกอัตราแยกตามระดับและเปิดสะสมแต้มด้านบน เพื่อให้โปรโมชั่นเริ่มให้แต้มได้</p>}
- <details className="card"><summary>สร้างโปรโมชั่นโบนัส</summary><PromotionForm editable={editable}/></details>
- {promotions.map(p=><details className="card" key={p.id}><summary><strong>{p.name}</strong> · {!p.enabled?'ปิดอยู่':now<p.startsAt?'ยังไม่เริ่ม':now>=p.endsAt?'สิ้นสุดแล้ว':'กำลังใช้งาน'} · ซื้อครบ {(p.minimumSatang/100).toLocaleString('th-TH')} บาท เพิ่ม {p.bonusValue}{p.bonusType==='PERCENT'?'%':' แต้ม'}</summary><PromotionForm promotion={p} editable={editable}/></details>)}
- <p className="muted">หากออเดอร์เข้าได้หลายโปรโมชั่น จะรับโบนัสที่สูงที่สุดเพียงรายการเดียว ช่วงวันที่นับตามเวลาไทย และเก็บเงื่อนไขไว้ตอนรับออเดอร์ การแก้หรือปิดโปรโมชั่นไม่เปลี่ยนโบนัสของออเดอร์เดิม ได้รับแต้มเมื่อซื้อสำเร็จ และไม่ให้แต้มกับออเดอร์ยกเลิกหรือตีกลับ</p></section>;
+import {CrmPromotionEditor} from './crm-promotion-editor';
+export function CrmPointPromotions({promotions,editable,pointsEnabled,rates}:{promotions:CrmPointPromotion[];editable:boolean;pointsEnabled:boolean;rates:{name:string;rate:number}[]}){
+ const now=new Date(),today=bangkokDay(now);
+ return <section className="loyalty-promotions" aria-label="โปรโมชั่นแต้มโบนัส"><div className="loyalty-section-heading"><div><span className="loyalty-overline">BONUS CAMPAIGNS</span><h2>โปรโมชั่นแต้มโบนัส</h2><p>ให้ลูกค้ารับแต้มพิเศษ เมื่อซื้อครบยอดที่คุณกำหนด</p></div><span className="loyalty-count">{promotions.length} โปรโมชั่น</span></div>
+ {!pointsEnabled&&<p className="notice">ยังไม่ได้เปิดสะสมแต้ม — ตั้งโปรโมชั่นล่วงหน้าได้ และเปิดสะสมแต้มด้านบนเมื่อต้องการเริ่มให้แต้ม</p>}
+ <details className="loyalty-create"><summary><span className="loyalty-create-icon">＋</span><span><b>สร้างโปรโมชั่นโบนัส</b><small>กำหนดยอดซื้อ ช่วงเวลา และโบนัสได้ในที่เดียว</small></span><span className="loyalty-chevron">⌄</span></summary><CrmPromotionEditor requestKey={randomUUID()} from={today} to={shiftDay(today,6)} editable={editable} rates={rates}/></details>
+ <div className="loyalty-promotion-list">{promotions.map(p=>{const state=!p.enabled?'ปิดอยู่':now<p.startsAt?'กำลังจะเริ่ม':now>=p.endsAt?'สิ้นสุดแล้ว':'กำลังใช้งาน';return <details className="loyalty-saved" key={p.id}><summary><div className="loyalty-saved-bonus">+{p.bonusValue.toLocaleString('th-TH')}<small>{p.bonusType==='PERCENT'?'%':' แต้ม'}</small></div><div className="loyalty-saved-info"><strong>{p.name}</strong><small>ซื้อครบ {(p.minimumSatang/100).toLocaleString('th-TH')} บาท · {bangkokDay(p.startsAt)} ถึง {bangkokDay(new Date(+p.endsAt-1))}</small></div><span className={'loyalty-status '+(state==='กำลังใช้งาน'?'is-active':'')}>{state}</span><span className="loyalty-chevron">⌄</span></summary><CrmPromotionEditor id={p.id} requestKey={p.requestKey} name={p.name} from={bangkokDay(p.startsAt)} to={bangkokDay(new Date(+p.endsAt-1))} minimum={p.minimumSatang/100} type={p.bonusType} value={p.bonusValue} enabled={p.enabled} editable={editable} rates={rates}/></details>;})}</div>
+ <div className="loyalty-rules"><strong>เงื่อนไขการให้แต้ม</strong><span>ใช้โบนัสสูงสุด 1 โปรโมชั่นต่อออเดอร์</span><span>ให้แต้มเมื่อซื้อสำเร็จ ไม่รวมยกเลิกหรือตีกลับ</span><span>การแก้โปรไม่เปลี่ยนแต้มของออเดอร์เดิม · ช่วงวันที่ใช้เวลาไทย</span></div></section>;
 }
