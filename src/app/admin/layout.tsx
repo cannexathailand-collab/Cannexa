@@ -22,7 +22,7 @@ export default async function AdminLayout({children}:{children:React.ReactNode})
   <details className="expense-menu"><summary>สต๊อก</summary><div className="expense-submenu"><Link href="/admin/stock">รายการสินค้า</Link><Link href="/admin/stock/history">รายการย้อนหลัง</Link><Link href="/admin/stock/review">รอตรวจสอบ</Link></div></details>
  </div></details>}
  {owner&&<details aria-label="การเชื่อมต่อ" className="accounting-menu"><summary>การเชื่อมต่อ</summary><div className="accounting-submenu">
-  <details className="expense-menu" aria-label="เชื่อมต่อ LINE"><summary>เชื่อมต่อ LINE</summary><div className="expense-submenu"><Link href="/admin/line">ตั้งค่า LINE</Link><Link href="/admin/orders">ตั้งค่าบอทรับออเดอร์</Link></div></details>
+  <details className="expense-menu" aria-label="เชื่อมต่อ LINE"><summary>เชื่อมต่อ LINE</summary><div className="expense-submenu"><Link href="/admin/line">ตั้งค่า LINE</Link><Link href="/admin/orders">รายการบอทรับออเดอร์จาก LINE</Link></div></details>
   <Link href="/admin/meta">Meta Pixel</Link>
   <Link href="/admin/gmail">เชื่อม Gmail</Link>
  </div></details>}
