@@ -2,7 +2,8 @@ import Link from 'next/link';
 import {employeeCommissions,commissionKinds} from '@/lib/employee-commissions';
 import {commissionMonth} from '@/lib/commission-month';
 import {employeeReviewOrders} from '@/lib/employee-review-orders';
-type Filters={kind?:string;status?:string;commissionMonth?:string;commissionPage?:string;month?:string;reviewPage?:string};
+import {CommissionDialog} from './commission-dialog';
+type Filters={kind?:string;status?:string;commissionMonth?:string;commissionPage?:string;month?:string;reviewPage?:string;commissionOpen?:string};
 const money=(n:number)=>(n/100).toLocaleString('th-TH',{style:'currency',currency:'THB'});
 const date=(d:Date)=>d.toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short',year:'2-digit'});
 const statuses={PENDING:'รอจ่าย',PAID:'จ่ายแล้ว',WAITING:'รอคำนวณ / ตรวจสอบ'};
@@ -16,7 +17,7 @@ export async function CommissionPanel({affiliateId,username,filters}:{affiliateI
  const filtered=data.rows.filter(r=>(kind==='ALL'||r.kind===kind)&&(status==='ALL'||r.status===status)&&(month==='ALL'||commissionMonth(r.date)===month));
  const pages=Math.max(1,Math.ceil(filtered.length/25)),page=Math.min(pages,Math.max(1,Number.parseInt(filters.commissionPage??'1',10)||1));
  const rows=filtered.slice((page-1)*25,page*25);
- const href=(values:Partial<Filters>)=>'/my-performance?'+new URLSearchParams(Object.entries({...filters,kind,status,commissionMonth:month,commissionPage:'1',...values}).filter(([,v])=>v!==undefined) as [string,string][]).toString()+'#commission-details';
+ const href=(values:Partial<Filters>)=>'/my-performance?'+new URLSearchParams(Object.entries({...filters,kind,status,commissionMonth:month,commissionPage:'1',commissionOpen:'1',...values}).filter(([,v])=>v!==undefined) as [string,string][]).toString();
  return <section className="employee-commissions" aria-label="รายละเอียดค่าคอมมิชชัน">
   <div className="commission-summary-grid">
    <article className="commission-metric"><span>ค่าคอมรอจ่ายทั้งหมด</span><strong>{money(data.pending)}</strong><small>ทุกรอบที่คำนวณแล้วและยังไม่จ่าย</small></article>
@@ -29,9 +30,11 @@ export async function CommissionPanel({affiliateId,username,filters}:{affiliateI
    <h3>{commissionKinds[c.kind]}</h3><span>รอจ่าย</span><strong>{money(c.pending)}</strong><p>จ่ายแล้ว <b>{money(c.paid)}</b></p><small>{c.waiting?`รอคำนวณ / ตรวจสอบ ${c.waiting} รายการ`:`ทั้งหมด ${c.count} รายการ`}</small>
    <Link href={href({kind:c.kind,status:'ALL',commissionMonth:'ALL'})}>ดูรายละเอียด <span aria-hidden="true">→</span></Link>
   </article>)}</div>
+  <CommissionDialog autoOpen={filters.commissionOpen==='1'}>
   <section id="commission-details" className="commission-details">
-   <div className="commission-section-title"><h2>รายละเอียดค่าคอม</h2><p>{filtered.length.toLocaleString('th-TH')} รายการ · วันที่รายการและวันที่จ่ายแสดงแยกกัน</p></div>
-   <form method="get" action="/my-performance#commission-details" className="commission-filters">
+   <div className="commission-section-title"><p>{filtered.length.toLocaleString('th-TH')} รายการ · วันที่รายการและวันที่จ่ายแสดงแยกกัน</p></div>
+   <form method="get" action="/my-performance" className="commission-filters">
+    <input type="hidden" name="commissionOpen" value="1"/>
     {filters.month&&<input type="hidden" name="month" value={filters.month}/>}
     <label>ประเภท<select name="kind" defaultValue={kind}>{[['ALL','ทุกประเภท'],...Object.entries(commissionKinds)].map(([v,t])=><option value={v} key={v}>{t}</option>)}</select></label>
     <label>สถานะ<select name="status" defaultValue={status}>{[['ALL','ทุกสถานะ'],...Object.entries(statuses)].map(([v,t])=><option value={v} key={v}>{t}</option>)}</select></label>
@@ -44,10 +47,11 @@ export async function CommissionPanel({affiliateId,username,filters}:{affiliateI
    </article>):<p className="commission-empty">ไม่มีรายการตามเงื่อนไขที่เลือก</p>}</div>
    {pages>1&&<nav className="commission-pagination" aria-label="หน้ารายการค่าคอม">{page>1&&<Link href={href({commissionPage:String(page-1)})}>← ก่อนหน้า</Link>}<span>หน้า {page} / {pages}</span>{page<pages&&<Link href={href({commissionPage:String(page+1)})}>ถัดไป →</Link>}</nav>}
   </section>
+  </CommissionDialog>
   <section id="employee-review-orders" className="employee-review-orders">
    <div className="commission-section-title"><h2>รายการต้องตรวจสอบ</h2><p>ออเดอร์ของคุณทั้งหมด รวมรายการค้างจากเดือนก่อน</p></div>
    {reviews.length?reviews.slice((reviewPage-1)*20,reviewPage*20).map(r=><article className="commission-row" key={r.id}><div><h3>{r.number}</h3><p>{r.reasons.join(' · ')}</p><small>รับออเดอร์ {date(r.createdAt)}</small></div><Link className="review-order-link" href={'/my-performance/orders/'+encodeURIComponent(r.id)}>ตรวจสอบ →</Link></article>):<p className="commission-empty">ไม่มีรายการต้องตรวจสอบ</p>}
-   {reviewPages>1&&<nav className="commission-pagination" aria-label="หน้ารายการต้องตรวจสอบ">{reviewPage>1&&<Link href={href({reviewPage:String(reviewPage-1)}).replace('#commission-details','#employee-review-orders')}>← ก่อนหน้า</Link>}<span>หน้า {reviewPage} / {reviewPages}</span>{reviewPage<reviewPages&&<Link href={href({reviewPage:String(reviewPage+1)}).replace('#commission-details','#employee-review-orders')}>ถัดไป →</Link>}</nav>}
+   {reviewPages>1&&<nav className="commission-pagination" aria-label="หน้ารายการต้องตรวจสอบ">{reviewPage>1&&<Link href={href({reviewPage:String(reviewPage-1),commissionOpen:undefined})+'#employee-review-orders'}>← ก่อนหน้า</Link>}<span>หน้า {reviewPage} / {reviewPages}</span>{reviewPage<reviewPages&&<Link href={href({reviewPage:String(reviewPage+1),commissionOpen:undefined})+'#employee-review-orders'}>ถัดไป →</Link>}</nav>}
   </section>
  </section>;
 }

@@ -10,7 +10,7 @@ import {OrderCard} from "@/app/order-card";
 import {salesReport} from '@/lib/sales-report';
 import {pendingCommissionThisRound,noonCommissionWindow} from '@/lib/noon-commission';
 import {CommissionPanel} from './commission-panel';
-export default async function MyPerformance({searchParams}: {searchParams: Promise<{month?: string;kind?:string;status?:string;commissionMonth?:string;commissionPage?:string;reviewPage?:string}>}){
+export default async function MyPerformance({searchParams}: {searchParams: Promise<{month?: string;kind?:string;status?:string;commissionMonth?:string;commissionPage?:string;reviewPage?:string;commissionOpen?:string}>}){
  const a=await requireAdminPage(["employee"]);
  const [r]=a.affiliateId?await report("all",a.affiliateId):[];
  const filters=await searchParams,requestedMonth=filters.month;
