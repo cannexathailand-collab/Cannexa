@@ -193,6 +193,13 @@ model CrmPointRule {
  createdBy String
  @@index([effectiveAt])
 }
+model CrmTierSettings {
+ id String @id
+ vipTopPercent Int @default(20)
+ goldTopPercent Int @default(40)
+ silverTopPercent Int @default(70)
+ updatedAt DateTime @updatedAt
+}
 model MetaPurchase {
  orderId String @id
  eventId String @unique

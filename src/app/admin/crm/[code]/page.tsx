@@ -4,6 +4,7 @@ import {db} from '@/lib/db';
 import {canonicalCustomerCode,displayCustomerCode} from '@/lib/customer-code';
 import {crmDate,crmMoney,loadCustomerCrm,customerLifetimeStats,crmRange,crmBehaviorTags,type CrmFilters} from '@/lib/customer-crm';
 import {customerTags} from '@/lib/customer-tags';
+import {crmTierReport} from '@/lib/crm-tier-report';
 import {customerOrderTeams} from '@/lib/customer-order-teams';
 import {managers} from '@/lib/accounts';
 import {requireAdminPage} from '@/lib/auth';
@@ -19,8 +20,9 @@ export default async function CustomerProfile({params,searchParams}:{params:Prom
  const groups=groupIds.length?await db.orderGroup.findMany({where:{id:{in:groupIds}},select:{id:true,botId:true,name:true}}):[];
  const bots=groups.length?await db.orderBot.findMany({where:{botId:{in:groups.map(g=>g.botId)}},select:{botId:true,name:true}}):[];
  const teams=customerOrderTeams(summary.allHistory.map(h=>h.order),groups,bots);
+ const membership=await crmTierReport(),tier=membership.tiers.get(code);
  return <><Link href="/admin/crm">← กลับ CRM</Link><h1>ลูกค้า {displayCustomerCode(code)}</h1>
- <section className="card"><h2>แท็กลูกค้าอัตโนมัติ</h2>{[...customerTags(customer,teams),...crmBehaviorTags(summary)].map(tag=><span className="pill" style={{margin:4}} key={tag}>{tag}</span>)}<p className="muted">อัปเดตจากประวัติทั้งหมดของลูกค้าใน CRM ไม่เปลี่ยนตามตัวกรองวันที่</p></section>
+ <section className="card"><h2>ระดับสมาชิก: {tier?.name??'ลูกค้าใหม่'}</h2>{tier?.rank&&<p>อันดับยอดซื้อสะสม {tier.rank} จากลูกค้าที่ซื้อสำเร็จ {tier.buyers} คน</p>}<h2>แท็กลูกค้าอัตโนมัติ</h2>{[tier?.name??'ลูกค้าใหม่',...customerTags(customer,teams),...crmBehaviorTags(summary)].filter((tag,index,tags)=>tags.indexOf(tag)===index).map(tag=><span className="pill" style={{margin:4}} key={tag}>{tag}</span>)}<p className="muted">อัปเดตจากประวัติทั้งหมดของลูกค้าใน CRM ไม่เปลี่ยนตามตัวกรองวันที่</p></section>
  <section className="card"><h2>{customer.name??'ยังไม่ผูกชื่อผู้รับ'}</h2><p>เบอร์โทร: {customer.phone??'ยังไม่ผูกเบอร์'}<br/>ผู้แนะนำ: {customer.legacy?'ลูกค้าเก่า':customer.referrer?customer.referrer.name+' · '+customer.referrer.code:'ยังไม่ระบุ'}<br/>ทีม/ร้าน: {teams.join(', ')||'ยังไม่มีออเดอร์ระบุทีม'}<br/>เป็นลูกค้าตั้งแต่ (ข้อมูลแรกที่มี): {crmDate(life.since)} · {life.days} วัน<br/>สร้างรหัสเมื่อ: {crmDate(customer.createdAt)}</p></section>
  <h2>ภาพรวมตลอดอายุลูกค้า</h2><section className="stats">{[['ยอดสั่งซื้อสะสมทั้งหมด',crmMoney(life.orderedSatang)],['จำนวนออเดอร์สะสม',life.orderCount+' ออเดอร์'],['ยอดซื้อสำเร็จสะสม',crmMoney(life.purchasedSatang)],['กำไรหลังต้นทุนสินค้าและค่าส่ง',crmMoney(life.profitSatang)+(life.pendingCostCount?' · รอต้นทุน '+life.pendingCostCount+' ออเดอร์':'')],['ยอดซื้อเฉลี่ยต่อเดือน',crmMoney(life.monthlyAverageSatang)],['จำนวนซื้อเฉลี่ยต่อเดือน',life.monthlyOrderAverage.toFixed(2)+' ครั้ง'],['ยอดเฉลี่ยต่อการซื้อ',life.averageOrderSatang===null?'ยังไม่มีข้อมูล':crmMoney(life.averageOrderSatang)],['ระยะห่างเฉลี่ยระหว่างการซื้อ',life.averageGapDays===null?'ยังไม่พอคำนวณ':life.averageGapDays.toFixed(1)+' วัน'],['ซื้อสำเร็จล่าสุด',crmDate(life.lastPurchaseAt)],['แต้มสะสมทั้งหมด',summary.lifetimePoints.toLocaleString('th-TH')+' แต้ม']].map(([label,value])=><article className="card stat" key={label}><span>{label}</span><strong>{value}</strong></article>)}</section>
  <p className="muted">ค่าเฉลี่ยรายเดือนหารด้วยจำนวนเดือนปฏิทินตั้งแต่เป็นลูกค้าจนถึงเดือนปัจจุบัน รวมเดือนที่ไม่ได้ซื้อ ส่วนระยะห่างเฉลี่ยคำนวณจากวันที่สั่งซื้อสำเร็จแต่ละครั้ง</p>
