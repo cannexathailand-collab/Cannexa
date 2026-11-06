@@ -7,7 +7,10 @@ export async function syncLoginCustomer(key:string,conversion:{id:string;custome
   return !row.referrerId?tx.customer.update({where:{code:row.code},data:{referrerId:conversion.affiliateId,metaFbc:row.metaFbc??metaFbc}}):row;
  });
 }
-export function customerCodeMessage(code:string){return `รหัสลูกค้าของคุณ: ${displayCustomerCode(code)}\nแจ้งรหัสนี้กับพนักงานเมื่อสั่งซื้อ\nใช้รหัสเดิมได้ทุกครั้ง`;}
+export function customerCodeMessage(code:string,welcome=false){
+ const details=`รหัสลูกค้าของคุณ: ${displayCustomerCode(code)}\nแจ้งรหัสนี้กับพนักงานเมื่อสั่งซื้อ\nใช้รหัสเดิมได้ทุกครั้ง`;
+ return welcome?`ยินดีต้อนรับค่ะ 💚\n${details}`:details;
+}
 export async function replyCustomerCode(input:{key:string;eventId:string;replyToken?:string;unblocked:boolean|null;accessToken?:string;requested?:boolean}){
  if(input.unblocked===true||!input.replyToken||!input.accessToken)return;
  const deliveryKey=input.requested?'request:'+input.eventId:input.key;
@@ -26,7 +29,7 @@ export async function replyCustomerCode(input:{key:string;eventId:string;replyTo
  });
  if(!prepared)return;
  try{
-  const response=await fetch('https://api.line.me/v2/bot/message/reply',{method:'POST',headers:{Authorization:'Bearer '+input.accessToken,'Content-Type':'application/json'},body:JSON.stringify({replyToken:input.replyToken,messages:[{type:'text',text:customerCodeMessage(prepared)}]}),signal:AbortSignal.timeout(8000),cache:'no-store'});
+  const response=await fetch('https://api.line.me/v2/bot/message/reply',{method:'POST',headers:{Authorization:'Bearer '+input.accessToken,'Content-Type':'application/json'},body:JSON.stringify({replyToken:input.replyToken,messages:[{type:'text',text:customerCodeMessage(prepared,!input.requested)}]}),signal:AbortSignal.timeout(8000),cache:'no-store'});
   await db.customerCodeDelivery.update({where:{userKey:deliveryKey},data:response.ok?{status:'SENT',sentAt:new Date()}:{status:'FAILED',lastError:'LINE_HTTP_'+response.status}});
  }catch{await db.customerCodeDelivery.update({where:{userKey:deliveryKey},data:{status:'FAILED',lastError:'DELIVERY_UNCONFIRMED'}});}
 }
