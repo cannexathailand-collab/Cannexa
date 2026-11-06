@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';import {test} from 'node:test';
 import {assignCustomerTiers,defaultTierSettings} from '../src/lib/crm-tiers';
 import {defaultTierRules,tierRuleSchema} from '../src/lib/crm-tier-rules';
-test('each tier supports multiple conditions, any/all matching, highest-tier priority and missing-data rejection',()=>{
+test('each tier requires every condition, highest-tier priority and complete evidence',()=>{
  const rules=defaultTierRules(defaultTierSettings).map(r=>r.tier==='vip'?{...r,enabled:false}:r.tier==='gold'?{...r,conditions:[{metric:'spend' as const,operator:'gte' as const,value:1000},{metric:'frequency' as const,operator:'gte' as const,value:2}]}:r.tier==='silver'?{...r,conditions:[{metric:'spend' as const,operator:'gte' as const,value:500}]}:r);
  const customers=[{code:'a',purchasedSatang:200000,frequency:1},{code:'b',purchasedSatang:200000,frequency:3},{code:'c',purchasedSatang:10000},{code:'d',purchasedSatang:0}].map(c=>({...c,monthlySpendActual:c.purchasedSatang/100,monthlyPurchases:2,membershipDays:100,monthlyProfit:0}));
  let result=assignCustomerTiers(customers,{...defaultTierSettings,rules});assert.equal(result.get('a')!.name,'Silver');assert.equal(result.get('b')!.name,'Gold');assert.equal(result.get('c')!.name,'Bronze');assert.equal(result.get('d')!.name,'ลูกค้าใหม่');
- result=assignCustomerTiers(customers,{...defaultTierSettings,rules:rules.map(r=>r.tier==='gold'?{...r,match:'any'}:r)});assert.equal(result.get('a')!.name,'Gold');
+ result=assignCustomerTiers(customers,{...defaultTierSettings,rules:rules.map(r=>r.tier==='gold'?{...r,match:'any'}:r)});assert.equal(result.get('a')!.name,'Silver');
  result=assignCustomerTiers(customers,{...defaultTierSettings,rules:rules.map(r=>r.tier==='gold'?{...r,conditions:[{metric:'profit',operator:'lte',value:1000}]}:r)});assert.equal(result.get('b')!.name,'Silver');
 });
 test('required monthly spend, age and purchase count cannot be bypassed by any-match extra criteria',()=>{

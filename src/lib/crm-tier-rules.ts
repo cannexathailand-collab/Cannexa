@@ -23,7 +23,7 @@ export function resolveTierRules(settings:{vipTopPercent:number;goldTopPercent:n
  if(settings.rules===null||settings.rules===undefined)return defaultTierRules(settings);
  const parsed=z.array(tierRuleSchema).length(4).safeParse(settings.rules);
  if(!parsed.success||new Set(parsed.data.map(r=>r.tier)).size!==4)throw Error('INVALID_TIER_RULES');
- return parsed.data;
+ return parsed.data.map(rule=>({...rule,match:'all' as const}));
 }
 export function matchesTierRule(rule:TierRule,values:TierMetricValues){
  if(!rule.enabled)return false;
@@ -34,5 +34,5 @@ export function matchesTierRule(rule:TierRule,values:TierMetricValues){
   if(c.metric==='topPercent')return value<c.value;
   return c.operator==='gte'?value>=c.value:value<=c.value;
  });
- return rule.match==='all'?matches.every(Boolean):matches.some(Boolean);
+ return matches.every(Boolean);
 }

@@ -187,6 +187,7 @@ model CustomerCodeDelivery {
 }
 model CrmPointRule {
  id String @id @default(cuid())
+ tierRates Json?
  enabled Boolean @default(false)
  satangPerPoint Int
  effectiveAt DateTime @default(now())
@@ -200,6 +201,19 @@ model CrmTierSettings {
  goldTopPercent Int @default(40)
  silverTopPercent Int @default(70)
  updatedAt DateTime @updatedAt
+}
+model CrmMembershipReview {
+ id String @id @default(cuid())
+ customerCode String
+ month String
+ assessedMonth String
+ level String
+ failedMonths Int @default(0)
+ decision String
+ metrics Json
+ createdAt DateTime @default(now())
+ @@unique([customerCode,month])
+ @@index([month])
 }
 model MetaPurchase {
  orderId String @id
@@ -250,6 +264,7 @@ model OrderBot {
 
 model OrderIntake {
  id String @id @default(cuid())
+ loyaltySnapshot Json?
  customerCode String?
  customer Customer? @relation(fields:[customerCode],references:[code],onDelete:Restrict)
  commissionAffiliateId String?

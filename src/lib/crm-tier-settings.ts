@@ -2,7 +2,7 @@ import {transaction,userLock} from './db';
 import {defaultTierSettings} from './crm-tiers';
 import {resolveTierRules,tierRuleSchema} from './crm-tier-rules';
 export async function saveTierRule(actor:string,input:unknown){
- const rule=tierRuleSchema.parse(input);
+ const rule={...tierRuleSchema.parse(input),match:'all' as const};
  return transaction(async tx=>{
   await userLock(tx,'crm-tier-settings');
   const previous=await tx.crmTierSettings.findUnique({where:{id:'default'}});
