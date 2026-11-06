@@ -7,6 +7,8 @@ test('available stock follows pending issues, handles decimals and retains overs
  assert.equal(stockAvailableQuantity({remainingQuantity:300,issuedQuantity:0,completedQuantity:200}),300);
  assert.equal(stockAvailableQuantity({remainingQuantity:0.3,issuedQuantity:0.1,completedQuantity:0}),0.2);
  assert.equal(stockAvailableQuantity({remainingQuantity:100,issuedQuantity:110,completedQuantity:0}),-10);
+ assert.equal(stockAvailableQuantity({remainingQuantity:0,issuedQuantity:200,completedQuantity:0}),-200);
+ assert.equal(stockAvailableQuantity({remainingQuantity:-200,issuedQuantity:0,completedQuantity:200}),-200);
  assert.equal(stockAvailableQuantity({remainingQuantity:100,issuedQuantity:null,completedQuantity:0}),null);
  assert.equal(stockAvailableQuantity({remainingQuantity:100,issuedQuantity:20}),100);
  const products=[{code:'A1',name:'Stock',costSatang:0,remainingQuantity:100,issuedQuantity:100,completedQuantity:0}];

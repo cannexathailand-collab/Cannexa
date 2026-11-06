@@ -61,7 +61,7 @@ export function flowDispatchPlan(items:OrderStockItem[],source:FlowSource,precou
   if(!p||p.receivedQuantity===null||p.remainingQuantity===null||p.issuedQuantity===null||p.completedQuantity==null)throw Error('STOCK_QUANTITY_UNKNOWN');
   if(milli(p.receivedQuantity)-milli(p.completedQuantity)!==milli(p.remainingQuantity))throw Error('STOCK_BALANCE_MISMATCH');
   const credit=p.precountedPendingQuantity??0,unknown=p.unverifiedPendingQuantity??0;
-  if(milli(precounted?credit:p.issuedQuantity-credit-unknown)<item.quantityMilliG||(!precounted&&milli(p.remainingQuantity)<item.quantityMilliG))throw Error('STOCK_PENDING_MISMATCH');
+  if(milli(precounted?credit:p.issuedQuantity-credit-unknown)<item.quantityMilliG)throw Error('STOCK_PENDING_MISMATCH');
   const unknownAfter=unknown;
   const quantity=item.quantityMilliG/1000,pendingAfter=add(p.issuedQuantity,-quantity),remainingAfter=precounted?p.remainingQuantity:add(p.remainingQuantity,-quantity),completedAfter=precounted?p.completedQuantity:add(p.completedQuantity,quantity),creditAfter=precounted?add(credit,-quantity):credit;
   changes.push({code:p.code,received:p.receivedQuantity,pendingBefore:p.issuedQuantity,pendingAfter,remainingBefore:p.remainingQuantity,remainingAfter,completedBefore:p.completedQuantity,completedAfter,precountedBefore:credit,precountedAfter:creditAfter,unverifiedBefore:unknown,unverifiedAfter:unknownAfter});

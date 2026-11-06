@@ -13,6 +13,7 @@ import {stockRows} from '../src/lib/stock-import';
 import {stockReceiptPlan} from '../src/lib/stock-receipt';
 import {newStockProduct} from '../src/lib/stock-product-input';
 import {stockHistorySnapshot} from '../src/lib/stock-history-plan';
+import {stockCostExpenses} from '../src/lib/stock-cost-expenses';
 function replace(t:TestContext,target:any,key:string,value:any){const before=target[key];target[key]=value;t.after(()=>{target[key]=before;});}
 const fresh=():any[][]=>[[null,null,'รายการ',null,'จำนวนรับ','จำนวนจ่าย','จำนวนคงเหลือ',null,null,null,null,null,null],['','','','','','','','','10G','50G','100G','1 KG'],['','Example','A1',1.5,500,10,490,'',300,500,800,2000]];
 const source=(rows:any[][])=>({tab:{sheetId:5,title:'5.11.69'},rows,products:stockRows(rows,{costColumnConfirmed:true})});
@@ -120,13 +121,36 @@ test('lost deduction response and final database failure recover without duplica
  h.orders.get('o2').status='CANCELLED';await syncStockReservation('o2');assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][6],290);
  h.addOrder('duplicate',20,'TRACK-o1');assert.equal((await processStockDispatch('duplicate','owner')).status,'NEEDS_REVIEW');assert.equal(h.rows[2][6],290);
 });
-test('pending demand includes oversold orders; physical dispatch still requires sufficient stock',async t=>{
+test('pending demand includes oversold orders; dispatch still requires a matching reservation',async t=>{
  const h=await harness(t);h.addOrder('o1',300);await queueStockOrder('o1');await syncStockReservation('o1');
  h.addOrder('o2',200);await queueStockOrder('o2');assert.equal((await syncStockReservation('o2')).status,'RESERVED');assert.equal(h.rows[2][5],500);assert.equal(h.rows[2][13],-10);
  h.orders.delete('o1');assert.equal((await syncStockReservation('o1')).status,'RELEASED');assert.equal(h.rows[2][5],200);assert.equal(h.rows[2][6],490);
  await syncStockReservation('o2');assert.equal(h.rows[2][5],200);assert.equal(h.rows[2][6],490);
  assert.throws(()=>flowDispatchPlan([{code:'A1',quantityMilliG:300000}],source(h.rows)),/PENDING_MISMATCH/);
  h.rows[2][6]=100;assert.throws(()=>flowReservationPlan([{code:'A1',quantityMilliG:1000}],source(h.rows)),/BALANCE_MISMATCH/);
+});
+
+test('confirmed oversold shipments keep negative stock and positive costs, wait for missing cost, and never post twice',async t=>{
+ const h=await harness(t);h.rows[2][4]=0;h.rows[2][6]=0;h.rows[2][12]=0;
+ h.addOrder('oversold',200);h.shipments.get('oversold').fulfillmentStatus='UNCONFIRMED';h.shipments.get('oversold').dispatchedAt=null;
+ await queueStockOrder('oversold');await syncStockReservation('oversold');
+ assert.equal(h.rows[2][5],200);assert.equal(h.rows[2][6],0);assert.equal(h.rows[2][13],-200);
+ assert.equal((await processStockDispatch('oversold','owner')).status,'NOT_ELIGIBLE');assert.equal(h.dispatches.size,0);
+ Object.assign(h.shipments.get('oversold'),{fulfillmentStatus:'DISPATCHED',dispatchedAt:new Date()});
+ assert.equal((await processStockDispatch('oversold','owner')).status,'POSTED');
+ assert.equal(h.rows[2][4],0);assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][6],-200);assert.equal(h.rows[2][12],200);assert.equal(h.rows[2][13],-200);
+ assert.equal(h.dispatches.get('oversold').totalCostSatang,30000);
+ assert.ok(h.events.indexOf('historyDb')<h.events.indexOf('archive'));assert.ok(h.events.indexOf('archive')<h.events.indexOf('deduction'));
+ h.addOrder('waiting-cost',50);await queueStockOrder('waiting-cost');await syncStockReservation('waiting-cost');h.rows[2][3]=null;
+ assert.equal((await processStockDispatch('waiting-cost','owner')).status,'WAITING_COST');assert.equal(h.rows[2][6],-200);assert.equal(h.rows[2][5],50);assert.equal(h.rows[2][13],-250);
+ h.rows[2][3]=2;
+ assert.equal((await processStockDispatch('waiting-cost','owner')).status,'POSTED');assert.equal(h.rows[2][6],-250);assert.equal(h.rows[2][5],0);
+ assert.equal(h.dispatches.get('waiting-cost').totalCostSatang,10000);
+ h.rows[2][3]=9;await processStockDispatch('oversold','owner');await processStockDispatch('waiting-cost','owner');
+ assert.equal(h.rows[2][6],-250);assert.equal(h.events.filter(e=>e==='deduction').length,2);
+ const expenses=stockCostExpenses([...h.dispatches.values()]);assert.equal(expenses.length,2);assert.equal(expenses.reduce((total,e)=>total+e.amountSatang,0),40000);
+ const restock=stockReceiptPlan(newStockProduct.parse({requestKey:'ad83d6b7-84b5-4b42-b45f-fdf7285c80cf',code:'A1',cost:9,quantity:250,prices:[]}),source(h.rows));
+ assert.equal(restock.result.remainingAfter,0);assert.equal(restock.result.receivedAfter,250);
 });
 test('explicitly included old pending orders can dispatch later without backdating completed shipments',async t=>{
  const h=await harness(t);h.addOrder('old',20);
