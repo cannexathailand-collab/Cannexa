@@ -185,6 +185,21 @@ model MetaPurchase {
  sentAt DateTime?
  createdAt DateTime @default(now())
 }
+model AdditionalCommission {
+ id String @id @default(cuid())
+ orderId String
+ affiliateId String
+ basis String
+ bps Int
+ amountSatang Int?
+ status String @default("WAITING_SALE")
+ paidAt DateTime?
+ paidAmountSatang Int?
+ reversedAt DateTime?
+ createdAt DateTime @default(now())
+ @@unique([orderId,affiliateId])
+ @@index([affiliateId,status])
+}
 
 model OrderGroup {
  purpose String @default("ORDER")

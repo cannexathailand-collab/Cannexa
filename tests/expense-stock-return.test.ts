@@ -8,7 +8,7 @@ import {expenseCsv} from '../src/lib/expense-csv';
 test('received returns reverse exactly the frozen cost in the receipt month and retain original dispatch expense',async t=>{
  const dispatchedAt=new Date('2026-11-06T03:00:00Z'),receivedAt=new Date('2026-12-01T03:00:00Z');
  const items=[{code:'A1',name:'Item',quantityMilliG:200001,unitCostSatang:150,costSatang:30000}];
- const models=[db.expense,db.commission,db.salesOrder,db.shipment,db.recurringExpenseEntry,db.stockDispatch,db.stockReturn] as any[];
+ const models=[db.expense,db.commission,db.salesOrder,db.shipment,db.recurringExpenseEntry,db.stockDispatch,db.stockReturn,db.additionalCommission] as any[];
  for(const model of models){const old=model.findMany;t.after(()=>{model.findMany=old;});model.findMany=async()=>[];}
  db.stockDispatch.findMany=(async()=>[{id:'d1',orderNumber:'ORDER-1',tracking:'TRACK0001',status:'POSTED',dispatchedAt,items}]) as any;
  const returnRow={id:'r1',tracking:'TRACK0001',status:'POSTED',receivedAt,items,historySnapshot:{orderNumber:'ORDER-1'}};

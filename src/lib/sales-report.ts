@@ -11,7 +11,7 @@ export function salesSources(rows:SaleRow[]){
  const source=(s:SaleRow)=>!s.customer?{key:'unknown',name:'ยังไม่ระบุแหล่งที่มา'}:s.customer.legacy?{key:'legacy',name:'ลูกค้าเก่า'}:s.customer.metaFbc||s.customer.referrer?.code==='meta-ad'?{key:'meta',name:'Meta'}:s.customer.referrerId?{key:'affiliate:'+s.customer.referrerId,name:(s.customer.referrer?.name??'Affiliate')+' · '+(s.customer.referrer?.code??'')}:{key:'unknown',name:'ยังไม่ระบุแหล่งที่มา'};
  return [...Map.groupBy(rows,s=>source(s).key)].map(([key,items])=>({key,name:source(items[0]).name,customers:new Set(items.flatMap(s=>s.customer?[s.customer.code]:[])).size,unknownCustomerOrders:items.filter(s=>!s.customer).length,orders:items.length,revenueSatang:items.reduce((n,s)=>n+s.revenueSatang,0)})).sort((a,b)=>b.revenueSatang-a.revenueSatang);
 }
-export type SalesFilters={from?:string;to?:string;month?:string;payment?:string;seller?:string;demo?:string};
+export type SalesFilters={from?:string;to?:string;month?:string;payment?:string;seller?:string;affiliateId?:string;demo?:string};
 export function isRecognizedSale(s:SaleRow){
  return !!s.order&&!!s.shipment&&hasActualDispatch(s.shipment)&&!!s.recognizedAt&&s.recognizedAt.getTime()===s.shipment.dispatchedAt!.getTime()&&s.shipment.orderId===s.orderId&&s.tracking===s.shipment.tracking&&s.revenueSatang>0&&["PENDING","PAID","WAITING_COST"].includes(s.status)&&s.order.payment!=="เคลม"&&!['RETURNED','CANCELLED','WITHDRAWN'].includes(s.order.status)&&(s.paymentMethod==="TRANSFER"&&s.order.payment==="โอน"||(s.paymentMethod==="COD"&&s.order.payment==="COD"&&s.receipt?.tracking===s.tracking&&s.receipt.amountSatang===s.revenueSatang&&s.shipment.codSatang===s.revenueSatang));
 }
@@ -21,7 +21,7 @@ export function summarizeSales(rows:SaleRow[]){
 }
 export function analyzeSales(rows:SaleRow[],input:SalesFilters={},now=new Date()){
  const range=salesRange(input,now),payment=["TRANSFER","COD"].includes(input.payment??"")?input.payment:undefined;
- const filtered=rows.filter(s=>(!payment||s.paymentMethod===payment)&&(!input.seller||s.order?.sellerUsername===input.seller));
+ const filtered=rows.filter(s=>(!payment||s.paymentMethod===payment)&&(!input.seller||s.order?.sellerUsername===input.seller)&&(!input.affiliateId||s.affiliateId===input.affiliateId));
  const inRange=(from:string,to:string)=>filtered.filter(s=>s.shipment?.dispatchedAt&&bangkokDay(s.shipment.dispatchedAt)>=from&&bangkokDay(s.shipment.dispatchedAt)<=to);
  const summary=summarizeSales(inRange(range.from,range.to));
  const previous=[{label:"วันก่อนหน้า",from:shiftDay(range.from,-1),to:shiftDay(range.to,-1)},{label:"สัปดาห์ก่อน",from:shiftDay(range.from,-7),to:shiftDay(range.to,-7)},{label:"เดือนก่อน",from:shiftMonth(range.from,-1),to:shiftMonth(range.to,-1)}].map(period=>({...period,...compareRevenue(summary.revenueSatang,summarizeSales(inRange(period.from,period.to)).revenueSatang)}));
