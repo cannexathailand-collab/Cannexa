@@ -14,7 +14,7 @@ export default async function AdminLayout({children}:{children:React.ReactNode})
  {manage&&<Link href="/admin/affiliates">จัดการ Affiliate</Link>}
  {manage&&<Link href="/admin/customers">รหัสลูกค้า</Link>}
  {approve&&<details aria-label="บัญชี" className="accounting-menu"><summary>บัญชี</summary><div className="accounting-submenu">
-  <details className="expense-menu" aria-label="ภาพรวมบัญชี"><summary>ภาพรวมบัญชี</summary><div className="expense-submenu"><Link href="/admin/accounting">บัญชีสรุป</Link></div></details>
+  <details className="expense-menu" aria-label="ภาพรวมบัญชี"><summary>ภาพรวมบัญชี</summary><div className="expense-submenu"><Link href="/admin/accounting">บัญชีสรุป</Link><Link href="/admin/accounting/daily">บัญชีรายวัน</Link></div></details>
   <Link href="/admin/sales">ยอดขาย</Link>
   <details className="expense-menu"><summary>ค่าใช้จ่าย</summary><div className="expense-submenu"><Link href="/admin/expenses">ภาพรวมค่าใช้จ่าย</Link><Link href="/admin/reviews">จ่ายค่าคอมมิชชัน</Link></div></details>
   <details className="expense-menu"><summary>สต๊อก</summary><div className="expense-submenu"><Link href="/admin/stock">รายการสินค้า</Link><Link href="/admin/stock/history">รายการย้อนหลัง</Link><Link href="/admin/stock/review">รอตรวจสอบ</Link></div></details>
