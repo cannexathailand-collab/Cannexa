@@ -19,7 +19,7 @@ async function harness(t:TestContext){
  const {privateKey}=generateKeyPairSync('rsa',{modulusLength:2048});
  replace(t,db.stockSheetsConnection,'findUnique',async()=>({revision:'flow-test-'+Math.random(),encryptedConfig:encryptGmail({type:'service_account',client_email:'test@example.iam.gserviceaccount.com',private_key:privateKey.export({type:'pkcs8',format:'pem'})})}));
  const state={workflow:null as any,rows:fresh(),operations:new Map<string,any>(),reservations:new Map<string,any>(),dispatches:new Map<string,any>(),orders:new Map<string,any>(),shipments:new Map<string,any>(),audits:new Map<string,any>(),sheets:new Map<number,any>(),markers:new Map<string,any>(),events:[] as string[],failHistory:false,failArchive:false,loseDeduction:false,failFinal:false};
- state.sheets.set(5,{sheetId:5,title:'5.11.69',rows:state.rows,formulas:new Set<number>()});
+ state.sheets.set(5,{sheetId:5,title:'5.11.69',rows:state.rows,formulas:new Set<number>(),availableFormulas:new Set<number>()});
  replace(t,db,'$transaction',async(fn:any)=>fn(db));
  replace(t,db,'$queryRawUnsafe',async()=>[]);
  replace(t,db.stockHistoryConfig,'findUnique',async()=>null);
@@ -43,7 +43,7 @@ async function harness(t:TestContext){
   });
   replace(t,model,'updateMany',async({where,data}:any)=>{const row=find({where});if(row&&!(where.status?.not===row.status)){Object.assign(row,data);return {count:1};}return {count:0};});
  }
- const refresh=(sheet:any)=>{for(const i of sheet.formulas)sheet.rows[i][6]=Math.round((Number(sheet.rows[i][4])-Number(sheet.rows[i][12]))*1000)/1000;};
+ const refresh=(sheet:any)=>{for(const i of sheet.formulas)sheet.rows[i][6]=Math.round((Number(sheet.rows[i][4])-Number(sheet.rows[i][12]))*1000)/1000;for(const i of sheet.availableFormulas)sheet.rows[i][13]=Math.round((Number(sheet.rows[i][6])-Number(sheet.rows[i][5]))*1000)/1000;};
  replace(t,global,'fetch',async(input:any,init:any)=>{
   const url=String(input);if(url.includes('oauth2.googleapis.com'))return Response.json({access_token:'test',expires_in:3600});
   if(url.endsWith('/developerMetadata:search')){
@@ -58,8 +58,8 @@ async function harness(t:TestContext){
    if(deduction){assert.ok(state.events.includes('historyDb'));assert.ok(state.events.includes('archive'));state.events.push('deduction');}
    if(archive)state.events.push('archive');
    for(const r of requests){
-    if(r.addSheet){const p=r.addSheet.properties;state.sheets.set(p.sheetId,{...p,rows:[],formulas:new Set<number>()});}
-    if(r.updateCells){const {start,rows}=r.updateCells,s=state.sheets.get(start.sheetId);for(const [ri,row]of rows.entries()){const i=start.rowIndex+ri;s.rows[i]??=[];for(const [ci,cell]of row.values.entries()){const v=cell.userEnteredValue;if(!v)continue;const col=start.columnIndex+ci;if(v.formulaValue){assert.equal(col,6);s.formulas.add(i);}else s.rows[i][col]=v.numberValue??v.stringValue;}}refresh(s);}
+    if(r.addSheet){const p=r.addSheet.properties;state.sheets.set(p.sheetId,{...p,rows:[],formulas:new Set<number>(),availableFormulas:new Set<number>()});}
+    if(r.updateCells){const {start,rows}=r.updateCells,s=state.sheets.get(start.sheetId);for(const [ri,row]of rows.entries()){const i=start.rowIndex+ri;s.rows[i]??=[];for(const [ci,cell]of row.values.entries()){const v=cell.userEnteredValue;if(!v)continue;const col=start.columnIndex+ci;if(v.formulaValue){if(col===6)s.formulas.add(i);else{assert.equal(col,13);s.availableFormulas.add(i);}}else s.rows[i][col]=v.numberValue??v.stringValue;}}refresh(s);}
     if(r.appendCells){const s=state.sheets.get(r.appendCells.sheetId);for(const row of r.appendCells.rows)s.rows.push(row.values.map((c:any)=>c.userEnteredValue.numberValue??c.userEnteredValue.stringValue));}
     if(r.createDeveloperMetadata){const m=r.createDeveloperMetadata.developerMetadata;state.markers.set(m.metadataKey,m);}
     if(r.deleteDeveloperMetadata)state.markers.delete(r.deleteDeveloperMetadata.dataFilter.developerMetadataLookup.metadataKey);
@@ -91,11 +91,11 @@ test('reserve leaves balance unchanged; history is saved first; partial shipping
  const h=await harness(t);assert.equal(h.rows[2][6],490);assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][12],10);
  const backup=[...h.sheets.values()].find(s=>s.title.startsWith('ก่อนเริ่มรอบ'));assert.equal(backup.rows[2][5],10);assert.equal(backup.rows[2][6],490);
  h.addOrder('o1');h.addOrder('o2',100);await queueStockOrder('o1');await queueStockOrder('o2');await syncStockReservation('o1');await syncStockReservation('o2');await syncStockReservation('o1');
- assert.equal(h.rows[2][5],300);assert.equal(h.rows[2][6],490);await assert.rejects(()=>assertNoStockReservations(['A1']),/PENDING_ORDERS/);
- assert.equal((await processStockDispatch('o1','owner')).status,'POSTED');assert.equal(h.rows[2][5],100);assert.equal(h.rows[2][6],290);assert.equal(h.rows[2][12],210);
+ assert.equal(h.rows[2][5],300);assert.equal(h.rows[2][6],490);assert.equal(h.rows[2][13],190);await assert.rejects(()=>assertNoStockReservations(['A1']),/PENDING_ORDERS/);
+ assert.equal((await processStockDispatch('o1','owner')).status,'POSTED');assert.equal(h.rows[2][5],100);assert.equal(h.rows[2][6],290);assert.equal(h.rows[2][12],210);assert.equal(h.rows[2][13],190);
  assert.ok(h.events.indexOf('historyDb')<h.events.indexOf('archive'));assert.ok(h.events.indexOf('archive')<h.events.indexOf('deduction'));
  assert.equal((await processStockDispatch('o1','owner')).status,'POSTED');assert.equal(h.rows[2][6],290);
- assert.equal((await processStockDispatch('o2','owner')).status,'POSTED');assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][6],190);
+ assert.equal((await processStockDispatch('o2','owner')).status,'POSTED');assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][6],190);assert.equal(h.rows[2][13],190);
  const archived=[...h.sheets.values()].find(s=>s.title.startsWith('จัดส่ง '));assert.equal(archived.rows.length,3);assert.equal(h.dispatches.get('o1').totalCostSatang,30000);
  h.rows[2][3]=99;await processStockDispatch('o1','owner');assert.equal(h.dispatches.get('o1').totalCostSatang,30000);
 });

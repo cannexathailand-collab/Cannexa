@@ -1,4 +1,5 @@
 'use client';
+import {stockAvailableQuantity} from '@/lib/stock-available';
 import {useState,useRef} from 'react';
 import {useRouter} from 'next/navigation';
 import {matchStockProduct,suggestStockProducts,type StockFormProduct} from '@/lib/stock-form-match';
@@ -31,7 +32,7 @@ export function StockAddForm({requestKey:initialKey,enabled,catalog}:{requestKey
  <label>ชื่อสินค้า<input name="name" maxLength={200} disabled={busy} readOnly={!!selected?.name} placeholder={selected&&!selected.name?'ยังไม่ระบุชื่อ — กรอกชื่อได้':'ชื่อสินค้าใหม่'}/>{selected&&!selected.name&&<span className="small muted">กรอกชื่อเพื่อบันทึกกลับชีตได้</span>}</label>
  <label>ต้นทุน (บาท/G)<input type="number" name="cost" min="0" max="21474836.47" step="0.01" disabled={busy} readOnly={!!selected&&selected.costSatang!==null} placeholder={selected&&selected.costSatang===null?'ยังไม่ระบุต้นทุน':undefined}/></label>
  <label>จำนวนรับเพิ่ม (G)<input type="number" name="quantity" min="0" max="999999999" step="0.001" required disabled={busy}/></label>
- {selected?<div className="notice live" style={{gridColumn:'1 / -1'}}><strong>พบสินค้าเดิม {selected.code}</strong><p>ชื่อ: {selected.name??'ยังไม่ระบุชื่อ'} · จำนวนรับเดิม {amount(selected.receivedQuantity)} G · จำนวนรอจ่าย {amount(selected.issuedQuantity)} G · คงเหลือ {amount(selected.remainingQuantity)} G</p><p>กรอกจำนวนรับเพิ่ม ระบบคงราคาขายเดิมไว้ ต้นทุนที่ยังว่างกรอกเพิ่มได้ หากเติมเฉพาะต้นทุนให้ใส่จำนวน 0{!selected.name?' หากเพิ่มเฉพาะชื่อโดยยังไม่รับสินค้า ให้ใส่จำนวน 0':''}</p>{selected.salePrices.length>0&&<p>ราคาขายเดิม: {selected.salePrices.map(price=>price.pack+' · '+(price.priceSatang/100).toLocaleString('th-TH')+' บาท').join(' / ')}</p>}</div>:<>
+ {selected?<div className="notice live" style={{gridColumn:'1 / -1'}}><strong>พบสินค้าเดิม {selected.code}</strong><p>ชื่อ: {selected.name??'ยังไม่ระบุชื่อ'} · จำนวนรับเดิม {amount(selected.receivedQuantity)} G · จำนวนรอจ่าย {amount(selected.issuedQuantity)} G · คงเหลือ {amount(selected.remainingQuantity)} G · ขายได้อีก {amount(stockAvailableQuantity(selected))} G</p><p>กรอกจำนวนรับเพิ่ม ระบบคงราคาขายเดิมไว้ ต้นทุนที่ยังว่างกรอกเพิ่มได้ หากเติมเฉพาะต้นทุนให้ใส่จำนวน 0{!selected.name?' หากเพิ่มเฉพาะชื่อโดยยังไม่รับสินค้า ให้ใส่จำนวน 0':''}</p>{selected.salePrices.length>0&&<p>ราคาขายเดิม: {selected.salePrices.map(price=>price.pack+' · '+(price.priceSatang/100).toLocaleString('th-TH')+' บาท').join(' / ')}</p>}</div>:<>
  <p className="muted small" style={{gridColumn:'1 / -1'}}>รหัสใหม่: กรอกชื่อและต้นทุนด้วย ขนาดบรรจุกรอกเฉพาะตัวเลขหน่วย G ราคาขายเว้นว่างได้</p>
  {['10','50','100','1000'].map((pack,index)=><div key={index} style={{display:'flex',gap:12}}><label>ขนาดบรรจุ (G)<input type="number" min="0.001" max="999999999" step="0.001" name={'pack'+index} placeholder={pack} disabled={busy}/></label><label>ราคาขาย (บาท)<input name={'price'+index} type="number" min="0" max="21474836.47" step="0.01" disabled={busy}/></label></div>)}
  </>}

@@ -26,7 +26,7 @@ export async function exportStockDailySnapshot(client:Client,snapshot:Awaited<Re
  }else{
   await client(':batchUpdate',{method:'POST',body:JSON.stringify({requests:stockHistoryRequests({...snapshot,rows:snapshot.rows as unknown[][]})})});
  }
- const result=await client('/values/'+encodeURIComponent("'"+snapshot.sheetTitle+"'!A1:L"+(snapshot.rows as unknown[][]).length)+'?valueRenderOption=UNFORMATTED_VALUE');
+ const result=await client('/values/'+encodeURIComponent("'"+snapshot.sheetTitle+"'!A1:"+((snapshot.rows as unknown[][])[0]?.length>12?'N':'L')+(snapshot.rows as unknown[][]).length)+'?valueRenderOption=UNFORMATTED_VALUE');
  if(!stockHistoryValuesMatch(snapshot.rows as unknown[][],result.values??[]))throw Error('STOCK_HISTORY_NOT_CONFIRMED');
  return db.$transaction(async tx=>{
   const saved=await tx.stockDailySnapshot.update({where:{day:snapshot.day},data:{status:'COMPLETE',exportedAt:new Date()}});

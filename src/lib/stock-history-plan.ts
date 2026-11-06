@@ -2,6 +2,7 @@ import {createHash,randomInt} from 'node:crypto';
 import {bangkokDay,dayStart,shiftDay} from './sales-dates';
 import {stockColumnStyles} from './stock-column-style';
 import type {StockRow} from './stock-import';
+import {stockAvailableQuantity,STOCK_AVAILABLE_HEADER} from './stock-available';
 
 export const stockHistoryTitle=(day:string)=>'ปิดยอด '+day;
 export function stockClosingDay(startDay:string,now=new Date()){
@@ -22,27 +23,30 @@ export function stockHistorySnapshot(day:string,source:Source,actor:string,sheet
   [source.readAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'}),'','','','','','','',...Array.from({length:4},(_,i)=>String(source.rows[1]?.[i+8]??''))],
   ...products.map(p=>['',p.name??'',p.code,p.costSatang===null?'':p.costSatang/100,p.receivedQuantity??'',p.issuedQuantity??'',p.remainingQuantity??'','',...Array.from({length:4},(_,i)=>{const v=source.rows[p.sourceRow-1]?.[i+8];return typeof v==='number'||typeof v==='string'?v:'';})])
  ];
+ if(products.some(p=>p.completedQuantity!==undefined)){rows[0].push('ตัดสต๊อกสะสม (G)',STOCK_AVAILABLE_HEADER);rows[1].push('','');products.forEach((p,i)=>rows[i+2].push(p.completedQuantity??'',stockAvailableQuantity(p)??''));}
  const fingerprint=createHash('sha256').update(JSON.stringify({day,sourceSheet:source.tab.title,rows,products})).digest('hex');
  return {day,actor,sourceSheet:source.tab.title,capturedAt:source.readAt,products,rows,fingerprint,sheetId,sheetTitle:stockHistoryTitle(day)};
 }
 export function stockHistoryRequests(snapshot:{sheetId:number;sheetTitle:string;fingerprint:string;rows:unknown[][]}){
- const {sheetId,rows}=snapshot,endRowIndex=rows.length;
+ const {sheetId,rows}=snapshot,endRowIndex=rows.length,columnCount=Math.max(12,rows[0]?.length??0);
  return [
-  {addSheet:{properties:{sheetId,title:snapshot.sheetTitle,gridProperties:{rowCount:Math.max(endRowIndex,3),columnCount:12,frozenRowCount:2,frozenColumnCount:3}}}},
+  {addSheet:{properties:{sheetId,title:snapshot.sheetTitle,gridProperties:{rowCount:Math.max(endRowIndex,3),columnCount,frozenRowCount:2,frozenColumnCount:3}}}},
   {updateCells:{start:{sheetId,rowIndex:0,columnIndex:0},rows:rows.map(row=>({values:row.map(v=>({userEnteredValue:typeof v==='number'?{numberValue:v}:{stringValue:String(v??'')}}))})),fields:'userEnteredValue'}},
   ...stockColumnStyles(sheetId,endRowIndex),
   {repeatCell:{range:{sheetId,startRowIndex:0,endRowIndex:2},cell:{userEnteredFormat:{textFormat:{bold:true},wrapStrategy:'WRAP',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat.textFormat.bold,userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment'}},
-  ...(endRowIndex>2?[{repeatCell:{range:{sheetId,startRowIndex:2,endRowIndex,startColumnIndex:3,endColumnIndex:12},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:'#,##0.###'}}},fields:'userEnteredFormat.numberFormat'}}]:[]),
+  ...(endRowIndex>2?[{repeatCell:{range:{sheetId,startRowIndex:2,endRowIndex,startColumnIndex:3,endColumnIndex:columnCount},cell:{userEnteredFormat:{numberFormat:{type:'NUMBER',pattern:'#,##0.###'}}},fields:'userEnteredFormat.numberFormat'}}]:[]),
   {updateDimensionProperties:{range:{sheetId,dimension:'COLUMNS',startIndex:0,endIndex:1},properties:{pixelSize:195},fields:'pixelSize'}},
   {updateDimensionProperties:{range:{sheetId,dimension:'COLUMNS',startIndex:1,endIndex:2},properties:{pixelSize:250},fields:'pixelSize'}},
-  {updateDimensionProperties:{range:{sheetId,dimension:'COLUMNS',startIndex:2,endIndex:12},properties:{pixelSize:125},fields:'pixelSize'}},
+  {updateDimensionProperties:{range:{sheetId,dimension:'COLUMNS',startIndex:2,endIndex:columnCount},properties:{pixelSize:125},fields:'pixelSize'}},
   {updateDimensionProperties:{range:{sheetId,dimension:'ROWS',startIndex:0,endIndex:2},properties:{pixelSize:44},fields:'pixelSize'}},
-  {setBasicFilter:{filter:{range:{sheetId,startRowIndex:1,endRowIndex,startColumnIndex:0,endColumnIndex:12}}}},
+  ...(columnCount>12?[{updateDimensionProperties:{range:{sheetId,dimension:'COLUMNS',startIndex:12,endIndex:13},properties:{hiddenByUser:true},fields:'hiddenByUser'}}]:[]),
+  {setBasicFilter:{filter:{range:{sheetId,startRowIndex:1,endRowIndex,startColumnIndex:0,endColumnIndex:columnCount}}}},
   {addProtectedRange:{protectedRange:{range:{sheetId},warningOnly:true,description:'ประวัติยอดปิดรายวัน การแก้ไขแท็บนี้ไม่เปลี่ยนประวัติที่บันทึกในระบบ'}}},
   {createDeveloperMetadata:{developerMetadata:{metadataKey:'cannexa-stock-close',metadataValue:snapshot.fingerprint,location:{sheetId},visibility:'DOCUMENT'}}}
  ];
 }
 export function stockHistoryValuesMatch(expected:unknown[][],actual:unknown[][]){
- const normalize=(rows:unknown[][])=>rows.map(row=>Array.from({length:12},(_,i)=>row[i]??''));
+ const width=Math.max(12,expected[0]?.length??0);
+ const normalize=(rows:unknown[][])=>rows.map(row=>Array.from({length:width},(_,i)=>row[i]??''));
  return JSON.stringify(normalize(expected))===JSON.stringify(normalize(actual));
 }
