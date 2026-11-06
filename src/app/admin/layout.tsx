@@ -14,6 +14,7 @@ export default async function AdminLayout({children}:{children:React.ReactNode})
  return <div className="shell"><a className="skip-to-content" href="#main-content">ข้ามไปเนื้อหา</a><aside className="sidebar"><Link href="/admin" className="brand"><span className="mark">↗</span> Affiliate OS</Link><div className="muted small" style={{marginTop:10}}>จัดการร้านค้าและสมาชิก</div><SidebarNavigation>
  <details aria-label="Affiliate" className="accounting-menu" open><summary>Affiliate</summary><div className="accounting-submenu"><Link href="/admin">ภาพรวม Affiliate</Link>{manage&&<Link href="/admin/affiliates">ตั้งค่า Affiliate</Link>}</div></details>
  {manage&&<details aria-label="CRM" className="accounting-menu" open><summary>CRM</summary><div className="accounting-submenu"><Link href="/admin/crm">ข้อมูลลูกค้า</Link><Link href="/admin/customers">รหัสลูกค้า</Link><Link href="/admin/crm/tiers">ระดับสมาชิกและเกณฑ์จัดกลุ่ม</Link><Link href="/admin/crm/points">ตั้งค่าสะสมแต้ม</Link></div></details>}
+ {owner&&<details aria-label="ออเดอร์" className="accounting-menu"><summary>ออเดอร์</summary><div className="accounting-submenu"><Link href="/admin/orders">รายการออเดอร์</Link></div></details>}
  {approve&&<details aria-label="บัญชี" className="accounting-menu"><summary>บัญชี</summary><div className="accounting-submenu">
   <details className="expense-menu" aria-label="ภาพรวมบัญชี"><summary>ภาพรวมบัญชี</summary><div className="expense-submenu"><Link href="/admin/accounting">บัญชีสรุป</Link><Link href="/admin/accounting/daily">บัญชีรายวัน</Link></div></details>
   <Link href="/admin/sales">ยอดขาย</Link>
@@ -23,7 +24,6 @@ export default async function AdminLayout({children}:{children:React.ReactNode})
  {owner&&<details aria-label="การเชื่อมต่อ" className="accounting-menu"><summary>การเชื่อมต่อ</summary><div className="accounting-submenu">
   <Link href="/admin/line">เชื่อมต่อ LINE</Link>
   <Link href="/admin/meta">Meta Pixel</Link>
-  <Link href="/admin/orders">ออเดอร์จาก LINE</Link>
   <Link href="/admin/gmail">เชื่อม Gmail</Link>
  </div></details>}
  <details aria-label="ระบบ" className="accounting-menu"><summary>ระบบ</summary><div className="accounting-submenu">{owner&&<><Link href="/admin/users">จัดการผู้ใช้</Link><Link href="/admin/audit">ประวัติการดำเนินการ</Link></>}<Link href="/account/password">เปลี่ยนรหัสผ่าน</Link><Link href="/privacy">ความเป็นส่วนตัว</Link></div></details>
