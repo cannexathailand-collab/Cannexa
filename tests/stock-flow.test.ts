@@ -16,6 +16,18 @@ import {stockHistorySnapshot} from '../src/lib/stock-history-plan';
 import {stockCostExpenses} from '../src/lib/stock-cost-expenses';
 import {confirmReportedShipment} from '../src/lib/shipment-report-confirmation';
 import {actOnStockReview} from '../src/lib/stock-review-actions';
+import {getOrderStockNotice,stockNoticeText} from '../src/lib/order-stock-notice';
+test('new LINE stock notice reserves once, uses 50G sellable stock and preserves physical stock on retry',async t=>{
+ const h=await harness(t);
+ replace(t,db,'$queryRawUnsafe',async()=>[{locked:true}]);
+ replace(t,db.auditLog,'findUnique',async({where}:any)=>h.audits.get(where.id)??null);
+ h.addOrder('earlier',440);await queueStockOrder('earlier');await syncStockReservation('earlier');
+ h.addOrder('new-order',100);
+ const result=await getOrderStockNotice('new-order');assert.match(stockNoticeText(result),/เหลือเพียง 50 กรัม ไม่พอขาย.*ขาด 50 กรัม/);
+ assert.equal(h.rows[2][5],540);assert.equal(h.rows[2][6],490);assert.equal(h.rows[2][13],-50);
+ h.addOrder('later',50);await queueStockOrder('later');await syncStockReservation('later');
+ assert.deepEqual(await getOrderStockNotice('new-order'),result);assert.equal(h.rows[2][5],590);assert.equal(h.rows[2][6],490);
+});
 function replace(t:TestContext,target:any,key:string,value:any){const before=target[key];target[key]=value;t.after(()=>{target[key]=before;});}
 const fresh=():any[][]=>[[null,null,'รายการ',null,'จำนวนรับ','จำนวนจ่าย','จำนวนคงเหลือ',null,null,null,null,null,null],['','','','','','','','','10G','50G','100G','1 KG'],['','Example','A1',1.5,500,10,490,'',300,500,800,2000]];
 const source=(rows:any[][])=>({tab:{sheetId:5,title:'5.11.69'},rows,products:stockRows(rows,{costColumnConfirmed:true})});
