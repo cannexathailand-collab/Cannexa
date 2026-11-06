@@ -6,7 +6,7 @@ const labels:Record<Key,string>={seller:'รหัสผู้ขาย|ผู�
 const heading=Object.values(labels).join('|');
 const productPattern=/^[A-Za-z][A-Za-z0-9._-]*\s*(?:[x×*]\s*)?\d+(?:\.\d+)?\s*(?:kg|g|กรัม|กิโลกรัม|ชิ้น|กล่อง)(?:\s.*)?$/i;
 const metadata=/^(?:L\.|LINE\s*[:.]|ไลน์\s*[:：]|ผู้รับ\s*$|ผู้ส่ง\s*$|หมายเหตุ\s*[:：]|ขอบคุณ|ฝาก|รบกวน)/i;
-const addressSignal=/ตำบล|อำเภอ|จังหวัด|แขวง|เขต|ถนน|ซอย|หมู่|กรุงเทพ|[ตอจถซม]\.\s*|\b\d{5}\b/;
+const addressSignal=/บ้านเลขที่|เลขที่|ตำบล|อำเภอ|จังหวัด|แขวง|เขต|ถนน|ซอย|หมู่|กรุงเทพ|[ตอจถซม]\.\s*|\b\d{5}\b/;
 const phonePattern=/(?<!\d)(?:\+?66(?:0)?\d{8,9}|0\d{8,9})(?!\d)/g;
 const paymentPattern=/^(COD|เก็บเงินปลายทาง|เก็บปลายทาง|โอนแล้ว|โอนเงิน|โอน|เคลม|เครม)(?:\s*[:=\-]?\s*฿?\s*([\d,]+(?:\.\d{1,2})?)(?:\.-)?\s*(?:บาท|฿)?)?$/i;
 function normalizePhone(value:string){const digits=value.replace(/\D/g,'');return digits.startsWith('660')?'0'+digits.slice(3):digits.startsWith('66')?'0'+digits.slice(2):digits;}
@@ -56,7 +56,7 @@ export function analyzeOrderDraft(text:string):DraftAnalysis{
  const addressParts:string[]=[],nameCandidates:string[]=[];
  for(const line of free.filter(Boolean)){
   const split=line.search(/(?:^|\s)\d{1,6}(?:\/\d{1,6})?(?=\s)/);
-  if(split>0&&addressSignal.test(line.slice(split))){nameCandidates.push(line.slice(0,split).trim());addressParts.push(line.slice(split).trim());}
+  if(split>0&&!addressSignal.test(line.slice(0,split))&&addressSignal.test(line.slice(split))){nameCandidates.push(line.slice(0,split).trim());addressParts.push(line.slice(split).trim());}
   else if(addressSignal.test(line)||/^\d{1,6}(?:\/\d{1,6})?\s/.test(line))addressParts.push(line);
   else if(!/[\d:=]/.test(line)&&line.length<100&&!/^(?:COD|โอน|เคลม|เครม|ที่อยู่|สินค้า)$/i.test(line))nameCandidates.push(line.replace(/^คุณ\s*/,''));
  }
