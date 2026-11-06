@@ -67,6 +67,11 @@ test("transfer with missing total stays review-only, profit basis waits for cost
  const h=harness(),e=event();e.message!.text=e.message!.text!.replace("ชำระเงิน: COD","ชำระเงิน: โอน").replace("ยอดรวม: 2560","");await receiveOrderEvent("bot-a",e);assert.equal(h.sales.length,0);assert.equal(h.rows[0].status,"NEEDS_REVIEW");
  h.tx.affiliate.findMany=async()=>[{id:"seller",salesCommissionBasis:"PROFIT",salesCommissionBps:1000}];const profit=event("profit");profit.message!.text=profit.message!.text!.replace("ชำระเงิน: COD","ชำระเงิน: โอน");await receiveOrderEvent("bot-a",profit);assert.equal(h.sales[0].commissionSatang,null);assert.equal(h.sales[0].status,"WAITING_COST");
 });
+test('a short customer code resolves to the same existing customer and referrer',async()=>{
+ const h=harness();const one=await receiveOrderEvent('bot-a',event('short-first'));assert.ok(one?.customerCode);
+ const next=event('short-next');next.message!.text+='\nรหัสลูกค้า: C0001';const two=await receiveOrderEvent('bot-a',next);
+ assert.equal(two?.customerCode,one.customerCode);assert.notEqual(two?.status,'NEEDS_REVIEW');
+});
 test('gross profit transfer snapshots the basis and waits for product and freight costs',async()=>{
  const h=harness();h.tx.affiliate.findMany=async()=>[{id:'seller',salesCommissionBasis:'GROSS_PROFIT',salesCommissionBps:1000}];
  const e=event('gross');e.message!.text=e.message!.text!.replace('ชำระเงิน: COD','ชำระเงิน: โอน');await receiveOrderEvent('bot-a',e);

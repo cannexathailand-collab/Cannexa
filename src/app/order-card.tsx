@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import {displayCustomerCode} from '@/lib/customer-code';
 import type {CSSProperties} from 'react';
 import {needsOrderReview} from '@/lib/order-review-state';
 import {orderShipmentStatus} from '@/lib/order-shipment-status';
@@ -27,7 +28,7 @@ export function OrderCard({order:o,sale,sellerName,groupName,tracking,fulfillmen
   <strong>{o.orderNumber}</strong>
   <p role="status"><strong>สถานะจัดส่ง: {match.label}</strong></p>
   {!!tracking&&<p>เลขพัสดุ: <strong>{tracking}</strong></p>}
-  {!!o.customerCode&&<p>รหัสลูกค้า: {o.customerCode}</p>}
+  {!!o.customerCode&&<p>รหัสลูกค้า: {displayCustomerCode(o.customerCode)}</p>}
   <p>{groupName??'กลุ่มส่งงาน'} · {o.eventAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
   <p>สถานะออเดอร์ / ค่าคอม: {financialStatus(o,sale)}</p>
   {o.status!=='WITHDRAWN'&&<>

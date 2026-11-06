@@ -1,4 +1,5 @@
 import {db} from "./db";
+import {displayCustomerCode} from './customer-code';
 import {userKey} from "./crypto";
 import type {OrderEvent} from "./order-intake";
 import {confirmationMessages,getOrderStockNotice} from './order-stock-notice';
@@ -8,7 +9,7 @@ type Seller={code:string;name:string};
 const line=(value:string)=>value.replace(/[\r\n]+/g," ").trim();
 export function orderConfirmationText(order:Confirmation,sale?:Sale|null,seller?:Seller|null){
  const sellerInfo=seller?"\nรหัสผู้ขาย: "+line(order.sellerCode??seller.code)+"\nชื่อผู้ขาย: "+line(seller.name)+"\nบันทึกให้ Affiliate: "+line(seller.code):"\nรหัสผู้ขาย: "+line(order.sellerCode??"ยังไม่ระบุ")+"\nยังไม่สามารถระบุบัญชีผู้ขายได้";
- const intro="บันทึกข้อมูลออเดอร์แล้ว\nเลขออเดอร์: "+order.orderNumber+(order.customerCode?'\nรหัสลูกค้า: '+line(order.customerCode):'')+sellerInfo;
+ const intro="บันทึกข้อมูลออเดอร์แล้ว\nเลขออเดอร์: "+order.orderNumber+(order.customerCode?'\nรหัสลูกค้า: '+line(displayCustomerCode(order.customerCode)):'')+sellerInfo;
  if(order.status==="NEEDS_REVIEW"){
   const issues=Array.isArray(order.issues)?order.issues.map(String):['ข้อมูลไม่ครบ'];
   const phoneWarning=issues.some(issue=>issue.includes('เบอร์โทร'))?'\n⚠️ กรุณาตรวจเบอร์โทรผู้รับให้ถูกต้อง ยกเลิกข้อความออเดอร์เดิมใน LINE แล้วส่งออเดอร์ที่แก้ไขแล้วอีกครั้ง':'';

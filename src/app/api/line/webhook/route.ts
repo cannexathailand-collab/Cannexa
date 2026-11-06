@@ -25,6 +25,10 @@ export async function POST(req:NextRequest){
  const orders:string[]=[];
  for(const e of parsed.data.events){
   if(intakeBot?.active){const received=await receiveOrderEvent(connection.settings.botId,e);if(received)orders.push(received.id);await receiveExpenseEvent(connection.settings.botId,e);await replyExpenseConfirmation(connection.settings.botId,e,unseal(intakeBot.encrypted).accessToken);await replyOrderConfirmation(connection.settings.botId,e,unseal(intakeBot.encrypted).accessToken);}
+  if(e.source.type==='user'&&e.source.userId&&e.type==='message'&&e.message?.type==='text'&&['รหัสลูกค้า','ทดสอบรหัส'].includes(e.message.text?.trim()??'')){
+   const key=userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?e.source.userId:connection.settings.botId+':'+e.source.userId);
+   await replyCustomerCode({key,eventId:e.webhookEventId,replyToken:e.replyToken,unblocked:false,accessToken:connection.settings.accessToken,requested:true});
+  }
   if(!e.source.userId||!["follow","unfollow"].includes(e.type))continue;
   const key=userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?e.source.userId:connection.settings.botId+":"+e.source.userId);
   await webhook({id:e.webhookEventId,key,type:e.type,at:new Date(e.timestamp),unblocked:e.follow?.isUnblocked??null});
