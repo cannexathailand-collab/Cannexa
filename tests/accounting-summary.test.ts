@@ -4,6 +4,12 @@ import {accountingRange,accountingMonthRange,summarizeAccounting,accountingCsv} 
 import type {ExpenseEntry} from '../src/lib/expense-report';
 const expense=(id:string,kind:ExpenseEntry['kind'],amountSatang:number,date='2026-11-06T12:00:00+07:00',description='รายการ'):ExpenseEntry=>({id,kind,amountSatang,date:new Date(date),description,recipient:null,bankName:null,bankAccount:null});
 const sale={day:'2026-11-06',count:1,revenueSatang:100000,transferSatang:100000,codSatang:0};
+
+test('year view groups Bangkok days without changing net totals or CSV period',()=>{
+ const range={from:'2026-12-31',to:'2027-01-02'},sales=[{...sale,day:'2026-12-31'},{...sale,day:'2027-01-01'}],expenses=[expense('dec','LINE',300,'2026-12-31T16:59:59Z'),expense('jan','LINE',500,'2026-12-31T17:00:00Z')];
+ const daily=summarizeAccounting(range,sales,expenses),year=summarizeAccounting(range,sales,expenses,'year');
+ assert.deepEqual(year.total,daily.total);assert.deepEqual(year.rows.map(r=>[r.day,r.profitSatang]),[['2026',99700],['2027',99500]]);assert.ok(accountingCsv(year).includes('รายปี'));
+});
 test('profit deducts all expense categories once, including product costs and paid commissions',()=>{
  const r=summarizeAccounting({from:'2026-11-06',to:'2026-11-06'},[sale],[expense('stock','PRODUCT_COST',30000),expense('line','LINE',10000),expense('rec','RECURRING',5000),expense('freight','FREIGHT',4000),expense('friend','FRIEND',1000),expense('commission','SALE',2000)]);
  assert.equal(r.total.expenseSatang,52000);assert.equal(r.total.profitSatang,48000);assert.equal(r.total.commissionSatang,3000);assert.equal(r.total.productCostSatang,30000);

@@ -1,9 +1,9 @@
 import type {ExpenseEntry} from '@/lib/expense-report';
 import {expenseBreakdown} from '@/lib/expense-breakdown';
 const money=(n:number)=>(n/100).toLocaleString('th-TH',{style:'currency',currency:'THB'});
-export function ExpenseBreakdownChart({entries,from,to}:{entries:Pick<ExpenseEntry,'kind'|'amountSatang'>[];from:string;to:string}){
+export function ExpenseBreakdownChart({entries,from,to,view='day'}:{entries:Pick<ExpenseEntry,'kind'|'amountSatang'>[];from:string;to:string;view?:string}){
  const data=expenseBreakdown(entries);
- return <section className="card"><h2>ภาพรวมสัดส่วนค่าใช้จ่าย</h2><p className="muted">{from} ถึง {to} · เปอร์เซ็นต์จากรายจ่ายก่อนหักรายการคืนและลดค่าใช้จ่าย</p>
+ return <section className="card"><h2>ภาพรวมสัดส่วนค่าใช้จ่าย</h2><p className="muted">{view==='year'?'รายปี':view==='month'?'รายเดือน':'รายวัน'} · {from} ถึง {to} · รวมค่าใช้จ่ายในช่วงวันที่เลือก · เปอร์เซ็นต์จากรายจ่ายก่อนหักรายการคืนและลดค่าใช้จ่าย</p>
  <div style={{display:'flex',flexWrap:'wrap',alignItems:'center',gap:28}}>
   <svg role="img" aria-label="กราฟวงแหวนสัดส่วนค่าใช้จ่าย" viewBox="0 0 240 240" style={{width:240,maxWidth:'100%',flexShrink:0}}>
    <title>สัดส่วนค่าใช้จ่ายตามหมวดในช่วงวันที่เลือก</title>
