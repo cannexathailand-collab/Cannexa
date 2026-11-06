@@ -10,13 +10,14 @@ export function dashboardData(report:AccountingSummary&{sources:{name:string;rev
  };
 }
 export type DashboardData=ReturnType<typeof dashboardData>;
-export type DashboardPeriod='range'|'day'|'month'|'year';
-export function dashboardRange(period:DashboardPeriod,date:string,base:DashboardData['range']){
- if(period==='range')return base;
- const year=Number(date.slice(0,4)),month=Number(date.slice(5,7));
- if(!Number.isInteger(year)||year<2000||year>2100)throw Error('INVALID_YEAR');
- if(period==='year')return {from:year+'-01-01',to:year+'-12-31'};
- if(!Number.isInteger(month)||month<1||month>12)throw Error('INVALID_MONTH');
- if(period==='month')return {from:date.slice(0,7)+'-01',to:date.slice(0,7)+'-'+new Date(Date.UTC(year,month,0)).getUTCDate()};
- return {from:date.slice(0,10),to:date.slice(0,10)};
+export type DashboardFilters={from:string;to:string;view:'day'|'month'|'year'};
+export function dashboardQuery(filters:DashboardFilters){
+ for(const value of [filters.from,filters.to]){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(value))throw Error('เลือกวันที่ให้ครบ');
+  const date=new Date(value+'T00:00:00Z');
+  if(!Number.isFinite(+date)||date.toISOString().slice(0,10)!==value)throw Error('เลือกวันที่ให้ถูกต้อง');
+ }
+ if(filters.from>filters.to)throw Error('วันที่สิ้นสุดต้องไม่อยู่ก่อนวันที่เริ่มต้น');
+ if((+new Date(filters.to)-+new Date(filters.from))/86400000>365)throw Error('เลือกช่วงวันที่ไม่เกิน 366 วัน');
+ return new URLSearchParams(filters).toString();
 }

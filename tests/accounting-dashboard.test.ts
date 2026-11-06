@@ -1,14 +1,15 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {dashboardData,dashboardRange} from '../src/lib/accounting-dashboard';
+import {dashboardData,dashboardQuery} from '../src/lib/accounting-dashboard';
 import {summarizeAccounting} from '../src/lib/accounting-summary';
-test('dashboard periods resolve full days, leap months and years independently of the page range',()=>{
- const base={from:'2026-11-01',to:'2026-11-07'};
- assert.deepEqual(dashboardRange('range','2024-02-10',base),base);
- assert.deepEqual(dashboardRange('day','2024-02-10',base),{from:'2024-02-10',to:'2024-02-10'});
- assert.deepEqual(dashboardRange('month','2024-02-10',base),{from:'2024-02-01',to:'2024-02-29'});
- assert.deepEqual(dashboardRange('year','2024-02-10',base),{from:'2024-01-01',to:'2024-12-31'});
- assert.throws(()=>dashboardRange('month','2024-13-10',base));
+test('changing chart grouping preserves arbitrary date boundaries including a partial month',()=>{
+ for(const view of ['day','month','year'] as const){
+  const query=new URLSearchParams(dashboardQuery({from:'2026-10-29',to:'2026-11-04',view}));
+  assert.equal(query.get('from'),'2026-10-29');assert.equal(query.get('to'),'2026-11-04');assert.equal(query.get('view'),view);
+ }
+ assert.ok(dashboardQuery({from:'2024-02-29',to:'2024-03-01',view:'day'}));
+ assert.throws(()=>dashboardQuery({from:'2026-02-29',to:'2026-03-01',view:'day'}));
+ assert.throws(()=>dashboardQuery({from:'2026-11-07',to:'2026-11-01',view:'day'}));
 });
 test('dashboard uses the accounting totals, preserves losses and separates expense credits',()=>{
  const report=summarizeAccounting({from:'2026-11-07',to:'2026-11-07'},[{day:'2026-11-07',count:1,revenueSatang:10000,transferSatang:10000,codSatang:0}],[{id:'one',kind:'LINE',amountSatang:15000,date:new Date('2026-11-07T10:00:00+07:00'),description:'expense',recipient:null,bankName:null,bankAccount:null},{id:'credit',kind:'LINE',amountSatang:-1000,date:new Date('2026-11-07T10:00:00+07:00'),description:'credit',recipient:null,bankName:null,bankAccount:null}]);
