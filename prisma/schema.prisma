@@ -281,6 +281,15 @@ model OrderGroup {
  @@unique([botId, groupId])
 }
 
+model OrderMessageTemplate {
+ id String @id @default(cuid())
+ name String
+ body String
+ active Boolean @default(true)
+ updatedAt DateTime @updatedAt
+ createdAt DateTime @default(now())
+}
+
 model OrderBot {
  id String @id @default(cuid())
  name String
