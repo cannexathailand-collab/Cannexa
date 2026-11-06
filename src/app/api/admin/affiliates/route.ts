@@ -6,7 +6,7 @@ import {transaction} from "@/lib/db";
 import {baseUrl} from "@/lib/config";
 import {z} from "zod";
 import {commissionPercentBps} from '@/lib/sales-commission-rate';
-const input=z.object({id:z.string().optional(),code:z.string().regex(/^[A-Z0-9_-]{3,30}$/),name:z.string().trim().min(1).max(100),notes:z.string().max(500),rateSatang:z.coerce.number().int().min(0).max(10000000),active:z.boolean(),salesCommissionBasis:z.enum(["REVENUE","PROFIT"]).default("REVENUE"),salesCommissionBps:z.number().int().min(0).max(10000).default(0)});
+const input=z.object({id:z.string().optional(),code:z.string().regex(/^[A-Z0-9_-]{3,30}$/),name:z.string().trim().min(1).max(100),notes:z.string().max(500),rateSatang:z.coerce.number().int().min(0).max(10000000),active:z.boolean(),salesCommissionBasis:z.enum(["REVENUE","PROFIT","GROSS_PROFIT"]).default("REVENUE"),salesCommissionBps:z.number().int().min(0).max(10000).default(0)});
 export async function POST(req:NextRequest){
  try{await admin(managers);await sameOrigin();const f=await req.formData();const data=input.parse({id:f.get("id")||undefined,code:f.get("code"),name:f.get("name"),notes:f.get("notes")??"",rateSatang:Math.round(Number(f.get("rate"))*100),active:f.get("active")==="on",salesCommissionBasis:f.get("salesCommissionBasis")??"REVENUE",salesCommissionBps:Math.round(Number(f.get("salesCommissionPercent")??0)*100)});
  await transaction(async tx=>{

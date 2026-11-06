@@ -6,6 +6,7 @@ import {parseMyOrderXlsx} from "./myorder-xlsx";
 import {shipmentCandidates,nonCodShipmentCandidates,compatibleCodCandidates} from "./shipment-matching";
 import {hasActualDispatch,reconcileSalesRecognition,revokeSalesRecognition} from "./sales-recognition";
 import {recordReturnEmail,STOCK_RETURN_SENDER} from "./stock-return-email";
+import {salesCommissionUsesCost} from './sales-commission-rate';
 
 const senders={SHIPMENT:"account-thaipost-freight@myorder.ai",COD:"account-thaipost-cod@myorder.ai"};
 type MailPart={mimeType?:string;filename?:string;body?:{attachmentId?:string;data?:string;size?:number};parts?:MailPart[]};
@@ -126,7 +127,7 @@ export async function matchShipments(actor:string){
    await tx.shipment.update({where:{tracking:shipment.tracking},data:{orderId:order.id,status:"MATCHED"}});
    statusChanges.delete(shipment.tracking);
    await tx.orderIntake.update({where:{id:order.id},data:{status:"MATCHED_SHIPMENT"}});
-   const profit=order.salesCommissionBasis==="PROFIT";
+   const profit=salesCommissionUsesCost(order.salesCommissionBasis);
    const existingSale=await tx.salesOrder.findUnique({where:{orderId:order.id}});
    const settlement={paymentEvidence:"COD_RECEIPT",commissionSatang:profit?null:Math.round(shipment.codSatang*order.salesCommissionBps/10000),status:profit?"WAITING_COST":"PENDING"};
    if(existingSale){if(existingSale.revenueSatang!==shipment.codSatang)throw Error("COD_CONFLICT");await tx.salesOrder.update({where:{id:existingSale.id},data:{...settlement,...(existingSale.status==="PAID"?{status:"PAID",commissionSatang:existingSale.commissionSatang}:{})}});}

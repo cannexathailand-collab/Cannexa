@@ -1,6 +1,7 @@
 import type {Prisma,OrderIntake,Shipment} from "@prisma/client";
 import {db,transaction,userLock} from "./db";
 import {quotedTotal} from "./shipment-matching";
+import {salesCommissionUsesCost} from './sales-commission-rate';
 export function hasActualDispatch(shipment:Pick<Shipment,"fulfillmentStatus"|"dispatchedAt"|"status">){return shipment.fulfillmentStatus==="DISPATCHED"&&!!shipment.dispatchedAt&&!["RETURNED","CANCELLED","WITHDRAWN"].includes(shipment.status);}
 export async function revokeSalesRecognition(tx:Prisma.TransactionClient,sale:{id:string;orderId:string;tracking:string|null;recognizedAt:Date|null;revenueSatang:number},actor:string,reason:string){
  if(!sale.recognizedAt)return;
@@ -19,7 +20,7 @@ export async function reconcileSalesRecognition(tx:Prisma.TransactionClient,orde
  if(shipment.orderId!==order.id)throw Error("SALE_CONFLICT");
  if(previous&&(previous.paymentMethod!==(cod?"COD":"TRANSFER")||previous.status==="CANCELLED"||(previous.tracking&&previous.tracking!==shipment.tracking)||previous.revenueSatang!==amount))throw Error("SALE_CONFLICT");
  const receipt=cod?await tx.codReceipt.findUnique({where:{tracking:shipment.tracking}}):null;
- const received=!cod||receipt?.amountSatang===amount,profit=(previous?.commissionBasis??order.salesCommissionBasis)==="PROFIT",bps=previous?.commissionBps??order.salesCommissionBps;
+ const received=!cod||receipt?.amountSatang===amount,profit=salesCommissionUsesCost(previous?.commissionBasis??order.salesCommissionBasis),bps=previous?.commissionBps??order.salesCommissionBps;
  const status=previous?.status==="PAID"?"PAID":!received?"WAITING_COD":profit?"WAITING_COST":"PENDING";
  const commission=previous?.status==="PAID"?previous.commissionSatang:!received||profit?null:Math.round(amount*bps/10000);
  const recognizedAt=received?shipment.dispatchedAt!:null;
