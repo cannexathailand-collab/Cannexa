@@ -22,6 +22,9 @@ export default async function StockHistory({searchParams}:{searchParams:Promise<
  const day=stockHistoryDate(params.day,today),q=(params.q??'').trim().slice(0,100),filter=stockFilter(params.filter);
  const snapshot=await db.stockDailySnapshot.findUnique({where:{day}});
  const all=snapshot?.products as StockRow[]|undefined,products=filterStockProducts(all??[],q,filter);
+ const pendingMode=all?.some(p=>p.completedQuantity!==undefined);
+ const baseline=await db.stockSheetOperation.findUnique({where:{id:'baseline-v1'}});
+ const backup=(baseline?.snapshot as any)?.archive;
  return <>
   <div className="intro sales-header"><div><div className="eyebrow">บัญชี / สต๊อก / รายการย้อนหลัง</div><h1>รายการย้อนหลัง</h1><p className="muted">รายการจัดส่งที่ผูกกับสต๊อก และยอดปิดรายวันที่เก็บไว้</p></div><Link className="button secondary" href="/admin/stock">กลับสต๊อกปัจจุบัน</Link></div>
   <section className="card">
@@ -40,11 +43,12 @@ export default async function StockHistory({searchParams}:{searchParams:Promise<
    <div className="intro"><h2>ยอดปิดวันที่ {dateLabel(day)}</h2>{snapshot&&<span className="pill">{products.length} จาก {all?.length??0} รายการ</span>}</div>
    {snapshot?<>
     <p className="muted small">บันทึกจริง {snapshot.capturedAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})} · จากชีต {snapshot.sourceSheet}</p>
-    <p className="muted small">จำนวนรับและจ่ายเป็นยอดสะสมในชีต ณ เวลาบันทึก ไม่ใช่จำนวนเคลื่อนไหวเฉพาะวันนั้น ยอดประวัติจะไม่เปลี่ยนตามสต๊อกปัจจุบัน</p>
+    <p className="muted small">{pendingMode?'จำนวนรับเป็นยอดสะสม จำนวนรอจ่ายเป็นยอดที่ยังไม่ตัด ณ เวลาบันทึก':'จำนวนรับและจ่ายเป็นยอดสะสม ณ เวลาบันทึก'} ประวัติจะไม่เปลี่ยนตามสต๊อกปัจจุบัน</p>
     {snapshot.status==='COMPLETE'?<p><a href={STOCK_SHEET_URL+'#gid='+snapshot.sheetId} target="_blank" rel="noreferrer">เปิดแท็บ {snapshot.sheetTitle} ใน Google Sheets</a></p>:<p className="notice">เก็บประวัติในระบบแล้ว กำลังรอส่งสำเนาไป Google Sheets</p>}
-    {products.length?<div className="table-wrap"><table><thead><tr><th>รหัสสินค้า</th><th>สินค้า</th><th>จำนวนรับ (G)</th><th>จำนวนจ่าย (G)</th><th>คงเหลือ (G)</th><th>ต้นทุน (บาท/G)</th><th>ราคาขาย (บาท)</th></tr></thead><tbody>{products.map(p=><tr key={p.code}><td><strong>{p.code}</strong></td><td>{p.name??'ยังไม่ระบุชื่อ'}</td><td>{number(p.receivedQuantity)}</td><td>{number(p.issuedQuantity)}</td><td><strong>{number(p.remainingQuantity)}</strong></td><td>{p.costSatang===null?'ยังไม่ระบุต้นทุน':number(p.costSatang/100)}</td><td>{p.salePrices.length?p.salePrices.map((price,i)=><div key={i} style={{whiteSpace:'nowrap'}}>{price.pack} · {number(price.priceSatang/100)}</div>):'ยังไม่ระบุราคา'}</td></tr>)}</tbody></table></div>:<p className="muted">{q||filter!=='all'?'ไม่พบสินค้าที่ตรงกับตัวกรอง':'ไม่มีสินค้าในยอดปิดวันนี้'}</p>}
+    {products.length?<div className="table-wrap"><table><thead><tr><th>รหัสสินค้า</th><th>สินค้า</th><th>จำนวนรับ (G)</th><th>{pendingMode?'จำนวนรอจ่าย (G)':'จำนวนจ่าย (G)'}</th><th>คงเหลือ (G)</th><th>ต้นทุน (บาท/G)</th><th>ราคาขาย (บาท)</th></tr></thead><tbody>{products.map(p=><tr key={p.code}><td><strong>{p.code}</strong></td><td>{p.name??'ยังไม่ระบุชื่อ'}</td><td>{number(p.receivedQuantity)}</td><td>{number(p.issuedQuantity)}</td><td><strong>{number(p.remainingQuantity)}</strong></td><td>{p.costSatang===null?'ยังไม่ระบุต้นทุน':number(p.costSatang/100)}</td><td>{p.salePrices.length?p.salePrices.map((price,i)=><div key={i} style={{whiteSpace:'nowrap'}}>{price.pack} · {number(price.priceSatang/100)}</div>):'ยังไม่ระบุราคา'}</td></tr>)}</tbody></table></div>:<p className="muted">{q||filter!=='all'?'ไม่พบสินค้าที่ตรงกับตัวกรอง':'ไม่มีสินค้าในยอดปิดวันนี้'}</p>}
    </>:<p className="muted">{config&&day<config.startDay?'ยังไม่ได้เปิดเก็บประวัติในวันที่เลือก จึงไม่มีข้อมูลย้อนหลังของวันนั้น':day>=today?'วันนี้ยังไม่ปิดวัน ประวัติจะพร้อมหลังสิ้นวัน':recent.length?'ไม่มีประวัติที่บันทึกไว้สำหรับวันนี้':'ยังไม่มีรอบปิดวัน ประวัติชุดแรกจะพร้อมหลังสิ้นวัน'}</p>}
   </section>
+  {backup&&baseline?.status==='APPLIED'&&<p className="muted"><a href={STOCK_SHEET_URL+'#gid='+backup.sheetId} target="_blank" rel="noreferrer">ยอดก่อนเริ่มรอบจำนวนรอจ่าย</a> · เก็บข้อมูลเดิมก่อนเปลี่ยนระบบ</p>}
   <StockDispatchHistory day={day} page={params.dispatchPage}/>
   <section className="card"><h2>การเก็บประวัติ</h2>
    <p>เก็บอัตโนมัติหลังสิ้นวันตามเวลาไทย{config&&<> เริ่มวันที่ {dateLabel(config.startDay)}</>} และเก็บยอดก่อนรายการแก้ไขแรกของวันใหม่ เพื่อไม่ให้ยอดวันใหม่ทับวันก่อน</p>

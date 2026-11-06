@@ -1,3 +1,6 @@
+import {after} from 'next/server';
+import {processPendingReservations,queueStockOrder} from '@/lib/stock-flow';
+export const maxDuration=60;
 import {z} from "zod";
 import {db} from "@/lib/db";
 import {validSignature} from "@/lib/crypto";
@@ -17,6 +20,8 @@ export async function POST(req:Request,{params}:{params:Promise<{bot:string}>}){
  if(!validSignature(raw,req.headers.get("x-line-signature")??"",settings.messagingSecret))return new Response("Invalid signature",{status:401});
  let body:unknown;try{body=JSON.parse(raw);}catch{return new Response("Invalid JSON",{status:400});}
  const parsed=payload.safeParse(body);if(!parsed.success||parsed.data.destination!==connection.botId)return new Response("Invalid payload",{status:400});
- for(const e of parsed.data.events){await receiveOrderEvent(connection.botId,e);await receiveExpenseEvent(connection.botId,e);await replyExpenseConfirmation(connection.botId,e,settings.accessToken);await replyOrderConfirmation(connection.botId,e,settings.accessToken);}
+ const orders:string[]=[];
+ for(const e of parsed.data.events){const received=await receiveOrderEvent(connection.botId,e);if(received)orders.push(received.id);await receiveExpenseEvent(connection.botId,e);await replyExpenseConfirmation(connection.botId,e,settings.accessToken);await replyOrderConfirmation(connection.botId,e,settings.accessToken);}
+ after(async()=>{for(const id of orders)await queueStockOrder(id).catch(()=>{});await processPendingReservations(2).catch(()=>{});});
  return Response.json({ok:true});
 }

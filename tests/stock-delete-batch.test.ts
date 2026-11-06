@@ -14,3 +14,5 @@ test('bulk delete aborts all on a stale item, keeps durable snapshots, and recov
 });
 
 (db.stockHistoryConfig as any).findUnique=async()=>null;
+
+(db.stockReservation as any).findMany=async()=>[];

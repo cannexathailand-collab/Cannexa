@@ -11,3 +11,5 @@ test('delete uses fresh code location, blocks changed stock, and recovers a lost
 
 
 (db.stockHistoryConfig as any).findUnique=async()=>null;
+
+(db.stockReservation as any).findMany=async()=>[];

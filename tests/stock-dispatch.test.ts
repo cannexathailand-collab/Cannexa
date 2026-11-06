@@ -22,3 +22,5 @@ test('missing cost is durable, cost fill retries same order, lost Google respons
 });
 
 (db.stockHistoryConfig as any).findUnique=async()=>null;
+
+(db.stockWorkflow as any).findUnique=async()=>null;

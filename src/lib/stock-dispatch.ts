@@ -1,14 +1,19 @@
 import {prepareStockDailyClose} from './stock-history';
 import {db} from './db';import {sha} from './crypto';import {stockGoogleClient,readStockSheet} from './stock-google';import {orderStockItems} from './order-stock-items';import {stockDispatchPlan,type StockOutSnapshot} from './stock-dispatch-plan';
-export function stockDispatchEligible(order:{createdAt:Date;eventAt:Date;status:string;payment:string|null}|null,shipment:{orderId:string|null;fulfillmentStatus:string;dispatchedAt:Date|null;status:string;reportAt:Date}|null,activeFrom:Date){return !!order&&!!shipment&&!!shipment.orderId&&order.createdAt>=activeFrom&&order.eventAt>=activeFrom&&!!shipment.dispatchedAt&&shipment.dispatchedAt>=activeFrom&&['DISPATCHED','RETURNED'].includes(shipment.fulfillmentStatus)&&!['CANCELLED','WITHDRAWN','EXPIRED'].includes(order.status)&&!['CANCELLED','WITHDRAWN'].includes(shipment.status)&&['โอน','COD','เคลม'].includes(order.payment??'');}
+import {stockDispatchEligible} from './stock-dispatch-eligibility';
+export {stockDispatchEligible} from './stock-dispatch-eligibility';
+import {processFlowStockDispatch} from './stock-flow-dispatch';
+import {processPendingReservations} from './stock-flow';
 const message=(e:unknown)=>e instanceof Error&&['STOCK_NOT_CONNECTED','STOCK_SHEETS_API_DISABLED','STOCK_SHEET_PERMISSION_DENIED','STOCK_FEDERATION_PERMISSION_DENIED'].includes(e.message)?'ยังเชื่อมข้อมูลสต๊อกไม่ได้ กรุณาตรวจการเชื่อม Google Sheets':'ยังยืนยันการตัดสต๊อกไม่ได้ กดประมวลผลซ้ำได้โดยไม่ตัดซ้ำ';
 export async function processStockDispatch(orderId:string,actor:string){
+ const workflow=await db.stockWorkflow.findUnique({where:{id:'active'}});if(workflow?.enabled)return processFlowStockDispatch(orderId,actor);
  const config=await db.stockIntegrationConfig.findUnique({where:{id:'active'}});if(!config?.enabled)return {status:'DISABLED'};
  const previous=await db.stockDispatch.findUnique({where:{orderId}});if(previous?.status==='POSTED')return {status:'POSTED',replayed:true};
  const [order,shipment]=await Promise.all([db.orderIntake.findUnique({where:{id:orderId}}),db.shipment.findUnique({where:{orderId}})]);
  if(!previous){if(!stockDispatchEligible(order,shipment,config.activeFrom))return {status:'NOT_ELIGIBLE'};await db.stockDispatch.upsert({where:{orderId},create:{orderId,orderNumber:order!.orderNumber,candidateTracking:shipment!.tracking,payment:order!.payment,dispatchedAt:shipment!.dispatchedAt},update:{}});}
  try{return await db.$transaction(async tx=>{
   await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended($1,0))','stock-sheet-add');
+  if((await db.stockWorkflow.findUnique({where:{id:'active'}}))?.enabled)throw Error('STOCK_FLOW_SWITCHED');
   const pending=await tx.stockDispatch.findUniqueOrThrow({where:{orderId}});if(pending.status==='POSTED')return {status:'POSTED',replayed:true};
   const issue=async(reason:string[],items?:unknown)=>{const status=reason.every(s=>s.includes('ยังไม่ระบุต้นทุนต่อ G'))?'WAITING_COST':'NEEDS_REVIEW';await tx.stockDispatch.update({where:{id:pending.id},data:{status,issues:reason,...(items?{items:items as import('@prisma/client').Prisma.InputJsonValue}:{})}});return {status,issues:reason};};
   if(!pending.candidateTracking)return issue(['ยังไม่มีเลขพัสดุที่ผูกไว้']);
@@ -38,13 +43,15 @@ export async function processStockDispatch(orderId:string,actor:string){
  await client(':batchUpdate',{method:'POST',body:JSON.stringify({requests:plan.requests})});
   const after=await readStockSheet(client);if(plan.snapshot.items.some(item=>{const product=after.products.find(p=>p.code===item.code);return !product||product.issuedQuantity!==item.issuedAfter||product.remainingQuantity!==item.remainingAfter;}))throw Error('STOCK_OUT_NOT_CONFIRMED');
   return finish(plan.snapshot,false);
- },{timeout:55000,maxWait:10000});}catch(e){const issues=[message(e)];await db.stockDispatch.updateMany({where:{orderId,status:{not:'POSTED'}},data:{status:'NEEDS_REVIEW',issues}});return {status:'NEEDS_REVIEW',issues};}
+ },{timeout:55000,maxWait:10000});}catch(e){if(e instanceof Error&&e.message==='STOCK_FLOW_SWITCHED')return processStockDispatch(orderId,actor);const issues=[message(e)];await db.stockDispatch.updateMany({where:{orderId,status:{not:'POSTED'}},data:{status:'NEEDS_REVIEW',issues}});return {status:'NEEDS_REVIEW',issues};}
 }
 export async function processPendingStockDispatches(actor:string,limit=1,priorityCode?:string){
  const config=await db.stockIntegrationConfig.findUnique({where:{id:'active'}});if(!config?.enabled)return {processed:0,posted:0};
- const pending=await db.stockDispatch.findMany({where:{status:{in:['PENDING','NEEDS_REVIEW','WAITING_COST']}},orderBy:{updatedAt:'asc'},take:100});
+ await processPendingReservations(1).catch(()=>{});
+ const pending=await db.stockDispatch.findMany({where:{status:{in:['PENDING','NEEDS_REVIEW','WAITING_COST','HISTORY_SAVED']}},orderBy:{updatedAt:'asc'},take:100});
  if(priorityCode)pending.sort((a,b)=>Number(Array.isArray(b.items)&&b.items.some((i:any)=>i.code===priorityCode))-Number(Array.isArray(a.items)&&a.items.some((i:any)=>i.code===priorityCode)));
- const candidates=await db.$queryRaw<{orderId:string}[]>`SELECT s."orderId" FROM "Shipment" s JOIN "OrderIntake" o ON o.id=s."orderId" LEFT JOIN "StockDispatch" d ON d."orderId"=o.id WHERE o."createdAt">=${config.activeFrom} AND o."eventAt">=${config.activeFrom} AND s."dispatchedAt">=${config.activeFrom} AND s."fulfillmentStatus" IN ('DISPATCHED','RETURNED') AND o.status NOT IN ('CANCELLED','WITHDRAWN','EXPIRED') AND s.status NOT IN ('CANCELLED','WITHDRAWN') AND (d.id IS NULL OR d.status NOT IN ('POSTED','EXCLUDED')) ORDER BY s."dispatchedAt" ASC LIMIT 100`;
+ const workflow=await db.stockWorkflow.findUnique({where:{id:'active'}}),activeFrom=workflow?.enabled&&workflow.activeFrom>config.activeFrom?workflow.activeFrom:config.activeFrom;
+ const candidates=await db.$queryRaw<{orderId:string}[]>`SELECT s."orderId" FROM "Shipment" s JOIN "OrderIntake" o ON o.id=s."orderId" LEFT JOIN "StockDispatch" d ON d."orderId"=o.id WHERE o."createdAt">=${activeFrom} AND o."eventAt">=${activeFrom} AND s."dispatchedAt">=${activeFrom} AND s."fulfillmentStatus" IN ('DISPATCHED','RETURNED') AND o.status NOT IN ('CANCELLED','WITHDRAWN','EXPIRED') AND s.status NOT IN ('CANCELLED','WITHDRAWN') AND (d.id IS NULL OR d.status NOT IN ('POSTED','EXCLUDED')) ORDER BY s."dispatchedAt" ASC LIMIT 100`;
  const ids=[...new Set([...pending.map(p=>p.orderId),...candidates.map(p=>p.orderId!)])];const completed=ids.length?await db.stockDispatch.findMany({where:{orderId:{in:ids},status:{in:['POSTED','EXCLUDED']}},select:{orderId:true}}):[];const done=new Set(completed.map(p=>p.orderId));let processed=0,posted=0;
  for(const id of ids.filter(id=>!done.has(id)).slice(0,limit)){const result=await processStockDispatch(id,actor);processed++;if(result.status==='POSTED')posted++;}return {processed,posted};
 }

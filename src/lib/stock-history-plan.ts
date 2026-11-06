@@ -18,7 +18,7 @@ export function stockHistorySnapshot(day:string,source:Source,actor:string,sheet
  if(day>=bangkokDay(source.readAt))throw Error('STOCK_DAY_NOT_FINISHED');
  const products=source.products.map(p=>({...p,salePrices:p.salePrices.map(price=>({...price}))})).sort((a,b)=>a.code.localeCompare(b.code,'en'));
  const rows:(string|number)[][]=[
-  ['ยอดปิด '+day,'ชื่อสินค้า','รายการ','ต้นทุน (บาท/G)','จำนวนรับ (G)','จำนวนจ่าย (G)','คงเหลือ (G)','','ราคาขาย (บาท)','','',''],
+  ['ยอดปิด '+day,'ชื่อสินค้า','รายการ','ต้นทุน (บาท/G)','จำนวนรับ (G)',source.products.some(p=>p.completedQuantity!==undefined)?'จำนวนรอจ่าย (G)':'จำนวนจ่าย (G)','คงเหลือ (G)','','ราคาขาย (บาท)','','',''],
   [source.readAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'}),'','','','','','','',...Array.from({length:4},(_,i)=>String(source.rows[1]?.[i+8]??''))],
   ...products.map(p=>['',p.name??'',p.code,p.costSatang===null?'':p.costSatang/100,p.receivedQuantity??'',p.issuedQuantity??'',p.remainingQuantity??'','',...Array.from({length:4},(_,i)=>{const v=source.rows[p.sourceRow-1]?.[i+8];return typeof v==='number'||typeof v==='string'?v:'';})])
  ];
