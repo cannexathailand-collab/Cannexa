@@ -1,4 +1,5 @@
 import {createHash} from 'node:crypto';import type {NewStockProduct} from './stock-product-input';import {stockSheetRow} from './stock-product-input';import type {StockRow} from './stock-import';
+import {stockColumnStyles} from './stock-column-style';
 export type StockReceiptResult={code:string;mode:'CREATED'|'RECEIVED';quantity:number;receivedBefore:number;receivedAfter:number;remainingBefore:number;remainingAfter:number;sourceSheet:string;fingerprint:string};
 export const receiptKey=(requestKey:string)=>'cannexa-stock-receipt-'+requestKey;
 export const receiptFingerprint=(input:NewStockProduct)=>createHash('sha256').update(JSON.stringify(input)).digest('hex');
@@ -10,8 +11,9 @@ export function stockReceiptPlan(input:NewStockProduct,source:{tab:{sheetId:numb
  const result:StockReceiptResult={code:input.code,mode:existing?'RECEIVED':'CREATED',quantity:input.quantity,receivedBefore,receivedAfter,remainingBefore,remainingAfter,sourceSheet:source.tab.title,fingerprint:receiptFingerprint(input)};
  const numberCell=(columnIndex:number,n:number)=>({updateCells:{start:{sheetId:source.tab.sheetId,rowIndex:existing!.sourceRow-1,columnIndex},rows:[{values:[{userEnteredValue:{numberValue:n}}]}],fields:'userEnteredValue'}});
  if(existing){requests.push(numberCell(4,receivedAfter));if(!remainingFormula?.startsWith('='))requests.push(numberCell(6,remainingAfter));}
- else{requests.push({appendCells:{sheetId:source.tab.sheetId,rows:[{values:stockSheetRow(input).map(value=>({userEnteredValue:typeof value==='number'?{numberValue:value}:{stringValue:value}}))}],fields:'userEnteredValue'}});}
+ else{requests.push({appendCells:{sheetId:source.tab.sheetId,rows:[{values:stockSheetRow(input,source.rows[1]?.slice(8,12)).map(value=>({userEnteredValue:typeof value==='number'?{numberValue:value}:{stringValue:value}}))}],fields:'userEnteredValue'}});}
  requests.push({sortRange:{range:{sheetId:source.tab.sheetId,startRowIndex:2,endRowIndex:Math.max(source.rows.length,3)+(existing?0:1),startColumnIndex:0,endColumnIndex:source.tab.gridProperties?.columnCount??26},sortSpecs:[{dimensionIndex:2,sortOrder:'ASCENDING'}]}});
+ requests.push(...stockColumnStyles(source.tab.sheetId,Math.max(source.rows.length,3)+(existing?0:1)));
  requests.push({createDeveloperMetadata:{developerMetadata:{metadataKey:receiptKey(input.requestKey),metadataValue:JSON.stringify(result),location:{spreadsheet:true},visibility:'DOCUMENT'}}});
  return {requests,result};
 }
