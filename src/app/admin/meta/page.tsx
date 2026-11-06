@@ -28,7 +28,7 @@ export default async function MetaPixelSettings({searchParams}: {searchParams: P
    <button type="submit">บันทึก Pixel</button>
   </form>
   <form action="/api/admin/meta" method="post">
-   <button name="action" value="test" type="submit">ส่งเหตุการณ์ทดสอบ</button>
+   <button className="secondary" name="action" value="test" type="submit">ส่งเหตุการณ์ทดสอบ</button>
   </form>
   {status === "test-missing" && <p role="alert">ตั้งค่า Dataset ID, โทเค็น, เวอร์ชัน API และรหัส Test Events ก่อนส่ง</p>}
   {status === "test-sent" && <p role="status">Meta ตอบรับเหตุการณ์ทดสอบแล้ว เปิด Test Events เพื่อตรวจรายการ</p>}

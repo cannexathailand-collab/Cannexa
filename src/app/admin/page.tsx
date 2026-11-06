@@ -26,5 +26,5 @@ export default async function Dashboard({searchParams}:{searchParams:Promise<{pe
     </tr>)}</tbody>
    </table></div>
   </section>
-<div className="columns"><section className="card"><h2>เพื่อนใหม่แยกตาม Affiliate</h2><p className="muted small">เฉพาะรายการที่ระบบยืนยันจาก LINE</p>{rows.length?rows.map(r=><div className="chart-row" key={r.id}><span>{r.name}</span><div className="track"><div className="bar" style={{width:(r.approved/max*100)+"%"}} /></div><strong>{r.approved} คน</strong></div>):<p className="empty">เพิ่ม Affiliate เพื่อเริ่มติดตามผล</p>}</section></div><AffiliatePerformanceTable rows={rows}/></>;
+<AffiliatePerformanceTable rows={rows}/></>;
 }

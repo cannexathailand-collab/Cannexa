@@ -1,10 +1,11 @@
 export function isLivePage(pathname:string|null){return !!pathname&&["/admin","/my-performance","/account"].some(prefix=>pathname===prefix||pathname.startsWith(prefix+"/"));}
 type Options={doc:Document;win:Window;refresh:()=>void;pending:()=>boolean;intervalMs?:number;now?:()=>number};
 export function installLiveRefresh({doc,win,refresh,pending,intervalMs=5000,now=Date.now}:Options){
- const dirty=new Set<HTMLFormElement>();let submitting=false,lastRefresh=0,stopped=false;
+ const dirty=new Set<HTMLFormElement>();let submitting=false,lastRefresh=0,lastInteraction=-Infinity,stopped=false;
  const tick=()=>{
   for(const form of dirty)if(!form.isConnected)dirty.delete(form);
   if(stopped||doc.visibilityState!=="visible"||win.navigator.onLine===false||pending()||submitting||dirty.size)return;
+  if(now()-lastInteraction<2000||doc.querySelector('dialog[open]'))return;
   if(doc.activeElement?.closest("input, textarea, select, [contenteditable='true'], [role='textbox']"))return;
   if(now()-lastRefresh<intervalMs)return;
   lastRefresh=now();refresh();
@@ -12,8 +13,11 @@ export function installLiveRefresh({doc,win,refresh,pending,intervalMs=5000,now=
  const changed=(event:Event)=>{const form=(event.target as Element|null)?.closest?.("form");if(form)dirty.add(form as HTMLFormElement);};
  const reset=(event:Event)=>{dirty.delete(event.target as HTMLFormElement);};
  const submit=(event:Event)=>{if(!event.defaultPrevented)submitting=true;};
+ const interacting=()=>{lastInteraction=now();};
+ const interactionEvents=['pointerdown','keydown','wheel','touchmove','scroll'] as const;
+ for(const event of interactionEvents)doc.addEventListener(event,interacting,{passive:true,capture:true});
  doc.addEventListener("input",changed);doc.addEventListener("change",changed);doc.addEventListener("reset",reset);doc.addEventListener("submit",submit);doc.addEventListener("visibilitychange",tick);
  win.addEventListener("focus",tick);win.addEventListener("online",tick);
  const interval=win.setInterval(tick,intervalMs);
- return ()=>{stopped=true;win.clearInterval(interval);doc.removeEventListener("input",changed);doc.removeEventListener("change",changed);doc.removeEventListener("reset",reset);doc.removeEventListener("submit",submit);doc.removeEventListener("visibilitychange",tick);win.removeEventListener("focus",tick);win.removeEventListener("online",tick);};
+ return ()=>{stopped=true;win.clearInterval(interval);for(const event of interactionEvents)doc.removeEventListener(event,interacting,true);doc.removeEventListener("input",changed);doc.removeEventListener("change",changed);doc.removeEventListener("reset",reset);doc.removeEventListener("submit",submit);doc.removeEventListener("visibilitychange",tick);win.removeEventListener("focus",tick);win.removeEventListener("online",tick);};
 }

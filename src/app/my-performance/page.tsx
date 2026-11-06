@@ -20,7 +20,7 @@ export default async function MyPerformance({searchParams}: {searchParams: Promi
  const saleByOrder=new Map(sales.map(s=>[s.orderId,s]));
  const trackingByOrder=new Map(shipments.map(s=>[s.orderId,s.tracking]));
  const amount = (status: "Approved" | "Paid") => entries.reduce((sum, row) => sum + (row.status === status ? row.amountSatang : 0), 0) / 100;
- return <main className="center-page"><section className="customer"><h1>ผลงานของฉัน</h1>
+ return <main className="center-page performance-page"><section className="customer"><h1>ผลงานของฉัน</h1>
  {r?<><p>{r.name} · {r.code}</p><dl>
 
  <dt>เพื่อนใหม่</dt><dd>{r.approved}</dd>
