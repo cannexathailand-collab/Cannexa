@@ -1,3 +1,4 @@
+import {stockCode} from './stock-code';
 export type StockPrice={pack:string;priceSatang:number};
 export type StockRow={code:string;name:string|null;costSatang:number|null;receivedQuantity:number|null;issuedQuantity:number|null;remainingQuantity:number|null;salePrices:StockPrice[];sourceRow:number};
 function quantity(raw:unknown,code:string){if(raw===null||raw===undefined||raw==='')return null;const n=typeof raw==='number'?raw:Number(String(raw).replace(/,/g,''));if(!Number.isFinite(n)||Math.abs(n*1000-Math.round(n*1000))>0.0001||Math.abs(n)>=1e15)throw new Error('INVALID_PRODUCT_QUANTITY '+code);return n;}
@@ -7,7 +8,7 @@ export function stockRows(rows:unknown[][],{costColumnConfirmed=false}:{costColu
  rows.forEach((row,index)=>{
   if(index<2)return;
   const raw=row[2];if(raw===null||raw===undefined||String(raw).trim()==='')return;
-  const code=String(raw).trim().toUpperCase();if(!/^[A-Z]+\d+$/.test(code))throw new Error('INVALID_PRODUCT_CODE row '+(index+1));
+  const parsedCode=stockCode.safeParse(String(raw));if(!parsedCode.success)throw new Error('INVALID_PRODUCT_CODE row '+(index+1));const code=parsedCode.data;
   if(seen.has(code))throw new Error('DUPLICATE_PRODUCT_CODE '+code);seen.add(code);
   const name=typeof row[1]==='string'&&row[1].trim()?row[1].trim():null;
   const rawCost=row[3];let costSatang:number|null=null;
