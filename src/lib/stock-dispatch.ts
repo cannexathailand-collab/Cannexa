@@ -4,11 +4,14 @@ import {stockDispatchEligible} from './stock-dispatch-eligibility';
 export {stockDispatchEligible} from './stock-dispatch-eligibility';
 import {processFlowStockDispatch} from './stock-flow-dispatch';
 import {processPendingReservations} from './stock-flow';
+import {matchShipments} from './gmail-reports';
+import {confirmReportedShipments} from './shipment-report-confirmation';
+import {enqueueStockDispatches} from './stock-dispatch-worker';
 const message=(e:unknown)=>e instanceof Error&&['STOCK_NOT_CONNECTED','STOCK_SHEETS_API_DISABLED','STOCK_SHEET_PERMISSION_DENIED','STOCK_FEDERATION_PERMISSION_DENIED'].includes(e.message)?'ยังเชื่อมข้อมูลสต๊อกไม่ได้ กรุณาตรวจการเชื่อม Google Sheets':'ยังยืนยันการตัดสต๊อกไม่ได้ กดประมวลผลซ้ำได้โดยไม่ตัดซ้ำ';
 export async function processStockDispatch(orderId:string,actor:string){
  const workflow=await db.stockWorkflow.findUnique({where:{id:'active'}});if(workflow?.enabled)return processFlowStockDispatch(orderId,actor);
  const config=await db.stockIntegrationConfig.findUnique({where:{id:'active'}});if(!config?.enabled)return {status:'DISABLED'};
- const previous=await db.stockDispatch.findUnique({where:{orderId}});if(previous?.status==='POSTED')return {status:'POSTED',replayed:true};
+ const previous=await db.stockDispatch.findUnique({where:{orderId}});if(previous?.status==='WAITING_SHIPMENT')return {status:'WAITING_SHIPMENT'};if(previous?.status==='POSTED')return {status:'POSTED',replayed:true};
  const [order,shipment]=await Promise.all([db.orderIntake.findUnique({where:{id:orderId}}),db.shipment.findUnique({where:{orderId}})]);
  if(!previous){if(!stockDispatchEligible(order,shipment,config.activeFrom))return {status:'NOT_ELIGIBLE'};await db.stockDispatch.upsert({where:{orderId},create:{orderId,orderNumber:order!.orderNumber,candidateTracking:shipment!.tracking,payment:order!.payment,dispatchedAt:shipment!.dispatchedAt},update:{}});}
  try{return await db.$transaction(async tx=>{
@@ -47,11 +50,16 @@ export async function processStockDispatch(orderId:string,actor:string){
 }
 export async function processPendingStockDispatches(actor:string,limit=1,priorityCode?:string){
  const config=await db.stockIntegrationConfig.findUnique({where:{id:'active'}});if(!config?.enabled)return {processed:0,posted:0};
+ await matchShipments(actor);
+ const confirmation=await confirmReportedShipments(actor);
  await processPendingReservations(1).catch(()=>{});
  const pending=await db.stockDispatch.findMany({where:{status:{in:['PENDING','NEEDS_REVIEW','WAITING_COST','HISTORY_SAVED']}},orderBy:{updatedAt:'asc'},take:100});
  if(priorityCode)pending.sort((a,b)=>Number(Array.isArray(b.items)&&b.items.some((i:any)=>i.code===priorityCode))-Number(Array.isArray(a.items)&&a.items.some((i:any)=>i.code===priorityCode)));
  const workflow=await db.stockWorkflow.findUnique({where:{id:'active'}}),activeFrom=workflow?.enabled&&workflow.activeFrom>config.activeFrom?workflow.activeFrom:config.activeFrom;
  const candidates=await db.$queryRaw<{orderId:string}[]>`SELECT s."orderId" FROM "Shipment" s JOIN "OrderIntake" o ON o.id=s."orderId" LEFT JOIN "StockDispatch" d ON d."orderId"=o.id LEFT JOIN "StockReservation" r ON r."orderId"=o.id WHERE (r.status IS NULL OR r.status NOT IN ('ALREADY_COUNTED','RECONCILING')) AND (o."createdAt">=${activeFrom} AND o."eventAt">=${activeFrom} OR r."orderId" IS NOT NULL) AND s."dispatchedAt">=${activeFrom} AND s."fulfillmentStatus"='DISPATCHED' AND o.status NOT IN ('CANCELLED','WITHDRAWN','EXPIRED','RETURNED') AND s.status NOT IN ('CANCELLED','WITHDRAWN','RETURNED') AND (d.id IS NULL OR d.status NOT IN ('POSTED','EXCLUDED')) ORDER BY s."dispatchedAt" ASC LIMIT 100`;
  const ids=[...new Set([...pending.map(p=>p.orderId),...candidates.map(p=>p.orderId!)])];const completed=ids.length?await db.stockDispatch.findMany({where:{orderId:{in:ids},status:{in:['POSTED','EXCLUDED']}},select:{orderId:true}}):[];const done=new Set(completed.map(p=>p.orderId));let processed=0,posted=0;
- for(const id of ids.filter(id=>!done.has(id)).slice(0,limit)){const result=await processStockDispatch(id,actor);processed++;if(result.status==='POSTED')posted++;}return {processed,posted};
+ const ready=ids.filter(id=>!done.has(id)&&!confirmation.failedOrderIds.includes(id));
+ for(const id of ready.slice(0,limit)){const result=await processStockDispatch(id,actor);processed++;if(result.status==='POSTED')posted++;}
+ await enqueueStockDispatches(ready.slice(limit));
+ return {processed,posted};
 }

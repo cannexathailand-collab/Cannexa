@@ -1,3 +1,4 @@
+import {processPendingStockDispatches} from '@/lib/stock-dispatch';
 import {NextRequest} from "next/server";
 import {after} from 'next/server';
 import {processPendingReservations,queueStockOrder} from '@/lib/stock-flow';
@@ -26,6 +27,6 @@ export async function POST(req:NextRequest){
   if(!e.source.userId||!["follow","unfollow"].includes(e.type))continue;
   await webhook({id:e.webhookEventId,key:userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?e.source.userId:connection.settings.botId+":"+e.source.userId),type:e.type,at:new Date(e.timestamp),unblocked:e.follow?.isUnblocked??null});
  }
- if(intakeBot?.active)after(async()=>{for(const id of orders)await queueStockOrder(id).catch(()=>{});await processPendingReservations(2).catch(()=>{});});
+ if(intakeBot?.active)after(async()=>{for(const id of orders)await queueStockOrder(id).catch(()=>{});await processPendingReservations(2).catch(()=>{});await processPendingStockDispatches('line-order',1).catch(()=>{});});
  return Response.json({ok:true});
 }

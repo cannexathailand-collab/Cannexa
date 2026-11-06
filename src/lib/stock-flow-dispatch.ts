@@ -15,6 +15,7 @@ export async function processFlowStockDispatch(orderId:string,actor:string){
   const config=await db.stockIntegrationConfig.findUnique({where:{id:'active'}});
   if(!config?.enabled)return {status:'DISABLED'};
   let pending=await db.stockDispatch.findUnique({where:{orderId}});
+  if(pending?.status==='WAITING_SHIPMENT')return {status:'WAITING_SHIPMENT'};
   if(pending?.status==='POSTED')return {status:'POSTED',replayed:true};
   const [order,shipment]=await Promise.all([db.orderIntake.findUnique({where:{id:orderId}}),db.shipment.findUnique({where:{orderId}})]);
   const enrolled=await db.stockReservation.findUnique({where:{orderId}});
@@ -88,10 +89,12 @@ export async function processFlowStockDispatch(orderId:string,actor:string){
   const done=await db.stockSheetOperation.findUniqueOrThrow({where:{id:'dispatch:'+orderId}});
   return finish(applied.snapshot,!!op,done.appliedAt!);
  },{timeout:55000,maxWait:10000});}
- catch{
+ catch(error){
   const row=await db.stockDispatch.findUnique({where:{orderId}});
   if(row?.status==='POSTED')return {status:'POSTED',replayed:true};
-  const status=row?.historySavedAt?'HISTORY_SAVED':'NEEDS_REVIEW',issues=['ยังยืนยันการตัดสต๊อกไม่ได้ รายการที่บันทึกไว้จะใช้ต่อเมื่อประมวลผลซ้ำ'];
+  const message=error instanceof Error?error.message:'';
+  const reason=message.startsWith('STOCK_QUANTITY_UNKNOWN')?'จำนวนรับหรือคงเหลือยังไม่ระบุ กรุณาเติมยอดสต๊อกจริง':message==='STOCK_PENDING_MISMATCH'?'จำนวนรอจ่ายไม่ตรงกับออเดอร์ กรุณาตรวจรายการก่อนลองใหม่':message==='STOCK_BALANCE_MISMATCH'?'ยอดรับ ตัดสะสม และคงเหลือในชีตไม่สัมพันธ์กัน กรุณาตรวจสูตร':message==='STOCK_SOURCE_CHANGED'?'ชีตสต๊อกที่ใช้งานเปลี่ยนไป กรุณาตรวจการเชื่อมต่อ':'ยังยืนยันผลตัดสต๊อกไม่ได้ อาจติดที่การเชื่อมต่อหรือการบันทึกข้อมูล ลองประมวลผลรายการเดิมอีกครั้ง';
+  const status=row?.historySavedAt?'HISTORY_SAVED':'NEEDS_REVIEW',issues=[reason];
   await db.stockDispatch.updateMany({where:{orderId,status:{not:'POSTED'}},data:{status,issues}});return {status,issues};
  }
 }

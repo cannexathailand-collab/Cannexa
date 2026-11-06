@@ -14,6 +14,8 @@ import {stockReceiptPlan} from '../src/lib/stock-receipt';
 import {newStockProduct} from '../src/lib/stock-product-input';
 import {stockHistorySnapshot} from '../src/lib/stock-history-plan';
 import {stockCostExpenses} from '../src/lib/stock-cost-expenses';
+import {confirmReportedShipment} from '../src/lib/shipment-report-confirmation';
+import {actOnStockReview} from '../src/lib/stock-review-actions';
 function replace(t:TestContext,target:any,key:string,value:any){const before=target[key];target[key]=value;t.after(()=>{target[key]=before;});}
 const fresh=():any[][]=>[[null,null,'รายการ',null,'จำนวนรับ','จำนวนจ่าย','จำนวนคงเหลือ',null,null,null,null,null,null],['','','','','','','','','10G','50G','100G','1 KG'],['','Example','A1',1.5,500,10,490,'',300,500,800,2000]];
 const source=(rows:any[][])=>({tab:{sheetId:5,title:'5.11.69'},rows,products:stockRows(rows,{costColumnConfirmed:true})});
@@ -229,5 +231,38 @@ test('a newly registered code can show order demand without inventing its openin
  assert.equal((await syncStockReservation('pending')).status,'RESERVED');
  assert.equal(h.rows[2][5],30);assert.equal(h.rows[2][15],30);assert.equal(h.rows[2][4],null);assert.equal(h.rows[2][6],null);assert.equal(h.rows[2][3],null);assert.equal(h.rows[2][13],'');
  assert.equal((await processStockDispatch('pending','owner')).status,'NEEDS_RECONCILIATION');assert.equal(h.dispatches.size,0);
+});
+
+test('email confirmation automatically posts only the matched order and leaves unmatched demand pending',async t=>{
+ const h=await harness(t);h.addOrder('reported',20);h.addOrder('unmatched',30);
+ for(const id of ['reported','unmatched']){h.orders.get(id).payment='เคลม';Object.assign(h.shipments.get(id),{fulfillmentStatus:'UNCONFIRMED',dispatchedAt:null,status:id==='reported'?'MATCHED_CLAIM':'WAITING_ORDER'});await queueStockOrder(id);await syncStockReservation(id);}
+ const reportAt=new Date(Date.now()+2000);h.shipments.get('reported').reportAt=reportAt;
+ replace(t,db.shipment,'update',async({where,data}:any)=>{const item=[...h.shipments.values()].find(s=>s.tracking===where.tracking);return Object.assign(item,data);});
+ replace(t,db.salesOrder,'findUnique',async()=>null);
+ replace(t,db.gmailImport,'findUnique',async()=>({id:'import1',kind:'SHIPMENT',rowCount:1,filename:'freight.xlsx',messageId:'email',reportAt}));
+ assert.equal(await confirmReportedShipment('reported','test'),true);assert.equal(await confirmReportedShipment('unmatched','test'),false);
+ assert.equal((await processStockDispatch('reported','test')).status,'POSTED');assert.equal(h.rows[2][5],30);assert.equal(h.rows[2][6],470);
+ assert.equal(h.dispatches.get('reported').totalCostSatang,3000);assert.equal(h.dispatches.has('unmatched'),false);
+ assert.equal(await confirmReportedShipment('reported','test'),false);await processStockDispatch('reported','test');assert.equal(h.rows[2][5],30);assert.equal(h.rows[2][6],470);
+});
+
+test('review can hold or cancel an unposted order without clearing another order, and blocks changes after posting',async t=>{
+ const h=await harness(t);h.addOrder('review',60);h.addOrder('other',40);
+ for(const id of ['review','other']){h.orders.get(id).payment='เคลม';await queueStockOrder(id);await syncStockReservation(id);}
+ h.rows[2][3]=null;assert.equal((await processStockDispatch('review','test')).status,'WAITING_COST');
+ replace(t,db.orderIntake,'findUniqueOrThrow',async({where}:any)=>h.orders.get(where.id));
+ replace(t,db.shipment,'findUniqueOrThrow',async({where}:any)=>h.shipments.get(where.orderId));
+ replace(t,db.shipment,'update',async({where,data}:any)=>{const item=where.orderId?h.shipments.get(where.orderId):[...h.shipments.values()].find(s=>s.tracking===where.tracking);return Object.assign(item,data);});
+ replace(t,db.orderIntake,'update',async({where,data}:any)=>Object.assign(h.orders.get(where.id),data));
+ replace(t,db.salesOrder,'findUnique',async()=>null);replace(t,db.salesOrder,'updateMany',async()=>({count:0}));replace(t,db.auditLog,'create',async()=>({}));
+ assert.equal((await actOnStockReview('review','wait','owner','รอส่งรอบถัดไป')).status,'WAITING_SHIPMENT');
+ assert.equal(h.rows[2][5],100);assert.equal(h.rows[2][6],490);
+ assert.equal((await processStockDispatch('review','test')).status,'WAITING_SHIPMENT');assert.equal(h.rows[2][5],100);
+ assert.equal((await actOnStockReview('review','cancel','owner','ลูกค้ายกเลิก')).status,'EXCLUDED');assert.equal(h.rows[2][5],40);assert.equal(h.rows[2][6],490);
+ await actOnStockReview('review','cancel','owner','ลูกค้ายกเลิก');assert.equal(h.rows[2][5],40);
+ await assert.rejects(()=>actOnStockReview('review','retry','owner',''),/ORDER_CLOSED/);
+ h.rows[2][3]=1.5;await processStockDispatch('other','test');assert.equal(h.rows[2][6],450);
+ await assert.rejects(()=>actOnStockReview('other','cancel','owner','ยกเลิก'),/STOCK_RESULT_NEEDS_VERIFICATION/);
+ assert.equal(h.rows[2][6],450);
 });
 

@@ -12,7 +12,7 @@ export default async function AdminLayout({children}:{children:React.ReactNode})
  <Link href="/admin">ภาพรวมระบบ</Link>
  {owner&&<Link href="/admin/users">จัดการผู้ใช้</Link>}
  {manage&&<Link href="/admin/affiliates">จัดการ Affiliate</Link>}
- {approve&&<details aria-label="บัญชี" className="accounting-menu"><summary>บัญชี</summary><div className="accounting-submenu"><Link href="/admin/sales">ยอดขาย</Link><details className="expense-menu"><summary>ค่าใช้จ่าย</summary><div className="expense-submenu"><Link href="/admin/expenses">ภาพรวมค่าใช้จ่าย</Link><Link href="/admin/reviews">จ่ายค่าคอมมิชชัน</Link></div></details><details className="expense-menu"><summary>สต๊อก</summary><div className="expense-submenu"><Link href="/admin/stock">รายการสินค้า</Link><Link href="/admin/stock/history">รายการย้อนหลัง</Link></div></details></div></details>}
+ {approve&&<details aria-label="บัญชี" className="accounting-menu"><summary>บัญชี</summary><div className="accounting-submenu"><Link href="/admin/sales">ยอดขาย</Link><details className="expense-menu"><summary>ค่าใช้จ่าย</summary><div className="expense-submenu"><Link href="/admin/expenses">ภาพรวมค่าใช้จ่าย</Link><Link href="/admin/reviews">จ่ายค่าคอมมิชชัน</Link></div></details><details className="expense-menu"><summary>สต๊อก</summary><div className="expense-submenu"><Link href="/admin/stock">รายการสินค้า</Link><Link href="/admin/stock/history">รายการย้อนหลัง</Link><Link href="/admin/stock/review">รอตรวจสอบ</Link></div></details></div></details>}
  {owner&&<>
   <Link href="/admin/line">เชื่อมต่อ LINE</Link>
   <Link href="/admin/meta">Meta Pixel</Link>
