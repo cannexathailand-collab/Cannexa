@@ -4,12 +4,13 @@ import {dayStart,shiftDay} from './sales-dates';
 import {csvCell} from './policy';
 import {quotedTotal} from './shipment-matching';
 import {canonicalCustomerCode} from './customer-code';
+import {needsTrackingReview,needsCodReceiptReview} from './order-tracking-review';
 export const orderStates={ALL:'ทั้งหมด',REVIEW:'ต้องตรวจสอบ',WAITING:'รอจัดส่ง',COD:'รอรับเงิน COD',SHIPPED:'จัดส่งแล้ว',RETURNED:'ตีกลับ',CANCELLED:'ยกเลิก / ปิดรายการ'} as const;
 export type OrderFilters={q?:string;from?:string;to?:string;payment?:string;status?:string;sort?:string;page?:string};
-export function orderState(order:Pick<OrderIntake,'status'|'payment'|'issues'>,shipment?:Pick<Shipment,'fulfillmentStatus'|'dispatchedAt'>,sale?:Pick<SalesOrder,'status'>):Exclude<keyof typeof orderStates,'ALL'>{
+export function orderState(order:Pick<OrderIntake,'status'|'payment'|'issues'>&{createdAt?:Date},shipment?:Pick<Shipment,'fulfillmentStatus'|'dispatchedAt'>&{tracking?:string;codSatang?:number},sale?:Pick<SalesOrder,'status'>,now=new Date(),receipt?:{tracking:string;amountSatang:number}):Exclude<keyof typeof orderStates,'ALL'>{
  if(order.status==='RETURNED'||shipment?.fulfillmentStatus==='RETURNED')return 'RETURNED';
  if(['CANCELLED','WITHDRAWN','EXPIRED'].includes(order.status)||shipment?.fulfillmentStatus==='CANCELLED')return 'CANCELLED';
- if(order.status==='NEEDS_REVIEW'||order.status==='COD_AMOUNT_MISMATCH'||sale?.status==='WAITING_COST'||Array.isArray(order.issues)&&order.issues.length>0)return 'REVIEW';
+ if(needsTrackingReview(order,shipment?.tracking,now)||needsCodReceiptReview(order,shipment,receipt,now)||order.status==='NEEDS_REVIEW'||order.status==='COD_AMOUNT_MISMATCH'||sale?.status==='WAITING_COST'||Array.isArray(order.issues)&&order.issues.length>0)return 'REVIEW';
  if(order.payment==='COD'&&(sale?.status==='WAITING_COD'||order.status==='MATCHED_SHIPMENT_WAITING_COD'))return 'COD';
  return shipment?.fulfillmentStatus==='DISPATCHED'&&shipment.dispatchedAt?'SHIPPED':'WAITING';
 }
@@ -21,7 +22,8 @@ export async function orderManagement(input:OrderFilters={}){
  const orders=await db.orderIntake.findMany({where,orderBy:[{eventAt:sort==='oldest'?'asc':'desc'},{id:'asc'}]});
  const ids=orders.map(o=>o.id),[shipments,sales]=await Promise.all([db.shipment.findMany({where:{orderId:{in:ids}}}),db.salesOrder.findMany({where:{orderId:{in:ids}}})]);
  const shipping=new Map(shipments.map(s=>[s.orderId,s])),saleMap=new Map(sales.map(s=>[s.orderId,s]));
- const all=orders.map(order=>{const shipment=shipping.get(order.id),sale=saleMap.get(order.id);return {order,shipment,sale,state:orderState(order,shipment,sale),amountSatang:quotedTotal(order.rawText??'')??sale?.revenueSatang??null};});
+ const receipts=await db.codReceipt.findMany({where:{tracking:{in:shipments.map(s=>s.tracking)}}}),receiptMap=new Map(receipts.map(r=>[r.tracking,r])),now=new Date();
+ const all=orders.map(order=>{const shipment=shipping.get(order.id),sale=saleMap.get(order.id),receipt=shipment?receiptMap.get(shipment.tracking):undefined;return {order,shipment,sale,receipt,state:orderState(order,shipment,sale,now,receipt),amountSatang:quotedTotal(order.rawText??'')??sale?.revenueSatang??null};});
  const counts=Object.fromEntries(Object.keys(orderStates).map(key=>[key,key==='ALL'?all.length:all.filter(r=>r.state===key).length])) as Record<keyof typeof orderStates,number>;
  const filtered=all.filter(r=>status==='ALL'||r.state===status),pages=Math.max(1,Math.ceil(filtered.length/50)),current=Math.min(page,pages);
  return {filters:{q,from,to,status,payment,sort},counts,all:filtered,rows:filtered.slice((current-1)*50,current*50),count:filtered.length,page:current,pages};
