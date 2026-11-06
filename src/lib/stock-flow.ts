@@ -18,7 +18,9 @@ export async function activateStockFlow(actor:string){
    const now=new Date(),archive=previous?.archive??{sheetId:randomInt(1,2_000_000_000),sheetTitle:'ก่อนเริ่มรอบ '+bangkokDay(now),rows,fingerprint:hash(rows)};
    return {...flowBaselinePlan(source),baselineFingerprint:fingerprint,before:source.products,archive,capturedAt:now.toISOString()};
   });
-  await db.stockWorkflow.upsert({where:{id:'active'},create:{id:'active',enabled:true,sourceSheet:saved.sourceSheet,activeFrom:new Date(saved.capturedAt)},update:{enabled:true,sourceSheet:saved.sourceSheet}});
+  const integration=await db.stockIntegrationConfig.findUnique({where:{id:'active'}});
+  const activeFrom=integration?.enabled?integration.activeFrom:new Date(saved.capturedAt);
+  await db.stockWorkflow.upsert({where:{id:'active'},create:{id:'active',enabled:true,sourceSheet:saved.sourceSheet,activeFrom},update:{enabled:true,sourceSheet:saved.sourceSheet}});
   await db.auditLog.upsert({where:{id:'stock-flow-baseline'},create:{id:'stock-flow-baseline',actor,action:'STOCK_FLOW_ACTIVATED',entityId:'stock',details:{sourceSheet:saved.sourceSheet,historySheet:saved.archive.sheetTitle,count:saved.before.length}},update:{}});
   return {enabled:true,replayed:false,archiveSheetId:saved.archive.sheetId};
  },{timeout:55000,maxWait:10000});
@@ -26,6 +28,7 @@ export async function activateStockFlow(actor:string){
 export async function queueStockOrder(orderId:string,force=false){
  const config=await db.stockWorkflow.findUnique({where:{id:'active'}});if(!config?.enabled)return null;
  const previous=await db.stockReservation.findUnique({where:{orderId}});if(previous)return previous;
+ const posted=await db.stockDispatch.findUnique({where:{orderId}});if(posted?.status==='POSTED')return null;
  const order=await db.orderIntake.findUnique({where:{id:orderId}});if(!order||(!force&&(order.createdAt<config.activeFrom||order.eventAt<config.activeFrom)))return null;
  if(['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(order.status))return null;
  const parsed=orderStockItems(order.rawText);
@@ -53,7 +56,7 @@ export async function syncStockReservationLocked(orderId:string){
     await applyFlowOperation(client,'reserve:'+orderId,'RESERVE',reservation.actor,async()=>{const source=await readStockSheet(client);if(source.tab.title!==config.sourceSheet)throw Error('STOCK_SOURCE_CHANGED');return flowReservationPlan(parsed.items,source);});
     await db.stockReservation.update({where:{orderId},data:{status:'RESERVED',items:parsed.items,issues:[]}});
     await db.auditLog.upsert({where:{id:'stock-reserve:'+orderId},create:{id:'stock-reserve:'+orderId,actor:reservation.actor,action:'STOCK_RESERVED',entityId:orderId,details:{orderNumber:reservation.orderNumber,items:parsed.items}},update:{}});
-   }catch{await db.stockReservation.update({where:{orderId},data:{issues:['ยังบันทึกจำนวนรอจ่ายไม่ได้ ตรวจรหัสสินค้า จำนวนคงเหลือ และการเชื่อมต่อ แล้วลองใหม่']}});return {status:'NEEDS_REVIEW'};}
+   }catch(error){const message=error instanceof Error?error.message:'';const missing=message.startsWith('STOCK_PRODUCT_NOT_FOUND ')?message.slice('STOCK_PRODUCT_NOT_FOUND '.length):null;const issue=missing?'ไม่พบรหัส '+missing+' ในชีตสต๊อก กรุณาตรวจรหัสหรือเพิ่มสินค้าก่อน':'ยังบันทึกจำนวนรอจ่ายไม่ได้ ตรวจข้อมูลสต๊อกและการเชื่อมต่อ แล้วลองใหม่';await db.stockReservation.update({where:{orderId},data:{issues:[issue]}});return {status:'NEEDS_REVIEW'};}
   }
   if(release){
    const current=await db.stockReservation.findUniqueOrThrow({where:{orderId}});
@@ -70,7 +73,7 @@ export async function syncStockReservationLocked(orderId:string){
 }
 export async function processPendingReservations(limit=2){
  const config=await db.stockWorkflow.findUnique({where:{id:'active'}});if(!config?.enabled)return;
- const candidates=await db.$queryRawUnsafe<{id:string}[]>('SELECT o.id FROM "OrderIntake" o LEFT JOIN "StockReservation" r ON r."orderId"=o.id WHERE r."orderId" IS NULL AND o."createdAt">=$1 AND o."eventAt">=$1 AND o.status NOT IN (\'CANCELLED\',\'WITHDRAWN\',\'EXPIRED\',\'RETURNED\') ORDER BY o."createdAt" LIMIT 10',config.activeFrom);
+ const candidates=await db.$queryRawUnsafe<{id:string}[]>('SELECT o.id FROM "OrderIntake" o LEFT JOIN "StockReservation" r ON r."orderId"=o.id LEFT JOIN "StockDispatch" d ON d."orderId"=o.id WHERE r."orderId" IS NULL AND (d.status IS NULL OR d.status<>\'POSTED\') AND o."createdAt">=$1 AND o."eventAt">=$1 AND o.status NOT IN (\'CANCELLED\',\'WITHDRAWN\',\'EXPIRED\',\'RETURNED\') ORDER BY o."createdAt" LIMIT 10',config.activeFrom);
  for(const order of candidates)await queueStockOrder(order.id);
  const orphaned=await db.$queryRawUnsafe<{orderId:string}[]>('SELECT r."orderId" FROM "StockReservation" r LEFT JOIN "OrderIntake" o ON o.id=r."orderId" LEFT JOIN "StockDispatch" d ON d."orderId"=r."orderId" WHERE d."historySavedAt" IS NULL AND r.status IN (\'QUEUED\',\'RESERVED\') AND (o.id IS NULL OR o.status IN (\'CANCELLED\',\'WITHDRAWN\',\'EXPIRED\',\'RETURNED\')) ORDER BY r."updatedAt" LIMIT 10');
  const queued=await db.stockReservation.findMany({where:{status:'QUEUED'},orderBy:{updatedAt:'asc'},take:limit});

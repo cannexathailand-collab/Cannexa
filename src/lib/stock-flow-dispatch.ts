@@ -17,10 +17,11 @@ export async function processFlowStockDispatch(orderId:string,actor:string){
   let pending=await db.stockDispatch.findUnique({where:{orderId}});
   if(pending?.status==='POSTED')return {status:'POSTED',replayed:true};
   const [order,shipment]=await Promise.all([db.orderIntake.findUnique({where:{id:orderId}}),db.shipment.findUnique({where:{orderId}})]);
+  const enrolled=await db.stockReservation.findUnique({where:{orderId}});
   if(!pending){
    const workflow=await db.stockWorkflow.findUnique({where:{id:'active'}});
-   if(workflow&&order&&(order.createdAt<workflow.activeFrom||order.eventAt<workflow.activeFrom))return {status:'NOT_ELIGIBLE'};
-   if(!stockDispatchEligible(order,shipment,config.activeFrom))return {status:'NOT_ELIGIBLE'};
+   if(!enrolled&&workflow&&order&&(order.createdAt<workflow.activeFrom||order.eventAt<workflow.activeFrom))return {status:'NOT_ELIGIBLE'};
+   if(!stockDispatchEligible(order,shipment,config.activeFrom,!!enrolled))return {status:'NOT_ELIGIBLE'};
    pending=await db.stockDispatch.upsert({where:{orderId},create:{orderId,orderNumber:order!.orderNumber,candidateTracking:shipment!.tracking,payment:order!.payment,dispatchedAt:shipment!.dispatchedAt},update:{}});
   }
   const issue=async(issues:string[],items?:OrderStockItem[])=>{
@@ -46,7 +47,7 @@ export async function processFlowStockDispatch(orderId:string,actor:string){
   const old=legacy.matchedDeveloperMetadata?.[0]?.developerMetadata?.metadataValue;
   if(old)return finish(JSON.parse(old),true);
   if(!pending.historySavedAt){
-   if(!stockDispatchEligible(order,shipment,config.activeFrom))return issue(['ยังไม่เข้าเงื่อนไขออเดอร์ใหม่ที่ยืนยันจัดส่งจริง']);
+   if(!stockDispatchEligible(order,shipment,config.activeFrom,!!enrolled))return issue(['ยังไม่เข้าเงื่อนไขออเดอร์ใหม่ที่ยืนยันจัดส่งจริง']);
    if(shipment!.tracking!==pending.candidateTracking)return issue(['เลขพัสดุเปลี่ยนหลังเริ่มประมวลผล ต้องตรวจสอบก่อน']);
    const report=await db.gmailImport.findUnique({where:{id:shipment!.importId}});
    if(report?.kind!=='SHIPMENT')return issue(['ไม่พบรายงานจัดส่งจากอีเมลที่ยืนยันแหล่งข้อมูลได้']);

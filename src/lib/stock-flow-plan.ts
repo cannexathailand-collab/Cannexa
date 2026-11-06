@@ -35,7 +35,6 @@ export function flowReservationPlan(items:OrderStockItem[],source:FlowSource,rel
   if(milli(p.receivedQuantity)-milli(p.completedQuantity)!==milli(p.remainingQuantity))throw Error('STOCK_BALANCE_MISMATCH');
   const quantity=item.quantityMilliG/1000,pending=p.issuedQuantity;
   if(release&&milli(pending)<item.quantityMilliG)throw Error('STOCK_PENDING_MISMATCH '+item.code);
-  if(!release&&milli(p.remainingQuantity)-milli(pending)<item.quantityMilliG)throw Error('STOCK_INSUFFICIENT '+item.code);
   const after=add(pending,release?-quantity:quantity);
   changes.push({code:p.code,received:p.receivedQuantity,pendingBefore:pending,pendingAfter:after,remainingBefore:p.remainingQuantity,remainingAfter:p.remainingQuantity,completedBefore:p.completedQuantity,completedAfter:p.completedQuantity});
   requests.push(stockNumberCell(source.tab.sheetId,p.sourceRow,5,after));

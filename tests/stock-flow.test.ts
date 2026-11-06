@@ -89,6 +89,7 @@ test('baseline keeps physical balance, new products use independent completed to
 });
 test('reserve leaves balance unchanged; history is saved first; partial shipping clears only that order; repeated submission never deducts twice',async t=>{
  const h=await harness(t);assert.equal(h.rows[2][6],490);assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][12],10);
+ assert.equal(h.state.workflow.activeFrom.toISOString(),'2026-01-01T00:00:00.000Z');
  const backup=[...h.sheets.values()].find(s=>s.title.startsWith('ก่อนเริ่มรอบ'));assert.equal(backup.rows[2][5],10);assert.equal(backup.rows[2][6],490);
  h.addOrder('o1');h.addOrder('o2',100);await queueStockOrder('o1');await queueStockOrder('o2');await syncStockReservation('o1');await syncStockReservation('o2');await syncStockReservation('o1');
  assert.equal(h.rows[2][5],300);assert.equal(h.rows[2][6],490);assert.equal(h.rows[2][13],190);await assert.rejects(()=>assertNoStockReservations(['A1']),/PENDING_ORDERS/);
@@ -115,12 +116,25 @@ test('lost deduction response and final database failure recover without duplica
  h.orders.get('o2').status='CANCELLED';await syncStockReservation('o2');assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][6],290);
  h.addOrder('duplicate',20,'TRACK-o1');assert.equal((await processStockDispatch('duplicate','owner')).status,'NEEDS_REVIEW');assert.equal(h.rows[2][6],290);
 });
-test('unshipped cancellation releases pending only; insufficient available quantity cannot over-reserve',async t=>{
+test('pending demand includes oversold orders; physical dispatch still requires sufficient stock',async t=>{
  const h=await harness(t);h.addOrder('o1',300);await queueStockOrder('o1');await syncStockReservation('o1');
- h.addOrder('o2',200);await queueStockOrder('o2');assert.equal((await syncStockReservation('o2')).status,'NEEDS_REVIEW');assert.equal(h.rows[2][5],300);
- h.orders.delete('o1');assert.equal((await syncStockReservation('o1')).status,'RELEASED');assert.equal(h.rows[2][5],0);assert.equal(h.rows[2][6],490);
+ h.addOrder('o2',200);await queueStockOrder('o2');assert.equal((await syncStockReservation('o2')).status,'RESERVED');assert.equal(h.rows[2][5],500);assert.equal(h.rows[2][13],-10);
+ h.orders.delete('o1');assert.equal((await syncStockReservation('o1')).status,'RELEASED');assert.equal(h.rows[2][5],200);assert.equal(h.rows[2][6],490);
  await syncStockReservation('o2');assert.equal(h.rows[2][5],200);assert.equal(h.rows[2][6],490);
  assert.throws(()=>flowDispatchPlan([{code:'A1',quantityMilliG:300000}],source(h.rows)),/PENDING_MISMATCH/);
  h.rows[2][6]=100;assert.throws(()=>flowReservationPlan([{code:'A1',quantityMilliG:1000}],source(h.rows)),/BALANCE_MISMATCH/);
+});
+test('explicitly included old pending orders can dispatch later without backdating completed shipments',async t=>{
+ const h=await harness(t);h.addOrder('old',20);
+ Object.assign(h.orders.get('old'),{createdAt:new Date('2025-01-01'),eventAt:new Date('2025-01-01')});
+ assert.equal((await processStockDispatch('old','owner')).status,'NOT_ELIGIBLE');
+ assert.equal(await queueStockOrder('old'),null);
+ await queueStockOrder('old',true);
+ assert.equal((await processStockDispatch('old','owner')).status,'POSTED');
+ assert.equal(h.rows[2][6],470);
+ h.addOrder('historical',20);h.shipments.get('historical').dispatchedAt=new Date('2025-01-01');
+ await queueStockOrder('historical',true);
+ assert.equal((await processStockDispatch('historical','owner')).status,'NOT_ELIGIBLE');
+ assert.equal(h.rows[2][6],470);
 });
 
