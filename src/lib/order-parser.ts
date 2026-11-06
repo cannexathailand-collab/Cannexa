@@ -17,5 +17,6 @@ export function parseOrderText(text:string){
  if(!phone)issues.push("เบอร์โทรไม่ถูกต้องหรือยังไม่ได้ระบุ กรุณาตรวจเลขให้ครบ: เบอร์ไทย 9–10 หลักขึ้นต้น 0 หรือรูปแบบ +66");
  if(!address)issues.push("ไม่พบที่อยู่ที่ระบุหัวข้อ");
  if(!payment)issues.push("ระบุชำระเงินเป็น โอน, COD หรือ เคลม");
- return {sellerCode:seller[1],recipient,phone,address,payment,issues};
+ const customerCode=field('รหัสลูกค้า')?.toUpperCase();
+ return {sellerCode:seller[1],recipient,phone,address,payment,issues,...(customerCode?{customerCode}:{})};
 }

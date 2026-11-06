@@ -79,6 +79,8 @@ model OAuthAttempt {
 }
 model Conversion {
  id String @id @default(cuid())
+ customerCode String @unique @default(dbgenerated("customer_code()"))
+ customerOrders OrderIntake[]
  source String @default("LINE")
  userKey String @unique
  clickId String @unique
@@ -182,6 +184,8 @@ model OrderBot {
 
 model OrderIntake {
  id String @id @default(cuid())
+ customerCode String?
+ customer Conversion? @relation(fields:[customerCode],references:[customerCode],onDelete:Restrict)
  eventKey String @unique
  messageKey String @unique
  groupKey String
@@ -207,6 +211,7 @@ model OrderIntake {
  replyLastError String?
  repliedAt DateTime?
  @@index([groupKey, createdAt])
+ @@index([customerCode])
  @@index([sellerUsername, createdAt])
 }
 

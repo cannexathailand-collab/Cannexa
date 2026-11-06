@@ -12,6 +12,7 @@ export default async function AdminLayout({children}:{children:React.ReactNode})
  <Link href="/admin">ภาพรวมระบบ</Link>
  {owner&&<Link href="/admin/users">จัดการผู้ใช้</Link>}
  {manage&&<Link href="/admin/affiliates">จัดการ Affiliate</Link>}
+ {manage&&<Link href="/admin/customers">รหัสลูกค้า</Link>}
  {approve&&<details aria-label="บัญชี" className="accounting-menu"><summary>บัญชี</summary><div className="accounting-submenu">
   <details className="expense-menu" aria-label="ภาพรวมบัญชี"><summary>ภาพรวมบัญชี</summary><div className="expense-submenu"><Link href="/admin/accounting">บัญชีสรุป</Link></div></details>
   <Link href="/admin/sales">ยอดขาย</Link>

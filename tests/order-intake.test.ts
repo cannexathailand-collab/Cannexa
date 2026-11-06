@@ -13,6 +13,15 @@ function harness(enabled=true){
  return {rows,groups,tx,sales};
 }
 function event(message="m1"):OrderEvent{return {webhookEventId:"e-"+message,type:"message",timestamp:Date.now(),source:{type:"group",groupId:"group",userId:"person"},message:{type:"text",id:message,text:"รหัสผู้ขาย: ADM001\nผู้รับ: ตัวอย่าง\nโทร: 0812345678\nที่อยู่: 1\nชำระเงิน: COD\nยอดรวม: 2560"}};}
+test('customer code links an order without replacing the seller or rewarding the referrer again',async()=>{
+ const h=harness();h.tx.conversion={findFirst:async({where}:any)=>where.customerCode==='CUS-00000001'&&where.source==='LINE'?{customerCode:where.customerCode}:null};
+ h.tx.orderIntake.update=async({where,data}:any)=>Object.assign(h.rows.find(r=>r.id===where.id),data);
+ const e=event();e.message!.text+='\nรหัสลูกค้า: cus-00000001';const order=await receiveOrderEvent('bot-a',e);
+ assert.equal(order?.customerCode,'CUS-00000001');assert.equal(order?.affiliateId,'seller');assert.equal(h.sales.length,0);
+ await receiveOrderEvent('bot-a',e);assert.equal(h.rows.length,1);
+ const bad=event('bad-customer');bad.message!.text+='\nรหัสลูกค้า: CUS-99999999';const invalid=await receiveOrderEvent('bot-a',bad);
+ assert.equal(invalid?.status,'NEEDS_REVIEW');assert.equal(invalid?.customerCode,null);assert.ok((invalid?.issues as string[]).some(i=>i.includes('รหัสลูกค้า')));
+});
 test("shared affiliate orders belong to the matching employee, ambiguous code assigns nobody",async()=>{
  const h=harness();h.tx.affiliate.findMany=async()=>[{id:"seller",salesCommissionBasis:"REVENUE",salesCommissionBps:200,accounts:[{username:"adm001"},{username:"other"}]}];
  await receiveOrderEvent("bot-a",event());assert.equal(h.rows[0].sellerUsername,"adm001");
