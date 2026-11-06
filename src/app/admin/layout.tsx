@@ -13,7 +13,7 @@ export default async function AdminLayout({children}:{children:React.ReactNode})
  {owner&&<Link href="/admin/users">จัดการผู้ใช้</Link>}
  {manage&&<Link href="/admin/affiliates">จัดการ Affiliate</Link>}
  {manage&&<Link href="/admin/customers">รหัสลูกค้า</Link>}
- {manage&&<Link href="/admin/crm">CRM</Link>}
+ {manage&&<details aria-label="CRM" className="accounting-menu" open><summary>CRM</summary><div className="accounting-submenu"><Link href="/admin/crm">ข้อมูลลูกค้า</Link><Link href="/admin/crm/tiers">ระดับสมาชิกและเกณฑ์จัดกลุ่ม</Link><Link href="/admin/crm/points">ตั้งค่าสะสมแต้ม</Link></div></details>}
  {approve&&<details aria-label="บัญชี" className="accounting-menu"><summary>บัญชี</summary><div className="accounting-submenu">
   <details className="expense-menu" aria-label="ภาพรวมบัญชี"><summary>ภาพรวมบัญชี</summary><div className="expense-submenu"><Link href="/admin/accounting">บัญชีสรุป</Link><Link href="/admin/accounting/daily">บัญชีรายวัน</Link></div></details>
   <Link href="/admin/sales">ยอดขาย</Link>
