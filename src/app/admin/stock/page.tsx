@@ -1,19 +1,25 @@
+import {randomUUID} from 'node:crypto';
 import {requireAdminPage} from '@/lib/auth';
 import {approvers} from '@/lib/accounts';
 import {db} from '@/lib/db';
-import type {StockPrice} from '@/lib/stock-import';
-
-export default async function Stock({searchParams}:{searchParams:Promise<{q?:string}>}){
- await requireAdminPage(approvers);
- const q=((await searchParams).q??'').trim().slice(0,100);
- const products=await db.stockProduct.findMany({where:q?{OR:[{code:{contains:q,mode:'insensitive'}},{name:{contains:q,mode:'insensitive'}}]}:{},orderBy:[{sourceRow:'asc'},{code:'asc'}]});
- const total=await db.stockProduct.count();
- return <><div className="intro"><div><div className="eyebrow">บัญชี / สต๊อก</div><h1>สต๊อกสินค้า</h1><p className="muted">รหัสสินค้า ชื่อสินค้า จำนวนรับ–จ่าย คงเหลือ ต้นทุน และราคาขาย</p></div><span className="pill">{total} รายการ</span></div>
+import {readStockSheet} from '@/lib/stock-google';
+import type {StockRow,StockPrice} from '@/lib/stock-import';
+import {StockAddForm} from '@/app/stock-add-form';
+const number=(n:number|null)=>n===null?'—':n.toLocaleString('th-TH',{maximumFractionDigits:3});
+export default async function Stock({searchParams}:{searchParams:Promise<{q?:string;status?:string}>}){
+ const actor=await requireAdminPage(approvers),filters=await searchParams;
+ const q=(filters.q??'').trim().slice(0,100);
+ const connection=await db.stockSheetsConnection.findUnique({where:{id:'active'},select:{email:true}});
+ let products:StockRow[]=[],sourceSheet='',readAt:Date|null=null,live=false,sourceError=false;
+ if(connection){try{const source=await readStockSheet();products=source.products;sourceSheet=source.tab.title;readAt=source.readAt;live=true;}catch{sourceError=true;}}
+ if(!live){const cached=await db.stockProduct.findMany({orderBy:[{sourceRow:'asc'},{code:'asc'}]});products=cached.map(p=>({code:p.code,name:p.name,costSatang:p.costSatang,sourceRow:p.sourceRow,receivedQuantity:p.receivedQuantity?.toNumber()??null,issuedQuantity:p.issuedQuantity?.toNumber()??null,remainingQuantity:p.remainingQuantity?.toNumber()??null,salePrices:(p.salePrices as StockPrice[])}));sourceSheet=cached[0]?.sourceSheet??'';readAt=cached[0]?.importedAt??null;}
+ const total=products.length;if(q)products=products.filter(p=>(p.code+' '+(p.name??'')).toLocaleLowerCase().includes(q.toLocaleLowerCase()));
+ return <><div className="intro sales-header"><div><div className="eyebrow">บัญชี / สต๊อก</div><h1>สต๊อกสินค้า</h1><p className="muted">รหัสสินค้า ชื่อสินค้า จำนวนรับ–จ่าย คงเหลือ ต้นทุน และราคาขาย</p></div><a className="button sales-export" href="#add-stock">+ เพิ่มสินค้า</a></div>
+ {filters.status==='connected'&&<p className="notice live">เชื่อม Google Sheets สำเร็จแล้ว</p>}{filters.status==='connection-failed'&&<p className="notice">เชื่อมต่อไม่สำเร็จ ตรวจว่าเปิด Google Sheets API และแชร์ไฟล์ให้บัญชีบริการเป็นผู้แก้ไขแล้ว</p>}{filters.status==='invalid-key'&&<p className="notice">ไฟล์คีย์ไม่ถูกต้อง กรุณาใช้ไฟล์ JSON ของ Service Account</p>}
+ {sourceError&&<p className="notice">อ่าน Google Sheets ล่าสุดไม่ได้ กำลังแสดงข้อมูลสำรอง และพักการเพิ่มสินค้าไว้ก่อน</p>}{!connection&&<p className="notice">ข้อมูลที่นำเข้าไว้ก่อนเชื่อม Google Sheets กรุณาตั้งค่าบัญชีบริการเพื่อใช้ข้อมูลหลักเดียวกัน</p>}
+ <StockAddForm requestKey={randomUUID()} enabled={live}/>
  <section className="card"><form action="/admin/stock" method="get"><label>ค้นหาสินค้า<input name="q" defaultValue={q} placeholder="รหัสหรือชื่อสินค้า" maxLength={100}/></label><button type="submit">ค้นหา</button></form></section>
- <section className="card"><h2>รายการสินค้า</h2>{products.length?<><p className="muted small">ข้อมูลจากชีต {products[0].sourceSheet} · นำเข้าล่าสุด {products[0].importedAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p><div className="table-wrap"><table><thead><tr><th>รหัสสินค้า</th><th>สินค้า</th><th>จำนวนรับ</th><th>จำนวนจ่าย</th><th>คงเหลือ</th><th>ต้นทุน (บาท)</th><th>ราคาขาย (บาท)</th></tr></thead><tbody>{products.map(product=><tr key={product.id}><td><strong>{product.code}</strong></td><td>{product.name??<span className="muted">ยังไม่ระบุชื่อ</span>}</td><td>{product.receivedQuantity===null?<span className="muted">ยังไม่ระบุจำนวน</span>:product.receivedQuantity.toNumber().toLocaleString("th-TH",{maximumFractionDigits:3})}</td><td>{product.issuedQuantity===null?<span className="muted">—</span>:product.issuedQuantity.toNumber().toLocaleString("th-TH",{maximumFractionDigits:3})}</td><td>{product.remainingQuantity===null?<span className="muted">—</span>:<strong style={product.remainingQuantity.isNegative()?{color:"#b42318"}:undefined}>{product.remainingQuantity.toNumber().toLocaleString("th-TH",{maximumFractionDigits:3})}</strong>}</td><td>{product.costSatang===null?<span className="muted">ยังไม่ระบุต้นทุน</span>:(product.costSatang/100).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td>{Array.isArray(product.salePrices)&&product.salePrices.length?(product.salePrices as StockPrice[]).map((price,index)=><div key={index} style={{whiteSpace:"nowrap"}}><span className="muted">{price.pack}</span> · {(price.priceSatang/100).toLocaleString("th-TH",{maximumFractionDigits:2})}</div>):<span className="muted">ยังไม่ระบุราคา</span>}</td></tr>)}</tbody></table></div></>:<p className="muted">{q?'ไม่พบสินค้าที่ค้นหา':'ยังไม่มีรายการสินค้า'}</p>}</section></>;
+ <section className="card"><div className="intro"><h2>รายการสินค้า</h2><span className="pill">{total} รายการ</span></div><p className="muted small">{live?'ข้อมูลหลักจาก Google Sheets':'ข้อมูลที่นำเข้าไว้'} · ชีต {sourceSheet} {readAt&&<>· {live?'อ่านล่าสุด':'นำเข้าล่าสุด'} {readAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</>}</p>{products.length?<div className="table-wrap"><table><thead><tr><th>รหัสสินค้า</th><th>สินค้า</th><th>จำนวนรับ</th><th>จำนวนจ่าย</th><th>คงเหลือ</th><th>ต้นทุน (บาท)</th><th>ราคาขาย (บาท)</th></tr></thead><tbody>{products.map(product=><tr key={product.code}><td><strong>{product.code}</strong></td><td>{product.name??<span className="muted">ยังไม่ระบุชื่อ</span>}</td><td>{number(product.receivedQuantity)}</td><td>{number(product.issuedQuantity)}</td><td><strong style={product.remainingQuantity!==null&&product.remainingQuantity<0?{color:'#b42318'}:undefined}>{number(product.remainingQuantity)}</strong></td><td>{product.costSatang===null?<span className="muted">ยังไม่ระบุต้นทุน</span>:(product.costSatang/100).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})}</td><td>{product.salePrices.length?product.salePrices.map((price,index)=><div key={index} style={{whiteSpace:'nowrap'}}><span className="muted">{price.pack}</span> · {(price.priceSatang/100).toLocaleString('th-TH',{maximumFractionDigits:2})}</div>):<span className="muted">ยังไม่ระบุราคา</span>}</td></tr>)}</tbody></table></div>:<p className="muted">{q?'ไม่พบสินค้าที่ค้นหา':'ยังไม่มีรายการสินค้า'}</p>}</section>
+ {actor.role==='owner'&&<section className="card" id="stock-connection"><h2>เชื่อม Google Sheets</h2><p className="muted">{connection?'บัญชีที่เชื่อม: '+connection.email:'ใช้บัญชีบริการสำหรับไฟล์สต๊อกนี้โดยเฉพาะ'}</p><details open={!connection}><summary>{connection?'เปลี่ยนคีย์บัญชีบริการ':'ตั้งค่าบัญชีบริการ'}</summary><ol><li>สร้าง Service Account และเปิด Google Sheets API ใน Google Cloud</li><li>แชร์ไฟล์สต็อกร้านออนไลน์ให้อีเมลบัญชีบริการเป็นผู้แก้ไข</li><li>เลือกไฟล์คีย์ JSON ด้านล่าง แล้วกดตรวจสอบและเชื่อมต่อ</li></ol><form action="/api/admin/stock/settings" method="post" encType="multipart/form-data"><label>ไฟล์คีย์ JSON<input type="file" name="credentials" accept=".json,application/json" required/></label><button>ตรวจสอบและเชื่อมต่อ</button></form><p className="muted small">คีย์ถูกเก็บเข้ารหัสฝั่งเซิร์ฟเวอร์ ไม่แสดงบนหน้าเว็บ และไม่ต้องส่งคีย์ในแชต</p></details></section>}
+ </>;
 }
-
-
-
-
-

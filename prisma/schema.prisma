@@ -315,6 +315,14 @@ model StockProduct {
  updatedAt DateTime @updatedAt
 }
 
+model StockSheetsConnection {
+ id String @id
+ encryptedConfig String
+ email String
+ revision String
+ connectedAt DateTime @default(now())
+}
+
 model Expense {
  items Json @default("[]")
  replyStatus String @default("NOT_SENT")
