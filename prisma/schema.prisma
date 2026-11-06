@@ -315,6 +315,18 @@ model StockProduct {
  updatedAt DateTime @updatedAt
 }
 
+model StockProductUpdate {
+ id String @id
+ fingerprint String
+ code String
+ actor String
+ sourceSheet String
+ before Json
+ after Json
+ status String @default("PENDING")
+ createdAt DateTime @default(now())
+ completedAt DateTime?
+}
 model StockDeleteBatch {
  id String @id
  fingerprint String
