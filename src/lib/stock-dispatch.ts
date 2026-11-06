@@ -7,6 +7,7 @@ import {processPendingReservations} from './stock-flow';
 import {matchShipments} from './gmail-reports';
 import {confirmReportedShipments} from './shipment-report-confirmation';
 import {enqueueStockDispatches} from './stock-dispatch-worker';
+import {enqueuePendingStockReturns} from './stock-return-worker';
 const message=(e:unknown)=>e instanceof Error&&['STOCK_NOT_CONNECTED','STOCK_SHEETS_API_DISABLED','STOCK_SHEET_PERMISSION_DENIED','STOCK_FEDERATION_PERMISSION_DENIED'].includes(e.message)?'ยังเชื่อมข้อมูลสต๊อกไม่ได้ กรุณาตรวจการเชื่อม Google Sheets':'ยังยืนยันการตัดสต๊อกไม่ได้ กดประมวลผลซ้ำได้โดยไม่ตัดซ้ำ';
 export async function processStockDispatch(orderId:string,actor:string){
  const workflow=await db.stockWorkflow.findUnique({where:{id:'active'}});if(workflow?.enabled)return processFlowStockDispatch(orderId,actor);
@@ -31,6 +32,9 @@ export async function processStockDispatch(orderId:string,actor:string){
    return {status:'POSTED',replayed,totalCostSatang:snapshot.totalCostSatang};
   };
   if(raw)return finish(JSON.parse(raw) as StockOutSnapshot,true);
+  if(await tx.stockReturn.findFirst({where:{OR:[{orderId},{tracking:pending.candidateTracking}]},select:{id:true}})){
+   await tx.stockDispatch.update({where:{id:pending.id},data:{status:'EXCLUDED',issues:['มีรายการตีกลับ จึงหยุดการตัดสต๊อกที่ยังไม่สำเร็จ']}});return {status:'RETURN_IN_PROGRESS'};
+  }
   const [current,currentShipment,currentConfig]=await Promise.all([tx.orderIntake.findUnique({where:{id:orderId}}),tx.shipment.findUnique({where:{orderId}}),tx.stockIntegrationConfig.findUnique({where:{id:'active'}})]);
   if(!currentConfig?.enabled||!stockDispatchEligible(current,currentShipment,currentConfig.activeFrom)){await tx.stockDispatch.update({where:{id:pending.id},data:{status:'EXCLUDED',issues:['ยังไม่เข้าเงื่อนไขออเดอร์ใหม่ที่ยืนยันจัดส่งจริง']}});return {status:'EXCLUDED'};}
   if(currentShipment!.tracking!==pending.candidateTracking)return issue(['เลขพัสดุเปลี่ยนหลังเริ่มประมวลผล ต้องตรวจสอบก่อน']);
@@ -50,6 +54,7 @@ export async function processStockDispatch(orderId:string,actor:string){
 }
 export async function processPendingStockDispatches(actor:string,limit=1,priorityCode?:string){
  const config=await db.stockIntegrationConfig.findUnique({where:{id:'active'}});if(!config?.enabled)return {processed:0,posted:0};
+ await enqueuePendingStockReturns().catch(()=>{});
  await matchShipments(actor);
  const confirmation=await confirmReportedShipments(actor);
  await processPendingReservations(1).catch(()=>{});

@@ -3,7 +3,7 @@ import {sha} from './crypto';
 import {stockGoogleClient,readStockSheet} from './stock-google';
 import {queueStockOrder,syncStockReservationLocked} from './stock-flow';
 import {flowDispatchPlan} from './stock-flow-plan';
-import {applyFlowOperation} from './stock-flow-operation';
+import {applyFlowOperation,recoverFlowOperation} from './stock-flow-operation';
 import {saveShipmentArchive} from './stock-shipment-archive';
 import type {OrderStockItem} from './order-stock-items';
 import type {StockOutSnapshot} from './stock-dispatch-plan';
@@ -18,10 +18,12 @@ export async function processFlowStockDispatch(orderId:string,actor:string){
   if(pending?.status==='WAITING_SHIPMENT')return {status:'WAITING_SHIPMENT'};
   if(pending?.status==='POSTED')return {status:'POSTED',replayed:true};
   const [order,shipment]=await Promise.all([db.orderIntake.findUnique({where:{id:orderId}}),db.shipment.findUnique({where:{orderId}})]);
+  const returned=await db.stockReturn.findFirst({where:{OR:[{orderId},...(shipment?.tracking?[{tracking:shipment.tracking}]:[])]},select:{id:true}});
   const enrolled=await db.stockReservation.findUnique({where:{orderId}});
   if(enrolled&&['ALREADY_COUNTED','RECONCILING'].includes(enrolled.status))return {status:enrolled.status};
   if(enrolled?.needsReconciliation)return {status:'NEEDS_RECONCILIATION',issues:['ต้องเทียบเลขออเดอร์กับยอดจ่ายเดิมก่อน เพื่อไม่ให้หักสต๊อกซ้ำ']};
   if(!pending){
+   if(returned)return {status:'RETURN_IN_PROGRESS'};
    const workflow=await db.stockWorkflow.findUnique({where:{id:'active'}});
    if(!enrolled&&workflow&&order&&(order.createdAt<workflow.activeFrom||order.eventAt<workflow.activeFrom))return {status:'NOT_ELIGIBLE'};
    if(!stockDispatchEligible(order,shipment,config.activeFrom,!!enrolled))return {status:'NOT_ELIGIBLE'};
@@ -49,6 +51,12 @@ export async function processFlowStockDispatch(orderId:string,actor:string){
   const legacy=await client('/developerMetadata:search',{method:'POST',body:JSON.stringify({dataFilters:[{developerMetadataLookup:{metadataKey:'cannexa-stock-out-'+sha(pending.candidateTracking),visibility:'DOCUMENT'}}]})});
   const old=legacy.matchedDeveloperMetadata?.[0]?.developerMetadata?.metadataValue;
   if(old)return finish(JSON.parse(old),true);
+  if(returned||order?.status==='RETURNED'||shipment?.status==='RETURNED'||shipment?.fulfillmentStatus==='RETURNED'){
+   const recovered=await recoverFlowOperation(client,'dispatch:'+orderId);
+   if(recovered)return finish(recovered.snapshot,true);
+   await db.stockDispatch.update({where:{orderId},data:{status:'EXCLUDED',issues:['มีรายการตีกลับ จึงหยุดการตัดสต๊อกที่ยังไม่สำเร็จ']}});
+   return {status:'RETURN_IN_PROGRESS'};
+  }
   if(!pending.historySavedAt){
    if(!stockDispatchEligible(order,shipment,config.activeFrom,!!enrolled))return issue(['ยังไม่เข้าเงื่อนไขออเดอร์ใหม่ที่ยืนยันจัดส่งจริง']);
    if(shipment!.tracking!==pending.candidateTracking)return issue(['เลขพัสดุเปลี่ยนหลังเริ่มประมวลผล ต้องตรวจสอบก่อน']);

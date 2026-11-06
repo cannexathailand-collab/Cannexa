@@ -6,6 +6,20 @@ import {verifyFlowPlan,type FlowPlan} from './stock-flow-plan';
 import {stockHistoryRequests,stockHistoryValuesMatch} from './stock-history-plan';
 export type StockClient=Awaited<ReturnType<typeof stockGoogleClient>>;
 const hash=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
+// Recovery only: a return may complete bookkeeping for a proven earlier write,
+// but must never cause an unfinished outbound operation to write stock.
+export async function recoverFlowOperation(client:StockClient,id:string){
+ const saved=await db.stockSheetOperation.findUnique({where:{id}});
+ if(!saved)return null;
+ if(saved.status==='APPLIED')return saved.snapshot as any;
+ const key='stock-flow-'+hash(id).slice(0,32);
+ const markers=await client('/developerMetadata:search',{method:'POST',body:JSON.stringify({dataFilters:[{developerMetadataLookup:{metadataKey:key,visibility:'DOCUMENT'}}]})});
+ const marker=markers.matchedDeveloperMetadata?.[0]?.developerMetadata?.metadataValue;
+ if(!marker)return null;
+ if(marker!==saved.fingerprint)throw Error('STOCK_OPERATION_CONFLICT');
+ await db.stockSheetOperation.update({where:{id},data:{status:'APPLIED',appliedAt:new Date()}});
+ return saved.snapshot as any;
+}
 export async function archiveFlowBaseline(client:StockClient,archive:any){
  const meta=await client('?fields=sheets(properties(sheetId,title),developerMetadata)');
  const found=meta.sheets?.find((s:any)=>s.properties.sheetId===archive.sheetId||s.properties.title===archive.sheetTitle);

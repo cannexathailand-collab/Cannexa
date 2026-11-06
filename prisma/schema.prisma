@@ -424,6 +424,41 @@ model StockDispatch {
  @@index([status,dispatchedAt])
 }
 
+model StockReturn {
+ id String @id @default(cuid())
+ tracking String @unique
+ orderId String? @unique
+ stage String @default("IN_TRANSIT")
+ status String @default("NEEDS_REVIEW")
+ reportedAt DateTime
+ receivedAt DateTime?
+ evidence Json @default("[]")
+ items Json @default("[]")
+ sourceSheet String?
+ totalCostSatang Int?
+ historySnapshot Json?
+ historySavedAt DateTime?
+ processedAt DateTime?
+ issues Json @default("[]")
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@index([stage,status,reportedAt])
+}
+
+model StockReturnReport {
+ id String @id
+ messageId String
+ tracking String
+ sender String
+ subject String
+ reportedAt DateTime
+ stage String
+ reason String
+ receivedAt DateTime?
+ @@unique([messageId,tracking])
+ @@index([tracking])
+}
+
 model Expense {
  items Json @default("[]")
  replyStatus String @default("NOT_SENT")

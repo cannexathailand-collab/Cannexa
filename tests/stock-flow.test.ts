@@ -30,6 +30,8 @@ async function harness(t:TestContext){
  replace(t,db,'$queryRawUnsafe',async()=>[]);
  replace(t,db.stockHistoryConfig,'findUnique',async()=>null);
  replace(t,db.stockWorkflow,'findUnique',async()=>state.workflow);
+ const returns=new Map<string,any>();
+ replace(t,db.stockReturn,'findFirst',async({where}:any)=>[...returns.values()].find(r=>where.OR.some((key:any)=>key.orderId===r.orderId||key.tracking&&key.tracking===r.tracking))??null);
  replace(t,db.stockWorkflow,'upsert',async({create,update}:any)=>state.workflow=state.workflow?{...state.workflow,...update}:create);
  replace(t,db.stockIntegrationConfig,'findUnique',async()=>({enabled:true,activeFrom:new Date('2026-01-01')}));
  replace(t,db.orderIntake,'findUnique',async({where}:any)=>state.orders.get(where.id));
@@ -90,8 +92,32 @@ async function harness(t:TestContext){
   state.shipments.set(id,{orderId:id,tracking,fulfillmentStatus:'DISPATCHED',dispatchedAt:at,status:'MATCHED',reportAt:at,importId:'import1'});
  };
  const applyRequests=async(requests:unknown[])=>{const result=await fetch('https://sheets.googleapis.com/v4/spreadsheets/test:batchUpdate',{method:'POST',body:JSON.stringify({requests})});assert.equal(result.ok,true);};
- await activateStockFlow('owner');return {...state,state,addOrder,applyRequests};
+ await activateStockFlow('owner');return {...state,state,returns,addOrder,applyRequests};
 }
+
+test('a return blocks unfinished outbound history without deducting or discarding pending quantities',async t=>{
+ const h=await harness(t);h.addOrder('returning');await queueStockOrder('returning');await syncStockReservation('returning');
+ h.state.failArchive=true;assert.equal((await processStockDispatch('returning','owner')).status,'HISTORY_SAVED');
+ h.state.failArchive=false;h.returns.set('returning',{id:'r1',orderId:'returning',tracking:'TRACK-returning'});
+ assert.equal((await processStockDispatch('returning','owner')).status,'RETURN_IN_PROGRESS');
+ assert.equal(h.rows[2][6],490);assert.equal(h.rows[2][5],200);assert.equal(h.events.filter(e=>e==='deduction').length,0);
+ assert.ok(h.dispatches.get('returning').historySavedAt);assert.equal(h.dispatches.get('returning').status,'EXCLUDED');
+ assert.equal((await processStockDispatch('returning','owner')).status,'RETURN_IN_PROGRESS');
+});
+
+test('return recovery finishes a proven lost outbound write without deducting twice',async t=>{
+ const h=await harness(t);h.addOrder('returning');await queueStockOrder('returning');await syncStockReservation('returning');
+ h.state.loseDeduction=true;assert.equal((await processStockDispatch('returning','owner')).status,'HISTORY_SAVED');
+ h.returns.set('returning',{id:'r1',orderId:'returning',tracking:'TRACK-returning'});
+ assert.equal((await processStockDispatch('returning','owner')).status,'POSTED');
+ assert.equal(h.rows[2][6],290);assert.equal(h.rows[2][5],0);assert.equal(h.events.filter(e=>e==='deduction').length,1);
+ assert.equal(h.dispatches.get('returning').totalCostSatang,30000);
+});
+
+test('return evidence before dispatch never creates a new outbound write',async t=>{
+ const h=await harness(t);h.addOrder('returning');h.returns.set('returning',{id:'r1',tracking:'TRACK-returning'});
+ assert.equal((await processStockDispatch('returning','owner')).status,'RETURN_IN_PROGRESS');assert.equal(h.dispatches.size,0);assert.equal(h.rows[2][6],490);
+});
 test('baseline keeps physical balance, new products use independent completed totals, and malformed baseline fails closed',()=>{
  const rows=fresh(),plan=flowBaselinePlan(source(rows));assert.equal(plan.changes[0].remainingAfter,490);assert.equal(plan.changes[0].pendingAfter,0);assert.equal(plan.changes[0].completedAfter,10);
  rows[0][12]=STOCK_COMPLETED_HEADER;rows[2][12]=10;rows[2][5]=0;

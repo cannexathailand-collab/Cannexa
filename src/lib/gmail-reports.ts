@@ -5,21 +5,38 @@ import {saveFreightCost} from "./freight-cost";
 import {parseMyOrderXlsx} from "./myorder-xlsx";
 import {shipmentCandidates,nonCodShipmentCandidates,compatibleCodCandidates} from "./shipment-matching";
 import {hasActualDispatch,reconcileSalesRecognition,revokeSalesRecognition} from "./sales-recognition";
+import {recordReturnEmail,STOCK_RETURN_SENDER} from "./stock-return-email";
 
 const senders={SHIPMENT:"account-thaipost-freight@myorder.ai",COD:"account-thaipost-cod@myorder.ai"};
-type MailPart={filename?:string;body?:{attachmentId?:string;data?:string;size?:number};parts?:MailPart[]};
+type MailPart={mimeType?:string;filename?:string;body?:{attachmentId?:string;data?:string;size?:number};parts?:MailPart[]};
 export async function accessToken(config:GmailConfig,refreshToken:string){const response=await fetch("https://oauth2.googleapis.com/token",{method:"POST",body:new URLSearchParams({client_id:config.clientId,client_secret:config.clientSecret,refresh_token:refreshToken,grant_type:"refresh_token"}),cache:"no-store",signal:AbortSignal.timeout(15000)});if(!response.ok)throw new Error("GMAIL_RECONNECT");const result=await response.json();if(typeof result.access_token!=="string")throw new Error("GMAIL_RECONNECT");return result.access_token as string;}
 export async function importGmailReports(actor:string,messageIds?:string[]){
  const connection=await db.gmailConnection.findUnique({where:{id:"active"}});if(!connection?.encryptedToken)throw new Error("GMAIL_RECONNECT");
  const token=await accessToken(decryptGmail<GmailConfig>(connection.encryptedConfig),decryptGmail<{refreshToken:string}>(connection.encryptedToken).refreshToken);
  const api=async(path:string,allowMissing=false)=>{const response=await fetch("https://gmail.googleapis.com/gmail/v1/users/me/"+path,{headers:{Authorization:"Bearer "+token},cache:"no-store",signal:AbortSignal.timeout(15000)});if(allowMissing&&response.status===404)return null;if(!response.ok)throw new Error("GMAIL_READ_FAILED");return response.json();};
- const query="in:anywhere {from:"+senders.SHIPMENT+" from:"+senders.COD+"} newer_than:30d has:attachment";
+ const query="in:anywhere newer_than:30d {(from:"+senders.SHIPMENT+" has:attachment) (from:"+senders.COD+" has:attachment) from:"+STOCK_RETURN_SENDER+"}";
  const params=new URLSearchParams({q:query,maxResults:"10",includeSpamTrash:"true"});if(connection.syncPageToken)params.set("pageToken",connection.syncPageToken);
  const list=messageIds?{messages:messageIds.map(id=>({id})),nextPageToken:undefined}:await api("messages?"+params);let imported=0;
  for(const item of list.messages??[]){
   let message=await api("messages/"+encodeURIComponent(item.id)+"?format=metadata&metadataHeaders=From&metadataHeaders=Subject",true);if(!message)continue;const headers=message.payload?.headers??[];const header=(name:string)=>String(headers.find((h:{name:string})=>h.name.toLowerCase()===name)?.value??"");
-  const from=header("from").match(/<([^>]+)>/)?.[1]??header("from").trim();const kind=from.toLowerCase()===senders.SHIPMENT?"SHIPMENT":from.toLowerCase()===senders.COD?"COD":null;if(!kind)continue;message=await api("messages/"+encodeURIComponent(item.id)+"?format=full",true);if(!message)continue;
+  const from=header("from").match(/<([^>]+)>/)?.[1]??header("from").trim();const kind=from.toLowerCase()===senders.SHIPMENT?"SHIPMENT":from.toLowerCase()===senders.COD?"COD":from.toLowerCase()===STOCK_RETURN_SENDER?"RETURN":null;if(!kind)continue;message=await api("messages/"+encodeURIComponent(item.id)+"?format=full",true);if(!message)continue;
   const subject=header("subject"),reportAt=new Date(Number(message.internalDate));if(!Number.isFinite(reportAt.getTime()))throw new Error("INVALID_REPORT_DATE");
+  if(kind==="RETURN"){
+   const bodies:{html:string[];text:string[]}={html:[],text:[]};
+   async function readBody(part:MailPart){
+    if(part.mimeType==='message/rfc822'||part.filename)return;
+    if(part.mimeType==='text/html'||part.mimeType==='text/plain'){
+     if((part.body?.size??0)>2*1024*1024)throw Error('FILE_TOO_LARGE');
+     const body=part.body?.attachmentId?await api('messages/'+encodeURIComponent(item.id)+'/attachments/'+encodeURIComponent(part.body.attachmentId),true):part.body;
+     if(typeof body?.data==='string')bodies[part.mimeType==='text/html'?'html':'text'].push(Buffer.from(body.data,'base64url').toString('utf8'));
+    }
+    for(const child of part.parts??[])await readBody(child);
+   }
+   await readBody(message.payload??{});
+   const result=await recordReturnEmail({messageId:item.id,sender:from,subject,reportedAt:reportAt,html:bodies.html.join('\n'),text:bodies.text.join('\n')},actor,connection.revision);
+   if(result.imported)imported++;
+   continue;
+  }
   const parts:MailPart[]=[];function walk(part:MailPart){if(part.filename?.toLowerCase().endsWith(".xlsx"))parts.push(part);for(const child of part.parts??[])walk(child);}walk(message.payload);
   for(const part of parts){
    const id=sha(connection.email+":"+item.id+":"+part.filename);if(await db.gmailImport.findFirst({where:{messageId:item.id,filename:part.filename!}}))continue;

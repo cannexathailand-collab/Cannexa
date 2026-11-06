@@ -47,7 +47,11 @@ export async function syncStockReservationLocked(orderId:string){
   const reservation=await db.stockReservation.findUnique({where:{orderId}});if(!reservation)return {status:'NOT_FOUND'};
   if(['CONSUMED','RELEASED','ALREADY_COUNTED','RECONCILING'].includes(reservation.status))return {status:reservation.status};
   const order=await db.orderIntake.findUnique({where:{id:orderId}}),shipment=await db.shipment.findUnique({where:{orderId}});
-  const release=!order||['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(order.status)||shipment?.fulfillmentStatus==='CANCELLED';
+  const returned=order?.status==='RETURNED'||shipment?.status==='RETURNED'||shipment?.fulfillmentStatus==='RETURNED';
+  const release=!order||['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(order.status)||shipment?.fulfillmentStatus==='CANCELLED'||returned;
+  // A return may be recovering an outbound write whose DB commit was lost.
+  // Only the return processor can decide whether any pending stock remains.
+  if(release&&(returned||await db.stockReturn.findFirst({where:{OR:[{orderId},...(shipment?.tracking?[{tracking:shipment.tracking}]:[])]},select:{id:true}})))return {status:'RETURN_IN_PROGRESS'};
   const client=await stockGoogleClient();
   const pending=await db.stockSheetOperation.findUnique({where:{id:reservationOperationId(reservation)}});
   if(reservation.status==='QUEUED'&&(!release||pending)){

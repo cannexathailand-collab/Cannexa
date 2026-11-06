@@ -8,6 +8,10 @@ const quantity=(v:unknown)=>typeof v==='number'?v.toLocaleString('th-TH')+' G':'
 const cost=(v:unknown)=>typeof v==='number'?(v/100).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})+' บาท/G':'ยังไม่ระบุ';
 export function presentStockActivity(log:AuditLog){
  const event=presentAudit(log),d=(log.details??{}) as Record<string,any>;
+ if(log.action==='STOCK_RETURN_POSTED'&&Array.isArray(d.items))for(const item of d.items){
+  event.summary.push(item.code+' · รับคืน '+quantity(item.quantityMilliG/1000)+' · คงเหลือ '+quantity(item.remainingBefore)+' → '+quantity(item.remainingAfter));
+ }
+ if(log.action==='STOCK_RETURN_EMAIL_REVIEW'&&Array.isArray(d.issues))event.summary.push(...d.issues.filter((issue:unknown)=>typeof issue==='string'));
  if(log.action==='STOCK_DISPATCH_COST_RECORDED'&&typeof d.dispatchedAt==='string'){
   const dispatchedAt=new Date(d.dispatchedAt);
   if(Number.isFinite(+dispatchedAt))event.summary.push('จัดส่งจริง: '+dispatchedAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'}));
