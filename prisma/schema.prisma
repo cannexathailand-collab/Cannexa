@@ -33,6 +33,8 @@ model Affiliate {
  archivedAt DateTime?
  salesCommissionBasis String @default("REVENUE")
  salesCommissionBps Int @default(0)
+ salesCommissionTransferBps Int?
+ salesCommissionCodBps Int?
  createdAt DateTime @default(now())
  accounts UserAccount[]
  link TrackingLink?

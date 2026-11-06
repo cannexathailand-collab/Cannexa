@@ -62,3 +62,11 @@ test("sales rate changes preserve old transfer and waiting COD snapshots, new or
  await receiveOrderEvent("bot-a",transfer("old-transfer"));await receiveOrderEvent("bot-a",transfer("new-transfer"));await receiveOrderEvent("bot-a",event("new-cod"));
  assert.deepEqual(h.rows.map(o=>o.salesCommissionBps),[200,200,100,100]);assert.deepEqual(h.sales.map(s=>s.commissionBps),[200,100]);assert.deepEqual(h.sales.map(s=>s.commissionSatang),[5120,2560]);
 });
+test('transfer and COD use independent rates frozen at intake, including zero and later rate changes',async()=>{
+ const h=harness();let transferRate=200,codRate=500;
+ h.tx.affiliate.findMany=async()=>[{id:'seller',salesCommissionBasis:'REVENUE',salesCommissionBps:1000,salesCommissionTransferBps:transferRate,salesCommissionCodBps:codRate}];
+ const transfer=(id:string)=>{const e=event(id);e.message!.text=e.message!.text!.replace('ชำระเงิน: COD','ชำระเงิน: โอน');return e;};
+ await receiveOrderEvent('bot-a',transfer('old-transfer'));await receiveOrderEvent('bot-a',event('old-cod'));
+ transferRate=0;codRate=700;await receiveOrderEvent('bot-a',transfer('old-transfer'));await receiveOrderEvent('bot-a',transfer('new-transfer'));await receiveOrderEvent('bot-a',event('new-cod'));
+ assert.deepEqual(h.rows.map(o=>o.salesCommissionBps),[200,500,0,700]);assert.deepEqual(h.sales.map(s=>s.commissionBps),[200,0]);assert.deepEqual(h.sales.map(s=>s.commissionSatang),[5120,0]);
+});
