@@ -1,0 +1,11 @@
+import {z} from 'zod';import {getVercelOidcToken} from '@vercel/oidc';
+export const stockFederationConfig=z.object({type:z.literal('workload_identity'),client_email:z.email().refine(v=>v.endsWith('.iam.gserviceaccount.com')),projectNumber:z.string().regex(/^\d{6,30}$/),poolId:z.string().regex(/^[a-z][a-z0-9-]{3,31}$/),providerId:z.string().regex(/^[a-z][a-z0-9-]{3,31}$/)});
+export type StockFederationConfig=z.infer<typeof stockFederationConfig>;
+export function federationAudience(config:StockFederationConfig){return '//iam.googleapis.com/projects/'+config.projectNumber+'/locations/global/workloadIdentityPools/'+config.poolId+'/providers/'+config.providerId;}
+export async function federatedStockToken(config:StockFederationConfig,getSubjectToken:()=>Promise<string>=getVercelOidcToken){
+ const subjectToken=await getSubjectToken();
+ const exchanged=await fetch('https://sts.googleapis.com/v1/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:token-exchange',audience:federationAudience(config),requested_token_type:'urn:ietf:params:oauth:token-type:access_token',scope:'https://www.googleapis.com/auth/cloud-platform',subject_token_type:'urn:ietf:params:oauth:token-type:jwt',subject_token:subjectToken}),cache:'no-store',signal:AbortSignal.timeout(10000)});
+ if(!exchanged.ok)throw new Error('STOCK_FEDERATION_EXCHANGE_FAILED');const sts=z.object({access_token:z.string()}).parse(await exchanged.json());
+ const impersonated=await fetch('https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/'+encodeURIComponent(config.client_email)+':generateAccessToken',{method:'POST',headers:{Authorization:'Bearer '+sts.access_token,'Content-Type':'application/json'},body:JSON.stringify({scope:['https://www.googleapis.com/auth/spreadsheets'],lifetime:'3600s'}),cache:'no-store',signal:AbortSignal.timeout(10000)});
+ if(!impersonated.ok)throw new Error('STOCK_FEDERATION_PERMISSION_DENIED');const token=z.object({accessToken:z.string(),expireTime:z.string()}).parse(await impersonated.json());const expires=Date.parse(token.expireTime);if(!Number.isFinite(expires)||expires<=Date.now()+60000)throw new Error('STOCK_FEDERATION_TOKEN_EXPIRED');return {token:token.accessToken,expires};
+}
