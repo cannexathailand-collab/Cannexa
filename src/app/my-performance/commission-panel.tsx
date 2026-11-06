@@ -9,7 +9,6 @@ const date=(d:Date)=>d.toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok',day:'
 const statuses={PENDING:'รอจ่าย',PAID:'จ่ายแล้ว',WAITING:'รอคำนวณ / ตรวจสอบ'};
 export async function CommissionPanel({affiliateId,username,filters}:{affiliateId:string;username:string;filters:Filters}){
  const [data,reviews]=await Promise.all([employeeCommissions(affiliateId),employeeReviewOrders(affiliateId,username)]);
- const reviewPages=Math.max(1,Math.ceil(reviews.length/20)),reviewPage=Math.min(reviewPages,Math.max(1,Number.parseInt(filters.reviewPage??'1',10)||1));
  const kind=filters.kind&&Object.hasOwn(commissionKinds,filters.kind)?filters.kind:'ALL';
  const status=filters.status&&Object.hasOwn(statuses,filters.status)?filters.status:'ALL';
  const months=[...new Set(data.rows.map(r=>commissionMonth(r.date)))].sort().reverse();
@@ -19,6 +18,7 @@ export async function CommissionPanel({affiliateId,username,filters}:{affiliateI
  const rows=filtered.slice((page-1)*25,page*25);
  const href=(values:Partial<Filters>)=>'/my-performance?'+new URLSearchParams(Object.entries({...filters,kind,status,commissionMonth:month,commissionPage:'1',commissionOpen:'1',...values}).filter(([,v])=>v!==undefined) as [string,string][]).toString();
  return <section className="employee-commissions" aria-label="รายละเอียดค่าคอมมิชชัน">
+  {reviews.length>0&&<div className="employee-task-alert" role="status"><div><strong>มีงานค้าง {reviews.length} ออเดอร์ที่ต้องติดตาม</strong><p>รวมรายการค้างจากเดือนก่อน เปิดดูสาเหตุและสิ่งที่ต้องทำต่อ</p></div><Link href="/my-performance/tasks">ดูงานค้าง →</Link></div>}
   <div className="commission-summary-grid">
    <article className="commission-metric"><span>ค่าคอมรอจ่ายทั้งหมด</span><strong>{money(data.pending)}</strong><small>ทุกรอบที่คำนวณแล้วและยังไม่จ่าย</small></article>
    <article className="commission-metric"><span>ค่าคอมจ่ายแล้วทั้งหมด</span><strong>{money(data.paid)}</strong><small>รวมค่าคอมพิเศษที่บันทึกจ่ายแล้ว</small></article>
@@ -50,8 +50,8 @@ export async function CommissionPanel({affiliateId,username,filters}:{affiliateI
   </CommissionDialog>
   <section id="employee-review-orders" className="employee-review-orders">
    <div className="commission-section-title"><h2>รายการต้องตรวจสอบ</h2><p>ออเดอร์ของคุณทั้งหมด รวมรายการค้างจากเดือนก่อน</p></div>
-   {reviews.length?reviews.slice((reviewPage-1)*20,reviewPage*20).map(r=><article className="commission-row" key={r.id}><div><h3>{r.number}</h3><p>{r.reasons.join(' · ')}</p><small>รับออเดอร์ {date(r.createdAt)}</small></div><Link className="review-order-link" href={'/my-performance/orders/'+encodeURIComponent(r.id)}>ตรวจสอบ →</Link></article>):<p className="commission-empty">ไม่มีรายการต้องตรวจสอบ</p>}
-   {reviewPages>1&&<nav className="commission-pagination" aria-label="หน้ารายการต้องตรวจสอบ">{reviewPage>1&&<Link href={href({reviewPage:String(reviewPage-1),commissionOpen:undefined})+'#employee-review-orders'}>← ก่อนหน้า</Link>}<span>หน้า {reviewPage} / {reviewPages}</span>{reviewPage<reviewPages&&<Link href={href({reviewPage:String(reviewPage+1),commissionOpen:undefined})+'#employee-review-orders'}>ถัดไป →</Link>}</nav>}
+   {reviews.length?reviews.slice(0,3).map(r=><article className="commission-row" key={r.id}><div><h3>{r.number}</h3><p>{r.reasons.join(' · ')}</p><small>รับออเดอร์ {date(r.createdAt)}</small></div><Link className="review-order-link" href={'/my-performance/orders/'+encodeURIComponent(r.id)}>ตรวจสอบ →</Link></article>):<p className="commission-empty">ไม่มีรายการต้องตรวจสอบ</p>}
+   {reviews.length>0&&<Link className="employee-view-tasks" href="/my-performance/tasks">ดูงานค้างทั้งหมด {reviews.length} รายการ →</Link>}
   </section>
  </section>;
 }

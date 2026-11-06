@@ -3,9 +3,9 @@ import {OrderCard} from "./order-card";
 import type {orderReview} from "@/lib/order-review";
 type Data=NonNullable<Awaited<ReturnType<typeof orderReview>>>;
 const money=(n:number)=>"฿"+(n/100).toFixed(2);
-export function OrderReviewView({data,backHref}:{data:Data;backHref:string}){
+export function OrderReviewView({data,backHref,backLabel='กลับรายการออเดอร์'}:{data:Data;backHref:string;backLabel?:string}){
  const {order,sale,shipment,receipt,reasons,candidates,canSeeCandidates}=data;
- return <><h1>ตรวจสอบออเดอร์</h1><Link className="button secondary" href={backHref}>กลับรายการออเดอร์</Link>
+ return <><h1>ตรวจสอบออเดอร์</h1><Link className="button secondary" href={backHref}>{backLabel}</Link>
  <section className="card" style={{marginTop:16}}><h2>สิ่งที่ต้องตรวจสอบ</h2>{reasons.length?<ul>{reasons.map(reason=><li key={reason}>{reason}</li>)}</ul>:<p>ไม่พบเงื่อนไขค้างตรวจจากข้อมูลปัจจุบัน</p>}<p>การเปิดหน้านี้ไม่เปลี่ยนการผูกพัสดุหรือเพิ่มค่าคอม</p></section>
  <OrderCard order={order} sale={sale??undefined} tracking={shipment?.tracking} fulfillmentStatus={shipment?.fulfillmentStatus} dispatchedAt={shipment?.dispatchedAt}/>
  {shipment&&<section className="card"><h2>พัสดุที่ผูกไว้</h2><p>เลขพัสดุ: {shipment.tracking}</p><p>ยอดเก็บปลายทางในรายงานส่ง: {money(shipment.codSatang)}</p><p>รายงานรับเงิน COD: {receipt?money(receipt.amountSatang):"ยังไม่พบ"}</p></section>}
