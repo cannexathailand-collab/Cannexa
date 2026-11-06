@@ -7,13 +7,14 @@ export function parseOrderText(text:string){
  const recipient=field("ชื่อผู้รับ|ผู้รับ|ชื่อลูกค้า");
  const phoneInput=field("เบอร์โทร|โทรศัพท์|โทร|เบอร์");
  const digits=phoneInput?.replace(/[\s()+-]/g,"")??null;
- const phone=digits&&/^(?:0\d{8,9}|66\d{8,9})$/.test(digits)?digits:null;
+ const local=digits?.startsWith('66')?'0'+digits.slice(2):digits;
+ const phone=local&&/^(?:0\d{8,9})$/.test(local)&&!/^0+$/.test(local)?digits:null;
  const address=field("ที่อยู่|ที่อยู่ผู้รับ");
  const paymentInput=field("ชำระเงิน|วิธีชำระเงิน");
  const payment=paymentInput&&/^(เคลม|เครม)$/.test(paymentInput)?"เคลม":paymentInput&&/^(COD|โอน)$/i.test(paymentInput)?paymentInput.toUpperCase():null;
  const issues:string[]=[];
  if(!recipient)issues.push("ไม่พบชื่อผู้รับที่ระบุหัวข้อ");
- if(!phone)issues.push("ไม่พบเบอร์โทรที่ถูกต้อง");
+ if(!phone)issues.push("เบอร์โทรไม่ถูกต้องหรือยังไม่ได้ระบุ กรุณาตรวจเลขให้ครบ: เบอร์ไทย 9–10 หลักขึ้นต้น 0 หรือรูปแบบ +66");
  if(!address)issues.push("ไม่พบที่อยู่ที่ระบุหัวข้อ");
  if(!payment)issues.push("ระบุชำระเงินเป็น โอน, COD หรือ เคลม");
  return {sellerCode:seller[1],recipient,phone,address,payment,issues};

@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {parseOrderText} from "../src/lib/order-parser";
+test('invalid or missing phone is flagged while formatted domestic and international phones pass',()=>{
+ const parse=(phone:string)=>parseOrderText('รหัสผู้ขาย: ADM001\nชื่อผู้รับ: ทดสอบ\nเบอร์โทร: '+phone+'\nที่อยู่: กรุงเทพ\nชำระเงิน: COD')!;
+ for(const value of ['', 'abc','081234','081234567890','0000000000','+660812345678'])assert.ok(parse(value).issues.some(i=>i.includes('เบอร์โทร')),value);
+ for(const value of ['081-234-5678','02 123 4567','+66 81 234 5678'])assert.ok(!parse(value).issues.some(i=>i.includes('เบอร์โทร')),value);
+});
 test("only explicit order headers are collected",()=>{
  assert.equal(parseOrderText("สวัสดีครับ\nรหัสผู้ขาย: ADM001"),null);
  assert.equal(parseOrderText("ข้อความทั่วไป 1000 บาท"),null);

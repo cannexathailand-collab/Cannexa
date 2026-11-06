@@ -4,6 +4,10 @@ import {db} from "../src/lib/db";
 import {orderConfirmationText,replyOrderConfirmation} from "../src/lib/order-confirmation";
 import type {OrderEvent} from "../src/lib/order-intake";
 process.env.USER_HASH_SECRET="confirmation-test-only";
+test('phone validation warning gives a correction path without claiming the number is active',()=>{
+ const text=orderConfirmationText({orderNumber:'ORD-TEST',status:'NEEDS_REVIEW',payment:'COD',issues:['เบอร์โทรไม่ถูกต้อง']});
+ assert.ok(text.includes('กรุณาตรวจเบอร์โทรผู้รับ'));assert.ok(text.includes('ยกเลิกข้อความออเดอร์เดิม'));assert.ok(text.includes('ยังไม่บันทึกยอดขายหรือค่าคอม'));
+});
 test("confirmation identifies the linked affiliate and preserves submitted seller code",()=>{
  const o={orderNumber:"ORD-TEST",payment:"COD",status:"WAITING_SHIPMENT",issues:[],sellerCode:"Ink123"};
  const text=orderConfirmationText(o,null,{name:"อิ้ง",code:"11155"});
