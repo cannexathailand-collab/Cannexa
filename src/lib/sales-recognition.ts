@@ -24,7 +24,7 @@ export async function reconcileSalesRecognition(tx:Prisma.TransactionClient,orde
  const status=previous?.status==="PAID"?"PAID":!received?"WAITING_COD":profit?"WAITING_COST":"PENDING";
  const commission=previous?.status==="PAID"?previous.commissionSatang:!received||profit?null:Math.round(amount*bps/10000);
  const recognizedAt=received?shipment.dispatchedAt!:null;
- const values={tracking:shipment.tracking,recognizedAt,status,commissionSatang:commission,paymentEvidence:cod?(received?"COD_RECEIPT":"AWAITING_COD_RECEIPT"):"DECLARED_TRANSFER"};
+ const values={tracking:shipment.tracking,recognizedAt,status,commissionSatang:commission,commissionReadyAt:previous?.commissionReadyAt??(status==="PENDING"?new Date():null),paymentEvidence:cod?(received?"COD_RECEIPT":"AWAITING_COD_RECEIPT"):"DECLARED_TRANSFER"};
  const sale=previous?await tx.salesOrder.update({where:{id:previous.id},data:values}):await tx.salesOrder.create({data:{...values,orderId:order.id,affiliateId:commissionAffiliateId!,paymentMethod:cod?"COD":"TRANSFER",revenueSatang:amount,commissionBasis:order.salesCommissionBasis,commissionBps:bps}});
  if((previous?.recognizedAt?.getTime()??null)!==(recognizedAt?.getTime()??null))await tx.auditLog.create({data:{actor,action:"SALES_RECOGNITION_CHANGED",entityId:sale.id,details:{orderId:order.id,tracking:shipment.tracking,amountSatang:amount,previousDispatchedAt:previous?.recognizedAt?.toISOString()??null,dispatchedAt:recognizedAt?.toISOString()??null,evidence:shipment.dispatchEvidence}}});
 }

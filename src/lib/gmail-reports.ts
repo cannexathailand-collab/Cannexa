@@ -129,7 +129,7 @@ export async function matchShipments(actor:string){
    await tx.orderIntake.update({where:{id:order.id},data:{status:"MATCHED_SHIPMENT"}});
    const profit=salesCommissionUsesCost(order.salesCommissionBasis);
    const existingSale=await tx.salesOrder.findUnique({where:{orderId:order.id}});
-   const settlement={paymentEvidence:"COD_RECEIPT",commissionSatang:profit?null:Math.round(shipment.codSatang*order.salesCommissionBps/10000),status:profit?"WAITING_COST":"PENDING"};
+   const settlement={commissionReadyAt:existingSale?.commissionReadyAt??(profit?null:new Date()),paymentEvidence:"COD_RECEIPT",commissionSatang:profit?null:Math.round(shipment.codSatang*order.salesCommissionBps/10000),status:profit?"WAITING_COST":"PENDING"};
    if(existingSale){if(existingSale.revenueSatang!==shipment.codSatang)throw Error("COD_CONFLICT");await tx.salesOrder.update({where:{id:existingSale.id},data:{...settlement,...(existingSale.status==="PAID"?{status:"PAID",commissionSatang:existingSale.commissionSatang}:{})}});}
    else await tx.salesOrder.create({data:{orderId:order.id,tracking:shipment.tracking,affiliateId:order.commissionAffiliateId??order.affiliateId!,paymentMethod:"COD",...settlement,revenueSatang:shipment.codSatang,commissionBasis:order.salesCommissionBasis,commissionBps:order.salesCommissionBps}});
    if(hasActualDispatch(shipment))await reconcileSalesRecognition(tx,order,{...shipment,orderId:order.id},actor);else if(existingSale)await revokeSalesRecognition(tx,existingSale,actor,"ยังไม่ยืนยันจัดส่งจริง");

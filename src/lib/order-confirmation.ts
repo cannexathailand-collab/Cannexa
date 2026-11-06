@@ -3,28 +3,30 @@ import {displayCustomerCode} from './customer-code';
 import {userKey} from "./crypto";
 import type {OrderEvent} from "./order-intake";
 import {confirmationMessages,getOrderStockNotice} from './order-stock-notice';
+import {loadOrderReplyContext,type OrderReplyContext} from './order-reply-context';
 type Confirmation={orderNumber:string;status:string;payment:string|null;issues:unknown;sellerCode?:string|null;customerCode?:string|null};
 type Sale={status:string;commissionSatang:number|null;recognizedAt?:Date|null};
 type Seller={code:string;name:string};
 const line=(value:string)=>value.replace(/[\r\n]+/g," ").trim();
-export function orderConfirmationText(order:Confirmation,sale?:Sale|null,seller?:Seller|null){
- const sellerInfo=seller?"\nรหัสผู้ขาย: "+line(order.sellerCode??seller.code)+"\nชื่อผู้ขาย: "+line(seller.name)+"\nบันทึกให้ Affiliate: "+line(seller.code):"\nรหัสผู้ขาย: "+line(order.sellerCode??"ยังไม่ระบุ")+"\nยังไม่สามารถระบุบัญชีผู้ขายได้";
- const intro="บันทึกข้อมูลออเดอร์แล้ว\nเลขออเดอร์: "+order.orderNumber+(order.customerCode?'\nรหัสลูกค้า: '+line(displayCustomerCode(order.customerCode)):'')+sellerInfo;
- if(order.status==="NEEDS_REVIEW"){
+export function orderConfirmationText(order:Confirmation,sale?:Sale|null,seller?:Seller|null,context?:OrderReplyContext){
+ const amount=context?context.pendingSatang:(sale?.status==='PENDING'?sale.commissionSatang:null);
+ const currentReady=!!sale&&['PENDING','PAID'].includes(sale.status)&&sale.commissionSatang!==null&&(order.payment!=='COD'||!!sale.recognizedAt);
+ let commission=amount===null?'รอคำนวณ':(amount/100).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})+' บาท';
+ if(context&&amount!==null&&!currentReady&&order.payment!=='เคลม')commission+=' · รายการนี้รอคำนวณ';
+ const text=[
+  'บันทึกออเดอร์แล้ว',
+  'ผู้ขาย: '+line(seller?.name??order.sellerCode??'ยังไม่ระบุ')+' | ค่าคอมรอรับสะสม: '+commission,
+  'ลูกค้า: '+(order.customerCode?line(displayCustomerCode(order.customerCode)):'ยังไม่ระบุ')+' | สมาชิก: '+line(context?.membership??'ยังไม่ระบุ'),
+  'แต้มสะสม: '+(context?.points===null||context?.points===undefined?'รอข้อมูล':context.points.toLocaleString('th-TH')+' แต้ม')
+ ].join('\n');
+ if(order.status==='NEEDS_REVIEW'){
   const issues=Array.isArray(order.issues)?order.issues.map(String):['ข้อมูลไม่ครบ'];
-  const phoneWarning=issues.some(issue=>issue.includes('เบอร์โทร'))?'\n⚠️ กรุณาตรวจเบอร์โทรผู้รับให้ถูกต้อง ยกเลิกข้อความออเดอร์เดิมใน LINE แล้วส่งออเดอร์ที่แก้ไขแล้วอีกครั้ง':'';
-  return intro+phoneWarning+"\nต้องตรวจข้อมูลเพิ่มเติม: "+issues.join(" · ")+"\nยังไม่บันทึกยอดขายหรือค่าคอม";
+  const correction=issues.some(issue=>issue.includes('เบอร์โทร'))?' กรุณาตรวจเบอร์โทรผู้รับ ยกเลิกข้อความออเดอร์เดิมแล้วส่งข้อความที่แก้ไขใหม่':'';
+  return text+'\nต้องตรวจสอบ: '+issues.join(' · ')+correction;
  }
- if(order.payment==="เคลม")return intro+"\nรายการเคลม · รอต้นทุนสินค้าจากสต็อก\nไม่รวมค่าส่งในต้นทุนเคลม\nไม่เพิ่มยอดขายหรือค่าคอม";
- if(order.payment==="โอน"){
-  const transferIntro=intro+(sale?.recognizedAt?"\nยืนยันยอดขายจากรายการจัดส่งแล้ว":"\nยอดขายรอยืนยันจัดส่งจริง");
-  if(sale?.status==="WAITING_COST")return transferIntro+"\nบันทึกยอดโอนแล้ว\nค่าคอมรอต้นทุนสินค้า";
-  if(sale?.status==="PENDING"&&sale.commissionSatang!==null)return transferIntro+"\nบันทึกค่าคอมสำเร็จ ฿"+(sale.commissionSatang/100).toFixed(2)+" (ยอดรอจ่าย)\nคิดตามยอดโอนที่แจ้ง ไม่มีการตรวจสลิปอัตโนมัติ";
-  return transferIntro+"\nยังไม่บันทึกค่าคอม กรุณาตรวจยอดและรหัสผู้ขาย";
- }
- return intro+"\nCOD: รอจับคู่พัสดุกับรายงานรับเงิน COD\nยังไม่บันทึกยอดขายหรือค่าคอม";
+ return order.payment==='เคลม'?text+'\nรายการเคลม ไม่เพิ่มยอดขายหรือค่าคอม':text;
 }
-export async function replyOrderConfirmation(botId:string,event:OrderEvent,accessToken?:string){
+export async function replyOrderConfirmation(botId:string,event:OrderEvent,accessToken?:string,readContext=loadOrderReplyContext){
  if(event.type!=="message"||event.message?.type!=="text"||event.source.type!=="group"||!event.replyToken)return;
  const messageKey=userKey("order-message:"+botId+":"+event.message.id);
  const order=await db.orderIntake.findUnique({where:{messageKey}});
@@ -33,12 +35,14 @@ export async function replyOrderConfirmation(botId:string,event:OrderEvent,acces
  const claimed=await db.orderIntake.updateMany({where:{id:order.id,status:{notIn:["WITHDRAWN","EXPIRED","CANCELLED","RETURNED"]},replyStatus:{in:["NOT_SENT","FAILED","NOT_CONFIGURED"]},replyAttempts:{lt:2}},data:{replyStatus:"SENDING",replyAttempts:{increment:1},replyLastError:null}});
  if(!claimed.count)return;
  try{
-  const sale=order.payment==="โอน"?await db.salesOrder.findUnique({where:{orderId:order.id},select:{status:true,commissionSatang:true,recognizedAt:true}}):null;
+  const primary=await db.salesOrder.findUnique({where:{orderId:order.id}});
+  const extra=order.affiliateId&&primary?.affiliateId!==order.affiliateId?await db.additionalCommission.findUnique({where:{orderId_affiliateId:{orderId:order.id,affiliateId:order.affiliateId}}}):null;
+  const sale=extra?{status:extra.status,commissionSatang:extra.amountSatang,recognizedAt:primary?.recognizedAt}:primary?.affiliateId===order.affiliateId?primary:null;
   const seller=order.affiliateId?await db.affiliate.findUnique({where:{id:order.affiliateId},select:{code:true,name:true}}):null;
-  const notice=await getOrderStockNotice(order.id);
+  const [notice,context]=await Promise.all([getOrderStockNotice(order.id),readContext(order).catch(()=>({pendingSatang:null,membership:null,points:null}))]);
   const current=await db.orderIntake.findUnique({where:{id:order.id},select:{status:true}});
   if(!current||['WITHDRAWN','EXPIRED','CANCELLED','RETURNED'].includes(current.status))return;
-  const response=await fetch("https://api.line.me/v2/bot/message/reply",{method:"POST",headers:{Authorization:"Bearer "+accessToken,"Content-Type":"application/json"},body:JSON.stringify({replyToken:event.replyToken,messages:confirmationMessages(orderConfirmationText(order,sale,seller),notice)}),cache:"no-store",signal:AbortSignal.timeout(8000)});
+  const response=await fetch("https://api.line.me/v2/bot/message/reply",{method:"POST",headers:{Authorization:"Bearer "+accessToken,"Content-Type":"application/json"},body:JSON.stringify({replyToken:event.replyToken,messages:confirmationMessages(orderConfirmationText(order,sale,seller,context),notice)}),cache:"no-store",signal:AbortSignal.timeout(8000)});
   await db.orderIntake.update({where:{id:order.id},data:response.ok?{replyStatus:"SENT",repliedAt:new Date(),replyLastError:null}:{replyStatus:"FAILED",replyLastError:"LINE_HTTP_"+response.status}});
  }catch{await db.orderIntake.update({where:{id:order.id},data:{replyStatus:"FAILED",replyLastError:"DELIVERY_UNCONFIRMED"}});}
 }

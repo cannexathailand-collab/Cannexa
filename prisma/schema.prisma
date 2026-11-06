@@ -252,6 +252,8 @@ model SpecialCommission {
 }
 
 model AdditionalCommission {
+ commissionReadyAt DateTime?
+ @@index([affiliateId,commissionReadyAt])
  id String @id @default(cuid())
  orderId String
  affiliateId String
@@ -385,6 +387,8 @@ model CodReceipt {
 }
 
 model SalesOrder {
+ commissionReadyAt DateTime?
+ @@index([affiliateId,commissionReadyAt])
  id String @id @default(cuid())
  orderId String @unique
  tracking String? @unique

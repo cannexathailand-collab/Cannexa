@@ -8,6 +8,7 @@ import {report} from "@/lib/report";
 import {employeeOrders} from "@/lib/employee-orders";
 import {OrderCard} from "@/app/order-card";
 import {salesReport} from '@/lib/sales-report';
+import {pendingCommissionThisRound,noonCommissionWindow} from '@/lib/noon-commission';
 export default async function MyPerformance({searchParams}: {searchParams: Promise<{month?: string}>}){
  const a=await requireAdminPage(["employee"]);
  const [r]=a.affiliateId?await report("all",a.affiliateId):[];
@@ -17,11 +18,13 @@ export default async function MyPerformance({searchParams}: {searchParams: Promi
  const {orders,sales,shipments}=r?await employeeOrders(a.affiliateId,a.username,month):{orders:[],sales:[],shipments:[]};
  const [closed,referred]=r?await Promise.all([salesReport({month,seller:a.username}),salesReport({month,affiliateId:a.affiliateId!})]):[null,null];
  const money=(n:number)=>(n/100).toLocaleString('th-TH',{style:'currency',currency:'THB'});
+ const now=new Date(),round=noonCommissionWindow(now),roundAmount=r?await pendingCommissionThisRound(r.id,now):null;
+ const roundDate=(date:Date)=>date.toLocaleString('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
  const saleByOrder=new Map(sales.map(s=>[s.orderId,s]));
  const trackingByOrder=new Map(shipments.map(s=>[s.orderId,s.tracking]));
  const amount = (status: "Approved" | "Paid") => entries.reduce((sum, row) => sum + (row.status === status ? row.amountSatang : 0), 0) / 100;
  return <main className="center-page performance-page"><section className="customer"><h1>ผลงานของฉัน</h1>
- {r?<><p>{r.name} · {r.code}</p><dl>
+ {r?<><p>{r.name} · {r.code}</p><section className="employee-noon-commission" aria-label="ค่าคอมรอรับสะสมรอบปัจจุบัน"><span>ค่าคอมรอรับสะสม</span><strong>{money(roundAmount??0)}</strong><small>รอบ {roundDate(round.start)} – {roundDate(round.end)}</small><p>เริ่มรอบแสดงผลใหม่ทุกเที่ยง เฉพาะค่าคอมที่คำนวณแล้วและยังไม่จ่ายในรอบนี้</p></section><dl>
 
  <dt>เพื่อนใหม่</dt><dd>{r.approved}</dd>
  </dl><CommissionMonthSelect action="/my-performance" month={month} months={months}/><dl>

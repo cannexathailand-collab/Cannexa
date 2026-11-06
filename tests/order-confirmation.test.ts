@@ -1,32 +1,27 @@
-import {test} from "node:test";
-import assert from "node:assert/strict";
-import {db} from "../src/lib/db";
-import {orderConfirmationText,replyOrderConfirmation} from "../src/lib/order-confirmation";
-import type {OrderEvent} from "../src/lib/order-intake";
-process.env.USER_HASH_SECRET="confirmation-test-only";
-test('phone validation warning gives a correction path without claiming the number is active',()=>{
- const text=orderConfirmationText({orderNumber:'ORD-TEST',status:'NEEDS_REVIEW',payment:'COD',issues:['เบอร์โทรไม่ถูกต้อง']});
- assert.ok(text.includes('กรุณาตรวจเบอร์โทรผู้รับ'));assert.ok(text.includes('ยกเลิกข้อความออเดอร์เดิม'));assert.ok(text.includes('ยังไม่บันทึกยอดขายหรือค่าคอม'));
+import {test} from 'node:test';import assert from 'node:assert/strict';import {db} from '../src/lib/db';
+import {orderConfirmationText,replyOrderConfirmation} from '../src/lib/order-confirmation';import type {OrderEvent} from '../src/lib/order-intake';
+process.env.USER_HASH_SECRET='confirmation-test-only';
+const summary={pendingSatang:1250,membership:'Gold',points:150},seller={name:'อิ้ง',code:'11155'};
+const order={orderNumber:'ORD-TEST',payment:'โอน',status:'TRANSFER_RECORDED',issues:[],sellerCode:'Ink123',customerCode:'C0001'};
+test('confirmation uses the approved four-line format with cumulative commission, member tier and points',()=>{
+ const text=orderConfirmationText(order,{status:'PENDING',commissionSatang:200},seller,summary);
+ assert.equal(text,'บันทึกออเดอร์แล้ว\nผู้ขาย: อิ้ง | ค่าคอมรอรับสะสม: 12.50 บาท\nลูกค้า: C0001 | สมาชิก: Gold\nแต้มสะสม: 150 แต้ม');assert.ok(!text.includes('ORD-TEST'));assert.ok(!text.includes('บันทึกให้ Affiliate'));
 });
-test("confirmation identifies the linked affiliate and preserves submitted seller code",()=>{
- const o={orderNumber:"ORD-TEST",payment:"COD",status:"WAITING_SHIPMENT",issues:[],sellerCode:"Ink123"};
- const text=orderConfirmationText(o,null,{name:"อิ้ง",code:"11155"});
- assert.ok(text.includes("รหัสผู้ขาย: Ink123"));assert.ok(text.includes("ชื่อผู้ขาย: อิ้ง"));assert.ok(text.includes("บันทึกให้ Affiliate: 11155"));
- const unlinked=orderConfirmationText(o);assert.ok(unlinked.includes("ยังไม่สามารถระบุบัญชีผู้ขายได้"));assert.ok(!unlinked.includes("บันทึกให้ Affiliate:"));
+test('waiting COD never adds an unearned commission or claims received payment',()=>{
+ const text=orderConfirmationText({...order,payment:'COD',status:'WAITING_SHIPMENT'},null,seller,{...summary,pendingSatang:0});assert.ok(text.includes('0.00 บาท · รายการนี้รอคำนวณ'));assert.equal(text.split('\n').length,4);assert.ok(!text.includes('ยืนยันยอดขาย'));
 });
-const event:OrderEvent={webhookEventId:"event",timestamp:Date.now(),type:"message",source:{type:"group",groupId:"group"},message:{type:"text",id:"message",text:"รหัสผู้ขาย: ADM001"},replyToken:"test-reply-token"};
-test("unrecorded transfer confirmation never claims commission success",()=>{const text=orderConfirmationText({orderNumber:"ORD-TEST",payment:"โอน",status:"WAITING_SHIPMENT",issues:[]});assert.equal(text.includes("สลิปผ่าน"),false);assert.ok(text.includes("ยังไม่บันทึกค่าคอม"));assert.equal(text.includes("ค่าคอมสำเร็จ"),false);assert.ok(orderConfirmationText({orderNumber:"ORD-TEST",payment:"COD",status:"WAITING_SHIPMENT",issues:[]}).includes("รอจับคู่พัสดุกับรายงานรับเงิน COD"));});
-test("reply is sent once after stored order, and repeat delivery does not send twice",async t=>{
- const original={fetch:globalThis.fetch,find:db.orderIntake.findUnique,many:db.orderIntake.updateMany,update:db.orderIntake.update,seller:db.affiliate.findUnique};t.after(()=>{globalThis.fetch=original.fetch;db.orderIntake.findUnique=original.find;db.orderIntake.updateMany=original.many;db.orderIntake.update=original.update;db.affiliate.findUnique=original.seller;});
- db.affiliate.findUnique=(async({where}:any)=>{assert.equal(where.id,"linked-affiliate");return {name:"อิ้ง",code:"11155"};}) as any;
- const order={affiliateId:"linked-affiliate",sellerCode:"Ink123",id:"order",orderNumber:"ORD-TEST",payment:"COD",status:"WAITING_SHIPMENT",issues:[],replyStatus:"NOT_SENT",replyAttempts:0};let sends=0;
- db.orderIntake.findUnique=(async()=>order) as any;
- db.orderIntake.updateMany=(async({data}:any)=>{if(!["NOT_SENT","FAILED","NOT_CONFIGURED"].includes(order.replyStatus))return {count:0};Object.assign(order,{replyStatus:data.replyStatus,replyAttempts:order.replyAttempts+1});return {count:1};}) as any;
- db.orderIntake.update=(async({data}:any)=>Object.assign(order,data)) as any;
- globalThis.fetch=async(input,options)=>{assert.equal(input,"https://api.line.me/v2/bot/message/reply");const body=JSON.parse(String(options?.body));assert.equal(body.replyToken,event.replyToken);assert.ok(body.messages[0].text.includes("ORD-TEST"));assert.ok(body.messages[0].text.includes("ชื่อผู้ขาย: อิ้ง"));assert.ok(body.messages[0].text.includes("บันทึกให้ Affiliate: 11155"));sends++;return new Response(null,{status:200});};
- await replyOrderConfirmation("bot",event,"test-access-token");await replyOrderConfirmation("bot",event,"test-access-token");assert.equal(sends,1);assert.equal(order.replyStatus,"SENT");
+test('unknown context does not invent a customer, tier or points',()=>{const text=orderConfirmationText({...order,customerCode:null},null,null);assert.ok(text.includes('รอคำนวณ'));assert.ok(text.includes('สมาชิก: ยังไม่ระบุ'));assert.ok(text.includes('แต้มสะสม: รอข้อมูล'));});
+test('invalid phone warning retains the correction path and claim excludes new commission',()=>{
+ const text=orderConfirmationText({...order,status:'NEEDS_REVIEW',issues:['เบอร์โทรไม่ถูกต้อง']},null,seller,summary);assert.ok(text.includes('กรุณาตรวจเบอร์โทรผู้รับ'));assert.ok(text.includes('ยกเลิกข้อความออเดอร์เดิม'));
+ assert.ok(orderConfirmationText({...order,payment:'เคลม'},null,seller,summary).includes('ไม่เพิ่มยอดขายหรือค่าคอม'));
 });
-test("no stored order means no confirmation is sent",async t=>{const original=db.orderIntake.findUnique,fetchOriginal=globalThis.fetch;t.after(()=>{db.orderIntake.findUnique=original;globalThis.fetch=fetchOriginal;});db.orderIntake.findUnique=(async()=>null) as any;globalThis.fetch=async()=>{assert.fail("Must not send");};await replyOrderConfirmation("bot",event,"token");});
-test("recorded transfer confirmation states exact pending commission without claiming a verified slip",()=>{const text=orderConfirmationText({orderNumber:"ORD-TEST",payment:"โอน",status:"TRANSFER_RECORDED",issues:[]},{status:"PENDING",commissionSatang:1250});assert.ok(text.includes("บันทึกค่าคอมสำเร็จ ฿12.50"));assert.ok(text.includes("ไม่มีการตรวจสลิปอัตโนมัติ"));});
-test("claim confirmation waits for inventory costs and never claims commission or COD matching",()=>{const text=orderConfirmationText({orderNumber:"ORD-TEST",payment:"เคลม",status:"CLAIM_WAITING_COST",issues:[]});assert.ok(text.includes("รอต้นทุนสินค้าจากสต็อก"));assert.ok(text.includes("ไม่รวมค่าส่ง"));assert.ok(text.includes("ไม่เพิ่มยอดขายหรือค่าคอม"));assert.ok(!text.includes("ค่าคอมสำเร็จ"));assert.ok(!text.includes("COD"));});
-test("unshipped transfer reply does not announce recognized sales",()=>{const text=orderConfirmationText({orderNumber:"ORD-TEST",payment:"โอน",status:"TRANSFER_RECORDED",issues:[]},{status:"PENDING",commissionSatang:200,recognizedAt:null});assert.ok(text.includes("ยอดขายรอยืนยันจัดส่งจริง"));assert.ok(!text.includes("ยืนยันยอดขายจากรายการจัดส่งแล้ว"));});
+const event:OrderEvent={webhookEventId:'event',timestamp:Date.now(),type:'message',source:{type:'group',groupId:'group'},message:{type:'text',id:'message',text:'รหัสผู้ขาย: ADM001'},replyToken:'test-reply-token'};
+test('stored order sends compact reply once and duplicate delivery does not send twice',async t=>{
+ const restore:Array<()=>void>=[];const patch=(obj:any,key:string,value:any)=>{const old=obj[key];obj[key]=value;restore.push(()=>obj[key]=old);};t.after(()=>restore.reverse().forEach(fn=>fn()));
+ const stored={...order,affiliateId:'linked-affiliate',id:'order',replyStatus:'NOT_SENT',replyAttempts:0};let sends=0;
+ patch(db.affiliate,'findUnique',async()=>seller);patch(db.salesOrder,'findUnique',async()=>({affiliateId:'linked-affiliate',status:'PENDING',commissionSatang:200}));
+ patch(db.orderIntake,'findUnique',async()=>stored);patch(db.orderIntake,'updateMany',async({data}:any)=>{if(!['NOT_SENT','FAILED','NOT_CONFIGURED'].includes(stored.replyStatus))return {count:0};Object.assign(stored,{replyStatus:data.replyStatus,replyAttempts:stored.replyAttempts+1});return {count:1};});patch(db.orderIntake,'update',async({data}:any)=>Object.assign(stored,data));
+ patch(globalThis,'fetch',async(input:any,options:any)=>{assert.equal(input,'https://api.line.me/v2/bot/message/reply');const body=JSON.parse(options.body);assert.equal(body.replyToken,event.replyToken);assert.ok(body.messages[0].text.includes('ค่าคอมรอรับสะสม: 12.50 บาท'));assert.ok(!body.messages[0].text.includes('ORD-TEST'));sends++;return new Response(null,{status:200});});
+ await replyOrderConfirmation('bot',event,'test-access-token',async()=>summary);await replyOrderConfirmation('bot',event,'test-access-token',async()=>summary);assert.equal(sends,1);assert.equal(stored.replyStatus,'SENT');
+});
+test('no stored order sends no confirmation',async t=>{const old=db.orderIntake.findUnique;t.after(()=>{db.orderIntake.findUnique=old;});db.orderIntake.findUnique=(async()=>null) as any;await replyOrderConfirmation('bot',event,'token',async()=>summary);});

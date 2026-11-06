@@ -48,13 +48,13 @@ test('one LINE reply includes the shortage warning and concurrent redelivery can
  const restore:Array<()=>void>=[];const patch=(obj:any,key:string,value:any)=>{const old=obj[key];obj[key]=value;restore.push(()=>obj[key]=old);};t.after(()=>restore.reverse().forEach(fn=>fn()));
  process.env.USER_HASH_SECRET??='stock-notice-test';
  const order:any={id:'order',orderNumber:'TEST-ORDER',status:'WAITING_SHIPMENT',payment:'COD',affiliateId:null,replyStatus:'NOT_SENT',replyAttempts:0};
- patch(db.orderIntake,'findUnique',async()=>order);
+ patch(db.orderIntake,'findUnique',async()=>order);patch(db.salesOrder,'findUnique',async()=>null);
  patch(db.orderIntake,'updateMany',async()=>{if(order.replyStatus!=='NOT_SENT')return {count:0};order.replyStatus='SENDING';return {count:1};});
  patch(db.orderIntake,'update',async({data}:any)=>Object.assign(order,data));
  patch(db.stockWorkflow,'findUnique',async()=>({enabled:true}));patch(db,'$transaction',async(fn:any)=>fn(db));patch(db,'$queryRawUnsafe',async()=>[{locked:true}]);
  patch(db.auditLog,'findUnique',async()=>({details:noticeFromReservation([item],plan(),new Date())}));
- let sends=0;patch(globalThis,'fetch',async(url:string,init:any)=>{assert.equal(url,'https://api.line.me/v2/bot/message/reply');const body=JSON.parse(init.body);assert.match(body.messages.map((m:any)=>m.text).join('\n'),/เหลือเพียง 50 กรัม ไม่พอขาย/);assert.match(body.messages[0].text,/TEST-ORDER/);sends++;return new Response(null,{status:200});});
+ let sends=0;patch(globalThis,'fetch',async(url:string,init:any)=>{assert.equal(url,'https://api.line.me/v2/bot/message/reply');const body=JSON.parse(init.body);assert.match(body.messages.map((m:any)=>m.text).join('\n'),/เหลือเพียง 50 กรัม ไม่พอขาย/);assert.match(body.messages[0].text,/บันทึกออเดอร์แล้ว/);sends++;return new Response(null,{status:200});});
  const event:any={type:'message',source:{type:'group'},message:{type:'text',id:'message'},replyToken:'fake',webhookEventId:'event',timestamp:Date.now()};
- await Promise.all([replyOrderConfirmation('bot',event,'test'),replyOrderConfirmation('bot',event,'test')]);assert.equal(sends,1);assert.equal(order.replyStatus,'SENT');
- order.status='RETURNED';order.replyStatus='NOT_SENT';await replyOrderConfirmation('bot',event,'test');assert.equal(sends,1);
+ await Promise.all([replyOrderConfirmation('bot',event,'test',async()=>({pendingSatang:null,membership:null,points:null})),replyOrderConfirmation('bot',event,'test',async()=>({pendingSatang:null,membership:null,points:null}))]);assert.equal(sends,1);assert.equal(order.replyStatus,'SENT');
+ order.status='RETURNED';order.replyStatus='NOT_SENT';await replyOrderConfirmation('bot',event,'test',async()=>({pendingSatang:null,membership:null,points:null}));assert.equal(sends,1);
 });

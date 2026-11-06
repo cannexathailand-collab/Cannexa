@@ -19,7 +19,7 @@ export async function processAdditionalCommissions(){
   if(sale.status!=='WAITING_COST'||!sale.recognizedAt||!order||['CANCELLED','WITHDRAWN','RETURNED','EXPIRED'].includes(order.status)||cost?.status!=='POSTED'||cost.totalCostSatang===null)return;
   const freight=await commissionFreight(tx,sale.orderId,sale.commissionBasis),amount=additionalCommissionAmount(sale.commissionBasis,sale.commissionBps,sale.revenueSatang,cost.totalCostSatang,freight);
   if(amount===null)return;
-  await tx.salesOrder.update({where:{id:sale.id},data:{status:'PENDING',commissionSatang:amount}});
+  await tx.salesOrder.update({where:{id:sale.id},data:{status:'PENDING',commissionSatang:amount,commissionReadyAt:sale.commissionReadyAt??new Date()}});
  });
  const [pending,paid]=await Promise.all([db.additionalCommission.findMany({where:{status:{notIn:['PAID','CANCELLED']}},orderBy:{createdAt:'asc'},take:500}),db.additionalCommission.findMany({where:{status:'PAID',reversedAt:null}})]);
  const open=paid.length?await db.orderIntake.findMany({where:{id:{in:paid.map(p=>p.orderId)},status:{notIn:['CANCELLED','WITHDRAWN','RETURNED','EXPIRED']}},select:{id:true}}):[],openIds=new Set(open.map(o=>o.id));
@@ -35,6 +35,6 @@ export async function processAdditionalCommissions(){
   if(!sale?.recognizedAt){if(row.status!=='WAITING_SALE')await tx.additionalCommission.update({where:{id:row.id},data:{status:'WAITING_SALE',amountSatang:null}});return;}
   const freight=await commissionFreight(tx,row.orderId,row.basis);
   const amount=additionalCommissionAmount(row.basis,row.bps,sale.revenueSatang,cost?.status==='POSTED'?cost.totalCostSatang:null,freight);
-  await tx.additionalCommission.update({where:{id:row.id},data:{status:amount===null?'WAITING_COST':'PENDING',amountSatang:amount}});
+  await tx.additionalCommission.update({where:{id:row.id},data:{status:amount===null?'WAITING_COST':'PENDING',amountSatang:amount,commissionReadyAt:row.commissionReadyAt??(amount===null?null:new Date())}});
  });
 }
