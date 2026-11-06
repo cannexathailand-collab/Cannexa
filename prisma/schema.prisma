@@ -215,6 +215,20 @@ model CrmMembershipReview {
  @@unique([customerCode,month])
  @@index([month])
 }
+model CrmPointPromotion {
+ id String @id @default(cuid())
+ requestKey String @unique
+ name String
+ enabled Boolean @default(false)
+ startsAt DateTime
+ endsAt DateTime
+ minimumSatang Int
+ bonusType String @default("POINTS")
+ bonusValue Int
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@index([enabled,startsAt,endsAt])
+}
 model MetaPurchase {
  orderId String @id
  eventId String @unique

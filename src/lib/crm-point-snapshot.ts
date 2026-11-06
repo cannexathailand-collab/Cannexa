@@ -12,5 +12,6 @@ export async function capturePointSnapshot(tx:Prisma.TransactionClient,customerC
   const report=await crmTierReport(tx,at);
   tier=pointTierKey(report.tiers.get(customerCode)?.name??'ลูกค้าใหม่');
  }
- return {version:1,ruleId:rule.id,enabled:rule.enabled,tier,pointsPerThousand:rates[tier]};
+ const promotions=rule.enabled?await tx.crmPointPromotion.findMany({where:{enabled:true,startsAt:{lte:at},endsAt:{gt:at}},select:{id:true,name:true,minimumSatang:true,bonusType:true,bonusValue:true}}):[];
+ return {version:1,ruleId:rule.id,enabled:rule.enabled,tier,pointsPerThousand:rates[tier],promotions:promotions.map(p=>({...p,bonusType:p.bonusType as 'POINTS'|'PERCENT'}))};
 }
