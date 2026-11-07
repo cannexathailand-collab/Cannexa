@@ -1,0 +1,6 @@
+'use client';
+import {useState} from 'react';
+export function CustomerAccessButton({code,linked}:{code:string;linked:boolean}){
+ const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[url,setUrl]=useState('');
+ return <div style={{margin:'18px 0'}}>{linked?<p className="notice live">ผูก LINE แล้ว · ลูกค้าเข้าสู่หน้าลูกค้าด้วย LINE ของตนเองได้</p>:<><button type="button" disabled={busy} onClick={async()=>{setBusy(true);setMessage('');try{const r=await fetch('/api/admin/customer-access',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code}),signal:AbortSignal.timeout(15000)});const data=await r.json();if(!r.ok)throw Error(data.error||'สร้างลิงก์ไม่สำเร็จ');setUrl(data.url);try{await navigator.clipboard.writeText(data.url);setMessage('คัดลอกลิงก์แล้ว ส่งให้ลูกค้ารายนี้เท่านั้น ลิงก์ใช้ครั้งเดียวภายใน 24 ชั่วโมง');}catch{setMessage('สร้างลิงก์แล้ว กรุณาคัดลอกจากช่องด้านล่าง');}}catch(e){setMessage(e instanceof Error?e.message:'สร้างลิงก์ไม่สำเร็จ');}finally{setBusy(false);}}}>{busy?'กำลังสร้างลิงก์…':'สร้างลิงก์ให้ลูกค้าผูก LINE'}</button>{url&&<label>ลิงก์ส่วนตัวสำหรับลูกค้ารายนี้<input value={url} readOnly onFocus={event=>event.currentTarget.select()}/></label>}</>}{message&&<p role="status">{message}</p>}</div>;
+}

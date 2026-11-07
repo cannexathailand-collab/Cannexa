@@ -73,10 +73,20 @@ model OAuthAttempt {
  browserHash String
  verifier String
  nonce String
- clickId String
- click Click @relation(fields:[clickId],references:[id])
+ purpose String @default("AFFILIATE")
+ customerLinkHash String?
+ clickId String?
+ click Click? @relation(fields:[clickId],references:[id])
  expiresAt DateTime
  consumedAt DateTime?
+}
+model CustomerAccessLink {
+ tokenHash String @id
+ customerCode String
+ createdBy String
+ expiresAt DateTime
+ usedAt DateTime?
+ customer Customer @relation(fields:[customerCode],references:[code],onDelete:Cascade)
 }
 model Conversion {
  id String @id @default(cuid())
@@ -176,6 +186,7 @@ model Customer {
  legacy Boolean @default(false)
  createdAt DateTime @default(now())
  orders OrderIntake[]
+ accessLinks CustomerAccessLink[]
 }
 model CustomerCodeDelivery {
  userKey String @id

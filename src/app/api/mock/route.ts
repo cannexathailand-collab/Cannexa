@@ -7,6 +7,7 @@ import {sameOrigin,cookieOptions} from "@/lib/auth";
 export async function POST(req:NextRequest){
  if(!mockMode())return new Response("Not found",{status:404});
  await sameOrigin();const f=await req.formData();const a=await consume(String(f.get("state")??""));
+ if(!a.clickId||a.purpose!=='AFFILIATE')return new Response('Invalid login purpose',{status:400});
  const scenario=String(f.get("scenario"));const identity=String(f.get("identity")??"demo-customer").slice(0,100);const key=userKey("MOCK:"+identity);
  if(scenario==="unblocked")await webhook({id:"mock-"+random(),key,type:"follow",at:new Date(),unblocked:true});
  if(scenario==="existing")await webhook({id:"mock-"+random(),key,type:"follow",at:new Date(Date.now()-86400000),unblocked:false});
