@@ -20,12 +20,14 @@ export async function receiveOrderEvent(botId:string,e:OrderEvent,stockReader?:S
  if(e.type==="unsend"&&e.unsend){
   const messageKey=userKey("order-message:"+botId+":"+e.unsend.messageId);
   await transaction(async tx=>{
+   await userLock(tx,'shipment-matching');
    await userLock(tx,messageKey);
    await tx.orderMessageWithdrawal.upsert({where:{messageKey},create:{messageKey},update:{}});
    const orders=await tx.orderIntake.findMany({where:{messageKey,groupKey},select:{id:true}});
    if(orders.length)await reverseOrderSales(tx,orders.map(o=>o.id));
    if(orders.length){
     await tx.shipment.updateMany({where:{orderId:{in:orders.map(o=>o.id)},status:{not:"RETURNED"}},data:{status:"CANCELLED",fulfillmentStatus:"CANCELLED"}});
+    await tx.shipment.updateMany({where:{orderId:{in:orders.map(o=>o.id)}},data:{orderId:null}});
     await tx.orderIntake.deleteMany({where:{messageKey,groupKey}});
     for(const order of orders)await tx.auditLog.create({data:{actor:"line-unsend",action:"CANCELLED_ORDER_REMOVED",entityId:order.id,details:{}}});
    }
