@@ -7,6 +7,8 @@ import {CustomerPanels} from './customer-panels';
 import {CustomerOrderHistory} from './order-history';
 import {CustomerPromotions} from './promotions';
 import {CustomerGreenCoin} from './green-coin';
+import {CustomerShop} from './shop';
+import {loadCustomerCatalog} from '@/lib/customer-catalog';
 
 export async function OwnerCustomerView({params}:{params:{q?:string;customer?:string}}){
  const query=typeof params.q==='string'?params.q.trim().slice(0,100):'';
@@ -24,6 +26,7 @@ export async function OwnerCustomerView({params}:{params:{q?:string;customer?:st
  ]):[null,null];
  const summary=selected?summaries?.get(selected.code):null;
  const balance=Math.max(0,summary?.availablePoints??0);
+ const catalog=selected?await loadCustomerCatalog():null;
  return <main className="customer-portal">
   <header className="portal-header"><Link href="/customer" className="portal-brand">Customer</Link><Link href="/admin">กลับหลังบ้าน</Link></header>
   <section className="portal-section">
@@ -49,7 +52,7 @@ export async function OwnerCustomerView({params}:{params:{q?:string;customer?:st
     <MemberCard level={member?.level??'Bronze'} name={[selected.title??'คุณ',selected.name].filter(Boolean).join(' ')} code={displayCustomerCode(selected.code)}/>
     <section className="portal-coin-balance" aria-label="ยอด Green Coin"><h2>Green Coin</h2><span className="portal-coin-mark" aria-hidden="true">G</span><strong>{balance.toLocaleString('th-TH')}</strong><span>เหรียญคงเหลือ</span></section>
    </div>
-   <CustomerPanels key={selected.code} readOnly orders={<CustomerOrderHistory history={summary?.allHistory??[]}/>} profile={
+   <CustomerPanels key={selected.code} readOnly shop={<CustomerShop customerCode={selected.code} initialCatalog={catalog!} readOnly/>} orders={<CustomerOrderHistory history={summary?.allHistory??[]}/>} profile={
     <section className="portal-section"><h2>ข้อมูลส่วนตัว</h2><div className="portal-profile">
      <label>คำนำหน้า<input value={selected.title??''} readOnly/></label>
      <label>ชื่อผู้รับ<input value={selected.name??''} readOnly/></label>

@@ -2,9 +2,14 @@ import {admin} from '@/lib/auth';
 import {approvers} from '@/lib/accounts';
 import {db} from '@/lib/db';
 import {stockCode} from '@/lib/stock-code';
+import {customerCatalogAccess} from '@/lib/customer-catalog';
 
 export async function GET(request:Request,{params}:{params:Promise<{code:string}>}){
- try{await admin(approvers);}catch{return new Response('Forbidden',{status:403,headers:{'Cache-Control':'no-store'}});}
+ try{await admin(approvers);}catch(error){
+  if(!(error instanceof Error)||!['UNAUTHORIZED','FORBIDDEN'].includes(error.message))throw error;
+  const access=await customerCatalogAccess();
+  if(access!=='owner'&&access!=='customer')return new Response('Forbidden',{status:403,headers:{'Cache-Control':'no-store'}});
+ }
  const parsed=stockCode.safeParse((await params).code);
  const version=new URL(request.url).searchParams.get('v');
  if(!parsed.success||!version||!/^[a-f0-9]{64}$/.test(version))return new Response('Not found',{status:404,headers:{'Cache-Control':'no-store'}});

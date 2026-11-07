@@ -4,14 +4,14 @@ import {useRef,useState,type ReactNode} from 'react';
 import {useRouter} from 'next/navigation';
 import {CustomerPasswordForm} from './password/password-form';
 
-export function CustomerPanels({orders,profile,promotions,coins,passwordRequiresCurrent=false,readOnly=false}:{orders:ReactNode;profile:ReactNode;promotions:ReactNode;coins:ReactNode;passwordRequiresCurrent?:boolean;readOnly?:boolean}){
+export function CustomerPanels({orders,shop,profile,promotions,coins,passwordRequiresCurrent=false,readOnly=false}:{orders:ReactNode;shop:ReactNode;profile:ReactNode;promotions:ReactNode;coins:ReactNode;passwordRequiresCurrent?:boolean;readOnly?:boolean}){
  const [active,setActive]=useState('orders');
  const router=useRouter();
  const buttons=useRef<Array<HTMLButtonElement|null>>([]);
- const tabs=[{id:'orders',label:'ออเดอร์ของฉัน'},{id:'profile',label:'ข้อมูลส่วนตัว'},...(!readOnly?[{id:'password',label:'เปลี่ยนรหัสผ่าน'}]:[]),{id:'promotions',label:'โปรโมชั่น'},{id:'coins',label:'Green Coin'}];
+ const tabs=[{id:'orders',label:'ออเดอร์ของฉัน'},{id:'shop',label:'Shop'},{id:'profile',label:'ข้อมูลส่วนตัว'},...(!readOnly?[{id:'password',label:'เปลี่ยนรหัสผ่าน'}]:[]),{id:'promotions',label:'โปรโมชั่น'},{id:'coins',label:'Green Coin'}];
  function selectTab(id:string){
   setActive(id);
-  if(id==='promotions'||id==='coins')router.refresh();
+  if(id==='promotions'||id==='coins'||id==='shop')router.refresh();
  }
 
  return <>
@@ -39,6 +39,7 @@ export function CustomerPanels({orders,profile,promotions,coins,passwordRequires
    </div>
   </nav>
   <div id="panel-orders" role="tabpanel" aria-labelledby="tab-orders" hidden={active!=='orders'}>{orders}</div>
+  <div id="panel-shop" role="tabpanel" aria-labelledby="tab-shop" hidden={active!=='shop'}>{shop}</div>
   <div id="panel-profile" role="tabpanel" aria-labelledby="tab-profile" hidden={active!=='profile'}>{profile}</div>
   {!readOnly&&<div id="panel-password" role="tabpanel" aria-labelledby="tab-password" hidden={active!=='password'}>
    <section className="portal-section"><h2>เปลี่ยนรหัสผ่าน</h2><CustomerPasswordForm setup reset inline requiresCurrentPassword={passwordRequiresCurrent}/></section>
