@@ -6,6 +6,7 @@ const labels:Record<Key,string>={seller:'รหัสผู้ขาย|ผู�
 const heading=Object.values(labels).join('|');
 const productPattern=/^[A-Za-z][A-Za-z0-9._-]*\s*(?:[x×*]\s*)?\d+(?:\.\d+)?\s*(?:kg|g|กรัม|กิโลกรัม|ชิ้น|กล่อง)(?:\s.*)?$/i;
 const metadata=/^(?:L\.|LINE\s*[:.]|ไลน์\s*[:：]|ผู้รับ\s*$|ผู้ส่ง\s*$|หมายเหตุ\s*[:：]|ขอบคุณ|ฝาก|รบกวน)/i;
+const politeOnly=/^(?:(?:ครับ|ผม|ค่ะ|คะ|จ้า|จ้ะ|นะ|ด้วย|ขอบคุณ|thank you|thanks|please)[\s!,.🙏]*)+$/i;
 const addressSignal=/บ้านเลขที่|เลขที่|ตำบล|อำเภอ|จังหวัด|แขวง|เขต|ถนน|ซอย|หมู่|กรุงเทพ|[ตอจถซม]\.\s*|\b\d{5}\b/;
 const phonePattern=/(?<!\d)(?:\+?66(?:0)?\d{8,9}|0\d{8,9})(?!\d)/g;
 const paymentPattern=/^(C[.\s]*O[.\s]*D\.?|เก็บเงินปลายทาง|เก็บปลายทาง|ปลายทาง|โอนแล้ว|โอนเงิน|โอน|เคลม|เครม|claim)(?:\s*[.:=\-]?\s*฿?\s*([\d,]+(?:\.\d{1,2})?)(?:\.-)?\s*(?:บาท|฿)?)?\s*[.:]?$/i;
@@ -47,7 +48,7 @@ export function analyzeOrderDraft(text:string):DraftAnalysis{
   const matches=phones(line);phoneValues.push(...matches);
   let remaining=line;
   if(matches.length){remaining=line.replace(/(?:เบอร์โทรศัพท์|เบอร์โทร|โทรศัพท์|โทร|เบอร์|phone|tel)?\s*[:=]?\s*(?:\+?66(?:0)?|0)[\d\s()-]{7,}/i,'').trim();if(!remaining){used.add(index);continue;}}
-  free.push(cleanPrefix(remaining));
+  remaining=cleanPrefix(remaining);if(politeOnly.test(remaining)){used.add(index);continue;}free.push(remaining);
  }
  if(products.length)add('products',products.join('\n'));
  if(!values.has('phone'))for(const phone of phoneValues)add('phone',phone);

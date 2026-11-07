@@ -39,3 +39,9 @@ test('COD accepts capitalization, punctuation and separators around amount',()=>
  const result=analyzeOrderDraft('95/36หมู่6 ต.ตัวอย่าง อ.เมือง จ.ทดสอบ\nนครนายก,26000\nโทร เบอร์0812345678ครับ\nAF1. 5g\nCod. 285\nทดสอบ');assert.equal(result.fields.payment,'COD');assert.equal(result.fields.recipient,'ทดสอบ');assert.equal(result.fields.phone,'0812345678');
  for(const [text,payment]of [['ปลายทาง 285','COD'],['โอน.','โอน'],['เคลม.','เคลม'],['CLAIM','เคลม']])assert.equal(analyzeOrderDraft(text).fields.payment,payment);
 });
+test('conversational endings on the phone line do not become another recipient',()=>{
+ for(const ending of ['ครับ','ค่ะ','คะ','ครับผม','นะครับ','นะคะ','ขอบคุณครับ','ขอบคุณค่ะ','thanks','please']){
+  const result=analyzeOrderDraft('14 ห้องตัวอย่าง ถ.ทดลอง แขวงตัวอย่าง\nเขตตัวอย่าง กรุงเทพ 10528\nทดสอบ ใจดี\n0812345678 '+ending+'\nAF5 10g\nCod 510');
+  assert.deepEqual(result.issues,{},ending);assert.equal(result.fields.recipient,'ทดสอบ ใจดี',ending);assert.equal(result.fields.phone,'0812345678',ending);assert.equal(result.fields.amount,'510.00',ending);
+ }
+});
