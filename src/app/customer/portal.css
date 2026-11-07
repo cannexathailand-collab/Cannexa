@@ -36,9 +36,9 @@
 .portal-coin-balance>strong {font-size:clamp(28px,4vw,48px);font-weight:700;line-height:1.2;color:#493714;overflow-wrap:anywhere;max-width:100%;font-variant-numeric:tabular-nums}
 .portal-coin-balance>span:last-child {font-size:13px;color:#685329;margin-top:9px}
 .portal-tabs {display:flex;gap:8px;padding:6px;background:#ffffff07;border:1px solid #c3d5c326;border-radius:15px;margin:0 0 25px}
-.portal-tabs a {flex:1;display:flex;align-items:center;justify-content:center;min-height:44px;padding:10px 12px;border-radius:10px;font-size:14px;font-weight:500;text-align:center;color:#e4eade;line-height:1.5}
-.portal-tabs a:hover {background:#d7c18a18;color:#f6e5bb}
-.portal-tabs a:first-child {background:#d8c38c;color:#253c2d;font-weight:600}
+.portal-tabs a,.portal-tab-controls button {background:transparent;flex:1;display:flex;align-items:center;justify-content:center;min-height:44px;padding:10px 12px;border-radius:10px;font-size:14px;font-weight:500;text-align:center;color:#e4eade;line-height:1.5}
+.portal-tabs a:hover,.portal-tab-controls button:hover {background:#d7c18a18;color:#f6e5bb}
+.portal-tab-controls button[aria-selected=true] {background:#d8c38c;color:#253c2d;font-weight:600}
 .portal-section {background:#fbfcf8;color:#173b2c;border:1px solid #e9eddf;border-radius:19px;padding:27px 28px;margin:20px 0;scroll-margin-top:18px;box-shadow:0 12px 30px #00000012}
 .portal-section h2 {font-size:21px;font-weight:600;letter-spacing:0;margin:0}
 .portal-section-title {display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
@@ -92,7 +92,7 @@
  .portal-coin-balance>strong {font-size:30px}
  .portal-coin-balance>span:last-child {font-size:10px;margin-top:6px}
  .portal-tabs {gap:4px;padding:4px;margin-bottom:20px;border-radius:12px}
- .portal-tabs a {font-size:14px;padding:9px 5px;min-height:42px}
+ .portal-tabs a,.portal-tab-controls button {font-size:14px;padding:9px 5px;min-height:42px}
  .portal-section {padding:22px 18px;border-radius:16px}
  .portal-section h2 {font-size:19px}
  .portal-section-title>span {font-size:12px}
@@ -104,3 +104,6 @@
  .portal-empty {padding:24px 5px;font-size:15px}
  .portal-empty small {font-size:12px}
 }
+.portal-tab-controls {display:flex;flex:2;gap:8px;min-width:0}
+.portal-tab-controls button:focus-visible {outline:2px solid #ecd59a;outline-offset:2px}
+@media(max-width:600px){.portal-tab-controls{gap:4px}}
