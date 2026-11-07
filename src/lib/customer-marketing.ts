@@ -13,14 +13,16 @@ import {ownerEmployeeCookie} from './employee-view';
 
 export const marketingCookie='customer_marketing_pending';
 export const marketingDuration=600;
-type MarketingPending={purpose:'CUSTOMER_MARKETING_PENDING';clickId:string;key:string;exp:number};
+type MarketingPending={purpose:'CUSTOMER_MARKETING_PENDING';clickId:string;key:string;exp:number;retries?:number};
 
-export function marketingPendingToken(clickId:string,key:string){
- return signToken({purpose:'CUSTOMER_MARKETING_PENDING',clickId,key,exp:Date.now()+marketingDuration*1000});
+export function marketingPendingToken(clickId:string,key:string,retries:0|1=0){
+ return signToken({purpose:'CUSTOMER_MARKETING_PENDING',clickId,key,retries,exp:Date.now()+marketingDuration*1000});
 }
 export function readMarketingPending(value:string){
  const token=readToken<MarketingPending>(value);
- return token?.purpose==='CUSTOMER_MARKETING_PENDING'&&typeof token.clickId==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(token.clickId)&&typeof token.key==='string'&&/^[a-f0-9]{64}$/.test(token.key)&&typeof token.exp==='number'&&token.exp>Date.now()?token:null;
+ if(token?.purpose!=='CUSTOMER_MARKETING_PENDING'||typeof token.clickId!=='string'||!/^[A-Za-z0-9_-]{1,100}$/.test(token.clickId)||typeof token.key!=='string'||!/^[a-f0-9]{64}$/.test(token.key)||typeof token.exp!=='number'||token.exp<=Date.now())return null;
+ const retries=token.retries??0;
+ return retries===0||retries===1?{...token,retries}:null;
 }
 export async function marketingPending(){return readMarketingPending((await cookies()).get(marketingCookie)?.value??'');}
 export function clearMarketingCustomerSessions(response:NextResponse){
@@ -35,7 +37,8 @@ function marketingFailure(error:'unavailable'|'expired'){
 export async function startCustomerMarketing(request:NextRequest,recheck=false){
  const connection=mockMode()?null:await lineSettings();
  if(!connection)return marketingFailure('unavailable');
- const pending=recheck?readMarketingPending(request.cookies.get(marketingCookie)?.value??''):null;
+ const fresh=request.nextUrl.searchParams.get('fresh')==='1';
+ const pending=recheck||!fresh?readMarketingPending(request.cookies.get(marketingCookie)?.value??''):null;
  if(recheck&&!pending)return marketingFailure('expired');
  const link=await db.trackingLink.findFirst({where:{affiliate:{code:metaAdCode,active:true,archivedAt:null}}});
  if(!link)return marketingFailure('unavailable');
@@ -46,7 +49,7 @@ export async function startCustomerMarketing(request:NextRequest,recheck=false){
  const original=pending?await db.click.findFirst({where:{id:pending.clickId,customerLanding:true,userKey:pending.key,affiliateId:link.affiliateId}}):null;
  if(pending&&!original)return marketingFailure('expired');
  const state=random(),verifier=random(),nonce=random();
- const browser=pending?signToken({purpose:'CUSTOMER_MARKETING_RECHECK',clickId:pending.clickId,key:pending.key,nonce:random(),exp:Date.now()+marketingDuration*1000}):random();
+ const browser=pending?signToken({purpose:'CUSTOMER_MARKETING_RECHECK',clickId:pending.clickId,key:pending.key,retries:pending.retries,nonce:random(),exp:Date.now()+marketingDuration*1000}):random();
  const attempt={purpose:pending?'CUSTOMER_MARKETING_RECHECK':'CUSTOMER_MARKETING',lineRevision:connection.revision,stateHash:sha(state),browserHash:sha(browser),verifier,nonce,expiresAt:new Date(Date.now()+marketingDuration*1000)};
  if(original)await db.oAuthAttempt.create({data:{...attempt,clickId:original.id}});
  else await db.click.create({data:{affiliateId:link.affiliateId,linkId:link.id,source:'LINE',customerLanding:true,oauth:{create:attempt}}});

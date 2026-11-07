@@ -34,19 +34,22 @@ export async function GET(req:NextRequest){
    if(!a.clickId)throw Error('Missing marketing click');
    const click=await db.click.findUnique({where:{id:a.clickId},select:{customerLanding:true}});
    if(!click?.customerLanding)throw Error('Invalid marketing click');
+   let retries=0;
    if(a.purpose==='CUSTOMER_MARKETING_RECHECK'){
-    const browser=readToken<{purpose?:string;clickId?:string;key?:string;exp?:number}>(req.cookies.get('oauth_'+sha(state).slice(0,16))?.value??'');
-    if(browser?.purpose!=='CUSTOMER_MARKETING_RECHECK'||browser.clickId!==a.clickId||browser.key!==key||typeof browser.exp!=='number'||browser.exp<=Date.now())throw Error('Marketing identity changed');
+    const browser=readToken<{purpose?:string;clickId?:string;key?:string;exp?:number;retries?:number}>(req.cookies.get('oauth_'+sha(state).slice(0,16))?.value??'');
+    if(browser?.purpose!=='CUSTOMER_MARKETING_RECHECK'||browser.clickId!==a.clickId||browser.key!==key||typeof browser.exp!=='number'||browser.exp<=Date.now()||browser.retries!==undefined&&browser.retries!==0&&browser.retries!==1)throw Error('Marketing identity changed');
+    retries=browser.retries??0;
    }
    const conversion=await recordLogin(a.clickId,key,result.friendFlag,changed==='true'?true:changed==='false'?false:null);
-   const response=NextResponse.redirect(baseUrl()+(result.friendFlag===true?'/customer':'/marketing/connect'));
+   const destination=result.friendFlag===true?baseUrl()+'/customer':retries===0?baseUrl()+'/marketing/recheck':lineCustomerDestination(connection.settings.basicId,false);
+   const response=NextResponse.redirect(destination);
    clearMarketingCustomerSessions(response);
    if(result.friendFlag===true){
     const customer=await completeCustomerMarketing(a.clickId,key,conversion);
     response.cookies.set(portalCookie,portalToken(key),{...cookieOptions,maxAge:portalDuration});
     if(!customer.portalRegistrationPending)response.cookies.set(portalAccessCookie,portalAccessToken(key,customer.code),{...cookieOptions,maxAge:portalDuration});
     response.cookies.delete(marketingCookie);
-   }else response.cookies.set(marketingCookie,marketingPendingToken(a.clickId,key),{...cookieOptions,maxAge:marketingDuration});
+   }else response.cookies.set(marketingCookie,marketingPendingToken(a.clickId,key,1),{...cookieOptions,maxAge:marketingDuration});
    response.cookies.delete('oauth_'+sha(state).slice(0,16));
    return response;
   }
