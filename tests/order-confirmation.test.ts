@@ -5,12 +5,12 @@ const summary={pendingSatang:1250,membership:'Gold',points:150},seller={name:'�
 const order={orderNumber:'ORD-TEST',payment:'โอน',status:'TRANSFER_RECORDED',issues:[],sellerCode:'Ink123',customerCode:'C0001'};
 test('confirmation uses the approved four-line format with cumulative commission, member tier and points',()=>{
  const text=orderConfirmationText(order,{status:'PENDING',commissionSatang:200},seller,summary);
- assert.equal(text,'บันทึกออเดอร์แล้ว\nผู้ขาย: อิ้ง | ค่าคอมรอรับสะสม: 12.50 บาท\nลูกค้า: C0001 | สมาชิก: Gold\nแต้มสะสม: 150 แต้ม');assert.ok(!text.includes('ORD-TEST'));assert.ok(!text.includes('บันทึกให้ Affiliate'));
+ assert.equal(text,'บันทึกออเดอร์แล้ว\nผู้ขาย: อิ้ง | ค่าคอมรอรับสะสม: 12.50 บาท\nลูกค้า: C0001 | Member: Gold\nGreen Coin: 150 Green Coin');assert.ok(!text.includes('ORD-TEST'));assert.ok(!text.includes('บันทึกให้ Affiliate'));
 });
 test('waiting COD never adds an unearned commission or claims received payment',()=>{
  const text=orderConfirmationText({...order,payment:'COD',status:'WAITING_SHIPMENT'},null,seller,{...summary,pendingSatang:0});assert.ok(text.includes('0.00 บาท · รายการนี้รอคำนวณ'));assert.equal(text.split('\n').length,4);assert.ok(!text.includes('ยืนยันยอดขาย'));
 });
-test('unknown context does not invent a customer, tier or points',()=>{const text=orderConfirmationText({...order,customerCode:null},null,null);assert.ok(text.includes('รอคำนวณ'));assert.ok(text.includes('สมาชิก: ยังไม่ระบุ'));assert.ok(text.includes('แต้มสะสม: รอข้อมูล'));});
+test('unknown context does not invent a customer, tier or points',()=>{const text=orderConfirmationText({...order,customerCode:null},null,null);assert.ok(text.includes('รอคำนวณ'));assert.ok(text.includes('Member: ยังไม่ระบุ'));assert.ok(text.includes('Green Coin: รอข้อมูล'));});
 test('invalid phone warning retains the correction path and claim excludes new commission',()=>{
  const text=orderConfirmationText({...order,status:'NEEDS_REVIEW',issues:['เบอร์โทรไม่ถูกต้อง']},null,seller,summary);assert.ok(text.includes('กรุณาตรวจเบอร์โทรผู้รับ'));assert.ok(text.includes('ยกเลิกข้อความออเดอร์เดิม'));
  assert.ok(orderConfirmationText({...order,payment:'เคลม'},null,seller,summary).includes('ไม่เพิ่มยอดขายหรือค่าคอม'));

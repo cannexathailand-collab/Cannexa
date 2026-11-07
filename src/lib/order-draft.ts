@@ -12,15 +12,15 @@ export function hasCompletePostalCode(address:string){
   return /^\d{5}\s*,\s*[A-Za-zก-๙]/.test(address)&&!/^\d{5}\s*,[^\n]*(?:บ้านเลขที่|เลขที่|ถนน|ซอย|\b(?:road|street|soi|lane|avenue)\b)/i.test(address);
  });
 }
-export const draftFields={seller:'รหัสผู้ขาย',recipient:'ชื่อผู้รับ',phone:'เบอร์โทร',address:'ที่อยู่',products:'สินค้า',payment:'ชำระเงิน',amount:'ยอดตามข้อความ',customerCode:'รหัสลูกค้า'} as const;
+export const draftFields={seller:'รหัสผู้ขาย',recipient:'ชื่อผู้รับ',phone:'เบอร์โทร',address:'ที่อยู่',products:'สินค้า',payment:'ชำระเงิน',amount:'ยอดตามข้อความ',customerCode:'รหัสลูกค้า',points:'Green Coin'} as const;
 export type OrderDraft=Record<keyof typeof draftFields,string>;
 export const defaultOrderTemplate=Object.values(draftFields).map(label=>label+': {{'+label+'}}').join('\n');
-export const emptyOrderDraft:OrderDraft={seller:'',recipient:'',phone:'',address:'',products:'',payment:'',amount:'',customerCode:''};
+export const emptyOrderDraft:OrderDraft={seller:'',recipient:'',phone:'',address:'',products:'',payment:'',amount:'',customerCode:'',points:''};
 export function extractOrderDraft(text:string):Partial<OrderDraft>{return analyzeOrderDraft(text).fields;}
 export function renderOrderDraft(template:string,draft:OrderDraft){
  return template.replace(/\{\{([^{}]+)\}\}/g,(_,label:string)=>{
   const key=(Object.keys(draftFields) as (keyof OrderDraft)[]).find(k=>draftFields[k]===label.trim());
-  return key?(key==='address'?draft[key].trim().replace(/\n+/g,' '):draft[key].trim()):'';
+  return key?(key==='address'?draft[key].trim().replace(/\n+/g,' '):key==='points'?draft[key].trim()||'—':draft[key].trim()):'';
  }).trimEnd();
 }
 export function orderDraftIssues(draft:OrderDraft){

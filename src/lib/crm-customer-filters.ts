@@ -1,4 +1,4 @@
-export const crmFilterFields=[['spend','ยอดซื้อสะสม (บาท)'],['profit','กำไรสะสม (บาท)'],['points','แต้มสะสม'],['monthly','ยอดซื้อเฉลี่ยต่อเดือน (บาท)'],['frequency','ความถี่ซื้อเฉลี่ย (ครั้ง/เดือน)'],['gap','ระยะห่างเฉลี่ย (วัน)']] as const;
+export const crmFilterFields=[['spend','ยอดซื้อสะสม (บาท)'],['profit','กำไรสะสม (บาท)'],['points','Green Coin'],['monthly','ยอดซื้อเฉลี่ยต่อเดือน (บาท)'],['frequency','ความถี่ซื้อเฉลี่ย (ครั้ง/เดือน)'],['gap','ระยะห่างเฉลี่ย (วัน)']] as const;
 export type CrmCustomerFilters=Record<string,string|undefined>;
 export type CrmCustomerMetrics={code:string;spend:number;profit:number|null;points:number;monthly:number;frequency:number;gap:number|null};
 export function filterAndSortCustomers<T extends CrmCustomerMetrics>(rows:T[],filters:CrmCustomerFilters){

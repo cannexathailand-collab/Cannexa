@@ -16,8 +16,8 @@ export function orderConfirmationText(order:Confirmation,sale?:Sale|null,seller?
  const text=[
   'บันทึกออเดอร์แล้ว',
   'ผู้ขาย: '+line(seller?.name??order.sellerCode??'ยังไม่ระบุ')+' | ค่าคอมรอรับสะสม: '+commission,
-  'ลูกค้า: '+(order.customerCode?line(displayCustomerCode(order.customerCode)):'ยังไม่ระบุ')+' | สมาชิก: '+line(context?.membership??'ยังไม่ระบุ'),
-  'แต้มสะสม: '+(context?.points===null||context?.points===undefined?'รอข้อมูล':context.points.toLocaleString('th-TH')+' แต้ม')
+  'ลูกค้า: '+(order.customerCode?line(displayCustomerCode(order.customerCode)):'ยังไม่ระบุ')+' | Member: '+line(context?.membership??'ยังไม่ระบุ'),
+  'Green Coin: '+(context?.points===null||context?.points===undefined?'รอข้อมูล':context.points.toLocaleString('th-TH')+' Green Coin')
  ].join('\n');
  if(order.status==='NEEDS_REVIEW'){
   const issues=Array.isArray(order.issues)?order.issues.map(String):['ข้อมูลไม่ครบ'];

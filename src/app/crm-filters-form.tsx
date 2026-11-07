@@ -13,7 +13,7 @@ export function CrmFiltersForm({params}:{params:Params}){
  return <>
  <form action="/admin/crm" className="crm-toolbar">
   <label className="crm-search">ค้นหาลูกค้า<input name="q" value={q} onChange={e=>setQ(e.target.value)} placeholder="รหัส ชื่อ เบอร์ หรือผู้แนะนำ"/></label>
-  <label>แสดงผล<select aria-label="แสดงผล" name="sort" value={sort} onChange={e=>{setSort(e.target.value);e.currentTarget.form?.requestSubmit();}}><option value="frequencyDesc">ลูกค้าที่ซื้อบ่อยที่สุด</option><option value="spendDesc">ลูกค้าที่ซื้อเยอะที่สุด</option><option value="profitDesc">ลูกค้าที่ทำกำไรมากที่สุด</option><option value="pointsDesc">ลูกค้าที่มีแต้มมากที่สุด</option><option value="monthlyDesc">ลูกค้าที่มียอดซื้อเฉลี่ยต่อเดือนสูงที่สุด</option><option value="gapAsc">ลูกค้าที่กลับมาซื้อเร็วที่สุด</option></select></label>
+  <label>แสดงผล<select aria-label="แสดงผล" name="sort" value={sort} onChange={e=>{setSort(e.target.value);e.currentTarget.form?.requestSubmit();}}><option value="frequencyDesc">ลูกค้าที่ซื้อบ่อยที่สุด</option><option value="spendDesc">ลูกค้าที่ซื้อเยอะที่สุด</option><option value="profitDesc">ลูกค้าที่ทำกำไรมากที่สุด</option><option value="pointsDesc">ลูกค้าที่มี Green Coin มากที่สุด</option><option value="monthlyDesc">ลูกค้าที่มียอดซื้อเฉลี่ยต่อเดือนสูงที่สุด</option><option value="gapAsc">ลูกค้าที่กลับมาซื้อเร็วที่สุด</option></select></label>
   {allowed.filter(key=>params[key]).map(key=><input type="hidden" name={key} value={params[key]} key={key}/>)}
   <button type="submit">ค้นหา</button>
   <button type="button" className="secondary" onClick={()=>{setFields(initial());setNext('');dialog.current?.querySelector('form')?.reset();dialog.current?.showModal();}}>ตัวกรอง{active?' ('+active+')':''}</button>

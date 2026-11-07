@@ -2,7 +2,7 @@ import type {OrderDraft} from './order-draft';
 import {moneySatang} from './shipment-matching';
 type Key=keyof OrderDraft;
 export type DraftAnalysis={fields:Partial<OrderDraft>;issues:Partial<Record<Key,string>>};
-const labels:Record<Key,string>={seller:'รหัสผู้ขาย|ผู้ขาย|seller',recipient:'ชื่อผู้รับ|ชื่อผู้ซื้อ|ผู้รับ|ชื่อลูกค้า|ชื่อ|recipient|customer name|name',phone:'เบอร์โทรศัพท์|เบอร์โทร|เบอร์มือถือ|โทรศัพท์|มือถือ|โทร|เบอร์|phone|tel',address:'ที่อยู่จัดส่ง|ที่อยู่ผู้รับ|ที่อยู่|address',products:'รายการสินค้า|สินค้า|สั่งซื้อ|products?|items?',payment:'วิธีชำระเงิน|ชำระเงิน|การชำระเงิน|payment',amount:'ยอดตามข้อความ|ยอดรวมสุทธิ|ยอดรวม|รวมทั้งสิ้น|ยอดโอน|ยอดเงิน|ยอดชำระ|ยอดสุทธิ|ยอด|total|amount',customerCode:'รหัสลูกค้า|customer code'};
+const labels:Record<Key,string>={seller:'รหัสผู้ขาย|ผู้ขาย|seller',recipient:'ชื่อผู้รับ|ชื่อผู้ซื้อ|ผู้รับ|ชื่อลูกค้า|ชื่อ|recipient|customer name|name',phone:'เบอร์โทรศัพท์|เบอร์โทร|เบอร์มือถือ|โทรศัพท์|มือถือ|โทร|เบอร์|phone|tel',address:'ที่อยู่จัดส่ง|ที่อยู่ผู้รับ|ที่อยู่|address',products:'รายการสินค้า|สินค้า|สั่งซื้อ|products?|items?',payment:'วิธีชำระเงิน|ชำระเงิน|การชำระเงิน|payment',amount:'ยอดตามข้อความ|ยอดรวมสุทธิ|ยอดรวม|รวมทั้งสิ้น|ยอดโอน|ยอดเงิน|ยอดชำระ|ยอดสุทธิ|ยอด|total|amount',customerCode:'รหัสลูกค้า|customer code',points:'green coin|points|คะแนนสะสม|แต้มสะสม'};
 const heading=Object.values(labels).join('|');
 const productPattern=/^[A-Za-z][A-Za-z0-9._-]*\s*(?:[x×*]\s*)?\d+(?:\.\d+)?\s*(?:kg|g|กรัม|กิโลกรัม|ชิ้น|กล่อง)(?:\s.*)?$/i;
 const metadata=/^(?:L\.|LINE\s*[:.]|ไลน์\s*[:：]|ผู้รับ\s*$|ผู้ส่ง\s*$|หมายเหตุ\s*[:：]|ขอบคุณ|ฝาก|รบกวน)/i;
@@ -76,7 +76,7 @@ export function analyzeOrderDraft(text:string):DraftAnalysis{
  for(const [key,candidates] of values){
   const converted=candidates.map(v=>key==='phone'?normalizePhone(v):key==='payment'?payment(v):key==='amount'?(cleanMoney(v)===null?v:(cleanMoney(v)!/100).toFixed(2)):key==='customerCode'?v.toUpperCase():v);
   const unique=[...new Set(converted)];
-  if(unique.length>1&&!['products'].includes(key)){fields[key]='';issues[key]='พบข้อมูล'+({seller:'ผู้ขาย',recipient:'ชื่อผู้รับ',phone:'เบอร์โทร',address:'ที่อยู่',payment:'วิธีชำระเงิน',amount:'ยอดเงิน',customerCode:'รหัสลูกค้า',products:'สินค้า'}[key])+'มากกว่าหนึ่งค่า กรุณาเลือกให้ถูกต้อง';}
+  if(unique.length>1&&!['products'].includes(key)){fields[key]='';issues[key]='พบข้อมูล'+({seller:'ผู้ขาย',recipient:'ชื่อผู้รับ',phone:'เบอร์โทร',address:'ที่อยู่',payment:'วิธีชำระเงิน',amount:'ยอดเงิน',customerCode:'รหัสลูกค้า',products:'สินค้า',points:'Green Coin'}[key])+'มากกว่าหนึ่งค่า กรุณาเลือกให้ถูกต้อง';}
   else fields[key]=key==='products'?converted.join('\n'):unique[0];
  }
  if(!fields.recipient&&nameCandidates.length>1)issues.recipient='พบชื่อที่เป็นไปได้หลายค่า กรุณาระบุชื่อผู้รับ';

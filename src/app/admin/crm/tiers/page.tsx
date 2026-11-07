@@ -8,5 +8,5 @@ export default async function CrmTiers({searchParams}:{searchParams:Promise<{sav
  const actor=await requireAdminPage(managers);
  const settings=await db.crmTierSettings.findUnique({where:{id:'default'}})??defaultTierSettings;
  const p=await searchParams;
- return <><h1>ระดับสมาชิกและเกณฑ์จัดกลุ่ม</h1><p>ตั้งค่าระดับสมาชิกของลูกค้าใน CRM</p>{p.saved==='1'&&<p className="notice live">บันทึกเกณฑ์สมาชิกแล้ว</p>}<CrmTierSettings settings={settings} editable={['owner','admin'].includes(actor.role)} activeTier={p.tier} key={JSON.stringify(settings)}/></>;
+ return <><h1>Member และเกณฑ์จัดกลุ่ม</h1><p>ตั้งค่า Member ของลูกค้าใน CRM</p>{p.saved==='1'&&<p className="notice live">บันทึกเกณฑ์ Member แล้ว</p>}<CrmTierSettings settings={settings} editable={['owner','admin'].includes(actor.role)} activeTier={p.tier} key={JSON.stringify(settings)}/></>;
 }

@@ -8,7 +8,7 @@ test('draft extracts labelled customer fields and multiline address without conf
  const parsed=extractOrderDraft('ชื่อผู้รับ: ลูกค้าทดสอบ\nเบอร์โทร: ๐๘๑๒๓๔๕๖๗๘\nที่อยู่: 10 ถนนทดสอบ\nกรุงเทพ 10200\nสินค้า: AB1234 20g\nชำระเงิน: COD\nยอดเงิน: 1,260 บาท');
  assert.equal(parsed.address,'10 ถนนทดสอบ\nกรุงเทพ 10200');assert.equal(parsed.phone,'0812345678');assert.equal(parsed.products,'AB1234 20g');assert.equal(parsed.amount,'1260.00');assert.equal(parsed.customerCode,undefined);
  const draft={...emptyOrderDraft,...parsed,seller:'seller'};const text=renderOrderDraft(defaultOrderTemplate,draft);
- assert.deepEqual(orderDraftIssues(draft),[]);assert.equal(parseOrderText(text)?.address,'10 ถนนทดสอบ กรุงเทพ 10200');assert.equal(quotedTotal(text),126000);assert.ok(text.endsWith('รหัสลูกค้า:'));
+ assert.deepEqual(orderDraftIssues(draft),[]);assert.equal(parseOrderText(text)?.address,'10 ถนนทดสอบ กรุงเทพ 10200');assert.equal(quotedTotal(text),126000);assert.ok(text.endsWith('รหัสลูกค้า: \nGreen Coin: —'));
 });
 test('draft leaves missing money and payment blank rather than inventing data',()=>{
  const parsed=extractOrderDraft('ลูกค้าทดสอบ\n0812345678');assert.equal(parsed.recipient,'ลูกค้าทดสอบ');assert.equal(parsed.phone,'0812345678');assert.equal(parsed.amount,undefined);assert.equal(parsed.payment,undefined);assert.ok(orderDraftIssues({...emptyOrderDraft,...parsed}).length>0);
@@ -55,4 +55,15 @@ test('a named location ending with a comma and house number stays with its posta
  const parsed=extractOrderDraft('(🟢Example Person)\n'+address+'\n0812345678\n\nCG2 10g\n\nCod 610\n\nL. Example');
  assert.equal(parsed.recipient,'(🟢Example Person)');assert.equal(parsed.address,address);
  assert.deepEqual(orderDraftIssues({...emptyOrderDraft,...parsed,seller:'seller'}),[]);
+});
+
+test('Green Coin follows the customer code and remains informational to the order bot',()=>{
+ const draft={...emptyOrderDraft,seller:'seller',recipient:'Sample',phone:'0812345678',address:'Bangkok 10200',products:'CG13 20g',payment:'COD',amount:'1260',customerCode:'C0001',points:'150'};
+ const text=renderOrderDraft(defaultOrderTemplate,draft);
+ assert.ok(text.endsWith('รหัสลูกค้า: C0001\nGreen Coin: 150'));
+ assert.equal(extractOrderDraft(text).points,'150');
+ assert.equal(parseOrderText(text)?.customerCode,'C0001');
+ assert.equal(quotedTotal(text),126000);
+ assert.deepEqual(orderTemplateIssues(defaultOrderTemplate),[]);
+ assert.ok(orderTemplateIssues(defaultOrderTemplate.replace('\nGreen Coin: {{Green Coin}}','')).length);
 });

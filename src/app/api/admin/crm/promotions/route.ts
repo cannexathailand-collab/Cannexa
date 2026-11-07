@@ -9,5 +9,5 @@ export async function POST(req:NextRequest){
   const actor=await admin(approvers);await sameOrigin();const f=await req.formData();
   await savePointPromotion(actor,{id:f.get('id')||undefined,requestKey:f.get('requestKey'),name:f.get('name'),enabled:f.get('enabled')==='on',from:f.get('from'),to:f.get('to'),minimumSatang:moneySatang(String(f.get('minimumBaht')??'')),bonusType:f.get('bonusType'),bonusValue:Number(f.get('bonusValue'))});
   return NextResponse.redirect(baseUrl()+'/admin/crm/points?promotionSaved=1',303);
- }catch(e){const message=e instanceof Error?e.message:'';return new Response('บันทึกโปรโมชั่นไม่สำเร็จ กรุณาตรวจสอบชื่อ ช่วงวันที่ ยอดขั้นต่ำ และแต้มโบนัส',{status:message==='UNAUTHORIZED'?401:message==='FORBIDDEN'?403:400});}
+ }catch(e){const message=e instanceof Error?e.message:'';return new Response('บันทึกโปรโมชั่นไม่สำเร็จ กรุณาตรวจสอบชื่อ ช่วงวันที่ ยอดขั้นต่ำ และ Green Coin โบนัส',{status:message==='UNAUTHORIZED'?401:message==='FORBIDDEN'?403:400});}
 }

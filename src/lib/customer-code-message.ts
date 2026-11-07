@@ -8,8 +8,8 @@ export async function syncLoginCustomer(key:string,conversion:{id:string;custome
  });
 }
 export function customerCodeMessage(code:string,welcome=false){
- const details=`รหัสลูกค้าของคุณ: ${displayCustomerCode(code)}\nแจ้งรหัสนี้กับพนักงานทุกครั้งเมื่อสั่งซื้อ\nเพื่อรับสิทธิพิเศษ สะสมแต้มสำหรับสมาชิก และโปรโมชั่นมากมาย`;
- const english=`Your customer code: ${displayCustomerCode(code)}\nPlease share this code with our staff every time you place an order.\nEnjoy exclusive member benefits, collect reward points, and access special promotions.`;
+ const details=`รหัสลูกค้าของคุณ: ${displayCustomerCode(code)}\nแจ้งรหัสนี้กับพนักงานทุกครั้งเมื่อสั่งซื้อ\nเพื่อรับสิทธิพิเศษ สะสม Green Coin สำหรับ Member และโปรโมชั่นมากมาย`;
+ const english=`Your customer code: ${displayCustomerCode(code)}\nPlease share this code with our staff every time you place an order.\nEnjoy exclusive member benefits, collect Green Coin, and access special promotions.`;
  return welcome?`ยินดีต้อนรับค่ะ 💚\n${details}\n\nWelcome! 💚\n${english}`:`${details}\n\n${english}`;
 }
 export async function replyCustomerCode(input:{key:string;eventId:string;replyToken?:string;unblocked:boolean|null;accessToken?:string;requested?:boolean}){

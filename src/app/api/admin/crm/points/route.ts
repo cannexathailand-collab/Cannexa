@@ -18,5 +18,5 @@ export async function POST(req:NextRequest){
    await saveCrmPointRule(actor,enabled,satangPerPoint);
   }
   return NextResponse.redirect(baseUrl()+'/admin/crm/points?saved=1',303);
- }catch(error){const message=error instanceof Error?error.message:'';return new Response('ไม่สามารถบันทึกได้ กรุณาตรวจสอบสิทธิ์และจำนวนบาทต่อแต้ม',{status:message==='UNAUTHORIZED'?401:message==='FORBIDDEN'?403:400});}
+ }catch(error){const message=error instanceof Error?error.message:'';return new Response('ไม่สามารถบันทึกได้ กรุณาตรวจสอบสิทธิ์และจำนวนบาทต่อ Green Coin',{status:message==='UNAUTHORIZED'?401:message==='FORBIDDEN'?403:400});}
 }
