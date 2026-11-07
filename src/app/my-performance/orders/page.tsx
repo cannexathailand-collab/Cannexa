@@ -1,13 +1,13 @@
 import Link from 'next/link';
-import {requireAdminPage} from '@/lib/auth';
+import {requireEmployeePage} from '@/lib/employee-view';
 import {employeeOrderList,type EmployeeOrderFilters} from '@/lib/employee-order-list';
 import {orderStates} from '@/lib/order-management';
 import {displayCustomerCode} from '@/lib/customer-code';
 import {EmployeeNav} from '../employee-nav';
 const money=(n:number)=>(n/100).toLocaleString('th-TH',{style:'currency',currency:'THB'});
 export default async function EmployeeOrdersPage({searchParams}:{searchParams:Promise<EmployeeOrderFilters>}){
- const a=await requireAdminPage(['employee']);
- if(!a.affiliateId)return <main className="center-page performance-page"><section className="customer"><h1>ออเดอร์จาก LINE</h1><EmployeeNav active="orders"/><p>ยังไม่ได้ผูกบัญชีกับ Affiliate</p></section></main>;
+ const a=await requireEmployeePage();
+ if(!a.affiliateId)return <main className="center-page performance-page"><section className="customer"><h1>ออเดอร์จาก LINE</h1><EmployeeNav active="orders"/><p>{a.role==='owner'?'เลือกรายชื่อพนักงานด้านบนเพื่อดูข้อมูล':'ยังไม่ได้ผูกบัญชีกับ Affiliate'}</p></section></main>;
  const input=await searchParams,data=await employeeOrderList(a.affiliateId,a.username,input);
  const href=(values:EmployeeOrderFilters)=>'/my-performance/orders?'+new URLSearchParams({...data.filters,month:data.month,page:'1',...values}).toString();
  return <main className="center-page performance-page"><section className="customer employee-orders-page">

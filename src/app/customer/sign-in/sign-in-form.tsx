@@ -32,7 +32,8 @@ export function CustomerSignInForm(){
    setBusy(false);
   }
  }}>
-  <label>รหัสลูกค้า<input name="code" required maxLength={100} autoComplete="username" autoCapitalize="characters" spellCheck={false}/></label>
+  <label>รหัสลูกค้า<input name="code" maxLength={64} autoComplete="username" autoCapitalize="characters" spellCheck={false}/></label>
+  <small>เจ้าของระบบใช้ชื่อผู้ใช้ owner และรหัสผ่านเจ้าของระบบ</small>
   <label>รหัสผ่าน<input name="password" type="password" required maxLength={256} autoComplete="current-password"/></label>
   {error&&<p className="portal-alert" role="alert">{error}</p>}
   <button disabled={!ready||busy}>{busy?'กำลังเข้าสู่ระบบ…':'เข้าสู่ระบบ'}</button>

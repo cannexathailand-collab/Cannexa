@@ -1,11 +1,11 @@
-import {requireAdminPage} from '@/lib/auth';
+import {requireEmployeePage} from '@/lib/employee-view';
 import {commissionReport} from '@/lib/commission-report';
 import {salesReport} from '@/lib/sales-report';
 import {CommissionMonthSelect} from '@/app/commission-month-select';
 import {EmployeeNav} from '../employee-nav';
 export default async function EmployeeMonthly({searchParams}:{searchParams:Promise<{month?:string}>}){
- const a=await requireAdminPage(['employee']);
- if(!a.affiliateId)return <main className="center-page performance-page"><section className="customer"><h1>สรุปผลงานรายเดือน</h1><EmployeeNav active="monthly"/><p>ยังไม่ได้ผูกบัญชีกับ Affiliate</p></section></main>;
+ const a=await requireEmployeePage();
+ if(!a.affiliateId)return <main className="center-page performance-page"><section className="customer"><h1>สรุปผลงานรายเดือน</h1><EmployeeNav active="monthly"/><p>{a.role==='owner'?'เลือกรายชื่อพนักงานด้านบนเพื่อดูข้อมูล':'ยังไม่ได้ผูกบัญชีกับ Affiliate'}</p></section></main>;
  const {month:requested}=await searchParams;
  const result=await commissionReport(requested,a.affiliateId),entries=result.groups.get(a.affiliateId)??[];
  const [closed,referred]=await Promise.all([salesReport({month:result.month,seller:a.username}),salesReport({month:result.month,affiliateId:a.affiliateId})]);

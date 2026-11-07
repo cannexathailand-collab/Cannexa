@@ -10,6 +10,7 @@ import {lineSettings} from "@/lib/line-settings";
 import {lineCustomerDestination} from "@/lib/line-customer-destination";
 import {linkPortalCustomer,portalCookie,portalAccessCookie,portalAccessToken,portalToken,portalDuration,portalPasswordCookie} from '@/lib/customer-portal';
 import {cookieOptions} from '@/lib/auth';
+import {ownerEmployeeCookie} from '@/lib/employee-view';
 export async function GET(req:NextRequest){
  if(mockMode())return new Response("Real callback disabled in mock mode",{status:409});
  let clickId:string|undefined;let customerLogin=false;
@@ -32,6 +33,8 @@ export async function GET(req:NextRequest){
    const res=NextResponse.redirect(baseUrl()+'/customer');
    res.cookies.set(portalCookie,portalToken(key),{...cookieOptions,maxAge:portalDuration});
    res.cookies.delete(portalPasswordCookie);
+   res.cookies.delete('admin_session');
+   res.cookies.delete(ownerEmployeeCookie);
    if(customer&&!customer.portalRegistrationPending){
     res.cookies.set(portalAccessCookie,portalAccessToken(key,customer.code),{...cookieOptions,maxAge:portalDuration});
    }else{

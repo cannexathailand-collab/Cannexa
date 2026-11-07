@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import {requireAdminPage} from '@/lib/auth';
+import {requireEmployeePage} from '@/lib/employee-view';
 import {employeeReviewOrders,employeeTaskTypes} from '@/lib/employee-review-orders';
 import {EmployeeNav} from '../employee-nav';
 const nextSteps={TRACKING:'ติดตามเลขพัสดุกับทีมจัดส่ง',COD:'แจ้งผู้ดูแลตรวจรายงานรับเงิน COD',COST:'ติดตามข้อมูลต้นทุน / ค่าขนส่งกับผู้ดูแล',DATA:'เปิดดูสาเหตุและแจ้งข้อมูลที่ต้องแก้กับผู้ดูแล'};
 export default async function EmployeeTasks({searchParams}:{searchParams:Promise<{type?:string;q?:string;page?:string}>}){
- const a=await requireAdminPage(['employee']),input=await searchParams;
+ const a=await requireEmployeePage(),input=await searchParams;
  const all=a.affiliateId?await employeeReviewOrders(a.affiliateId,a.username):[];
  const type=input.type&&Object.hasOwn(employeeTaskTypes,input.type)?input.type:'ALL',q=(input.q??'').trim().slice(0,100);
  const filtered=all.filter(r=>(type==='ALL'||r.type===type)&&(!q||[r.number,r.recipient].some(v=>v?.toLocaleLowerCase().includes(q.toLocaleLowerCase()))));

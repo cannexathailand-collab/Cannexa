@@ -1,0 +1,13 @@
+.owner-employee-controls {width:calc(100% - 40px);max-width:980px;margin:20px auto 0;padding:18px 22px;border:1px solid #cddfcf;border-radius:14px;background:#eef6ee;color:#2b5338}
+.owner-employee-controls>div {display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap}
+.owner-employee-controls a {font-size:13px;text-decoration:underline;text-underline-offset:3px}
+.owner-employee-controls form {display:flex;align-items:end;gap:12px;margin-top:10px}
+.owner-employee-controls label {flex:1;min-width:0;margin:0}
+.owner-employee-controls select {font-size:16px}
+.owner-employee-controls button {flex-shrink:0;min-height:44px}
+@media(max-width:600px){
+ .owner-employee-shell {display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+ .owner-employee-controls {width:calc(100% - 24px);margin:12px auto 0;padding:14px;flex-shrink:0}
+ .owner-employee-controls strong {font-size:13px}
+ .owner-employee-shell>.center-page {height:auto;min-height:0;flex:1;overflow:auto}
+}

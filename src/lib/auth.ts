@@ -15,7 +15,7 @@ export async function currentAccount(){
 }
 export async function admin(allowed:Role[]=["owner"]){
  const a=await currentAccount();
- if(!allowed.includes(a.role as Role))throw new Error("FORBIDDEN");
+ if(a.role!=="owner"&&!allowed.includes(a.role as Role))throw new Error("FORBIDDEN");
  return a.username;
 }
 export async function sameOrigin(){if((await headers()).get("origin")!==baseUrl())throw new Error("BAD_ORIGIN");}
@@ -29,6 +29,6 @@ export async function requireAccount(){
 }
 export async function requireAdminPage(allowed:Role[]=["owner"]){
  const a=await requireAccount();
- if(!allowed.includes(a.role as Role))redirect(a.role==="employee"?home(a.role):"/admin");
+ if(a.role!=="owner"&&!allowed.includes(a.role as Role))redirect(a.role==="employee"?home(a.role):"/admin");
  return a;
 }
