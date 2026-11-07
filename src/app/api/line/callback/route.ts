@@ -8,7 +8,7 @@ import {db} from "@/lib/db";
 import {syncLoginCustomer} from '@/lib/customer-code-message';
 import {lineSettings} from "@/lib/line-settings";
 import {lineCustomerDestination} from "@/lib/line-customer-destination";
-import {linkPortalCustomer,portalCookie,portalAccessCookie,portalToken,portalDuration} from '@/lib/customer-portal';
+import {linkPortalCustomer,portalCookie,portalAccessCookie,portalAccessToken,portalToken,portalDuration} from '@/lib/customer-portal';
 import {cookieOptions} from '@/lib/auth';
 export async function GET(req:NextRequest){
  if(mockMode())return new Response("Real callback disabled in mock mode",{status:409});
@@ -28,10 +28,14 @@ export async function GET(req:NextRequest){
   const changed=req.nextUrl.searchParams.get("friendship_status_changed");
   const key=userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?result.userId:connection.settings.botId+":"+result.userId);
   if(customerLogin){
-   await linkPortalCustomer(key,a.customerLinkHash);
+   const customer=await linkPortalCustomer(key,a.customerLinkHash);
    const res=NextResponse.redirect(baseUrl()+'/customer');
    res.cookies.set(portalCookie,portalToken(key),{...cookieOptions,maxAge:portalDuration});
-   res.cookies.delete(portalAccessCookie);
+   if(customer&&!customer.portalRegistrationPending){
+    res.cookies.set(portalAccessCookie,portalAccessToken(key,customer.code),{...cookieOptions,maxAge:portalDuration});
+   }else{
+    res.cookies.delete(portalAccessCookie);
+   }
    res.cookies.delete('customer_password_step');
    res.cookies.delete('oauth_'+sha(state).slice(0,16));return res;
   }

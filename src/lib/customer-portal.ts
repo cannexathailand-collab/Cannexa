@@ -9,8 +9,9 @@ export const portalCookie='customer_portal';
 export const portalAccessCookie='customer_access';
 export function portalAccessToken(key:string,code:string){return signToken({purpose:'CUSTOMER_ACCESS',key,code,exp:Date.now()+portalDuration*1000});}
 export async function hasPortalAccess(key:string,code:string){
- const token=readToken<{purpose:string;key:string;code:string;exp:number}>((await cookies()).get(portalAccessCookie)?.value??'');
- return !!token&&token.purpose==='CUSTOMER_ACCESS'&&token.key===key&&token.code===code&&token.exp>Date.now();
+ if(await portalKey()!==key)return false;
+ const customer=await db.customer.findUnique({where:{lineUserKey:key},select:{code:true,portalRegistrationPending:true}});
+ return customer?.code===code&&!customer.portalRegistrationPending;
 }
 export const portalDuration=86400;
 export function portalToken(key:string){return signToken({purpose:'CUSTOMER_PORTAL',key,exp:Date.now()+portalDuration*1000});}

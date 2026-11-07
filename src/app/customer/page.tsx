@@ -12,7 +12,7 @@ export const metadata:Metadata={title:'Customer',description:'ข้อมูล
 export const dynamic='force-dynamic';
 export default async function CustomerPage({searchParams}:{searchParams:Promise<{error?:string;link?:string;register?:string}>}){
  const params=await searchParams;const {key,customer}=await portalCustomer();
- if(customer?.portalRegistrationPending)return <main className="customer-portal"><section className="portal-welcome"><h1>รอร้านอนุมัติสมาชิก</h1><p>รหัสลูกค้า {displayCustomerCode(customer.code)}</p><p>ส่งข้อมูลสมัครเรียบร้อยแล้ว เมื่อร้านอนุมัติ คุณจะใช้รหัสนี้เพื่อตั้งรหัสผ่านและเข้าใช้งานได้</p><a className="button" href="/customer">ตรวจสถานะอีกครั้ง</a></section></main>;
+ if(customer?.portalRegistrationPending)return <main className="customer-portal"><section className="portal-welcome"><h1>รอร้านอนุมัติสมาชิก</h1><p>รหัสลูกค้า {displayCustomerCode(customer.code)}</p><p>ส่งข้อมูลสมัครเรียบร้อยแล้ว เมื่อร้านอนุมัติ คุณจะเข้าสู่หน้า Customer ได้ด้วยบัญชี LINE นี้</p><a className="button" href="/customer">ตรวจสถานะอีกครั้ง</a></section></main>;
  const link=params.link&&/^[A-Za-z0-9_-]{43}$/.test(params.link)?params.link:null;
  if(key&&!link&&(customer||params.register!=='1')&&(!customer||!await hasPortalAccess(key,customer.code)))return <main className="customer-portal"><section className="portal-welcome"><h1>รหัสลูกค้า</h1>{params.error==='login'&&<p role="alert" className="portal-alert">การเข้าสู่ระบบ LINE หมดอายุหรือไม่สำเร็จ <a href="/api/customer/login">เข้าสู่ระบบด้วย LINE อีกครั้ง</a></p>}<CustomerCodeForm customerCode={customer?displayCustomerCode(customer.code):undefined}/></section></main>;
  const summary=customer?(await loadCustomerCrm([customer.code])).get(customer.code):null;
