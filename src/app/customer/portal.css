@@ -107,3 +107,11 @@
 .portal-tab-controls {display:flex;flex:2;gap:8px;min-width:0}
 .portal-tab-controls button:focus-visible {outline:2px solid #ecd59a;outline-offset:2px}
 @media(max-width:600px){.portal-tab-controls{gap:4px}}
+.portal-profile-fields {grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:19px;min-width:0;margin:0;padding:0;border:0}
+.portal-profile-fields>.portal-address,.portal-profile-fields>label:has(textarea),.portal-profile-fields>select,.portal-profile-fields>label[for=account-history] {grid-column:1/-1}
+.portal-profile-fields input:disabled,.portal-profile-fields textarea:disabled,.portal-profile-fields select:disabled {background:#e9eee6;color:#697c69;border-color:#d9e1d3;opacity:1;-webkit-text-fill-color:#697c69;cursor:default;box-shadow:none}
+.portal-profile-actions {grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:5px}
+.portal-profile-actions-single {grid-template-columns:1fr}
+.portal-profile-actions button {min-height:48px;border-radius:11px;font-size:16px;font-weight:600;background:#20543a;color:#fff}
+.portal-profile-actions .portal-edit-button {background:transparent;color:#20543a;border:1px solid #a7bda3}
+@media(max-width:600px){.portal-profile-fields{grid-template-columns:1fr;gap:17px}.portal-profile-actions{gap:9px}.portal-profile-actions button{font-size:14px;padding:11px 8px}}

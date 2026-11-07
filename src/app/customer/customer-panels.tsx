@@ -1,11 +1,12 @@
 'use client';
 
 import {useRef,useState,type ReactNode} from 'react';
+import {CustomerPasswordForm} from './password/password-form';
 
 export function CustomerPanels({orders,profile}:{orders:ReactNode;profile:ReactNode}){
  const [active,setActive]=useState('orders');
  const buttons=useRef<Array<HTMLButtonElement|null>>([]);
- const tabs=[{id:'orders',label:'ออเดอร์ของฉัน'},{id:'profile',label:'ข้อมูลส่วนตัว'}];
+ const tabs=[{id:'orders',label:'ออเดอร์ของฉัน'},{id:'profile',label:'ข้อมูลส่วนตัว'},{id:'password',label:'เปลี่ยนรหัสผ่าน'}];
 
  return <>
   <nav className="portal-tabs" aria-label="เมนูลูกค้า">
@@ -23,15 +24,18 @@ export function CustomerPanels({orders,profile}:{orders:ReactNode;profile:ReactN
      onKeyDown={event=>{
       if(event.key!=='ArrowLeft'&&event.key!=='ArrowRight')return;
       event.preventDefault();
-      const next=1-index;
+      const direction=event.key==='ArrowRight'?1:-1;
+      const next=(index+direction+tabs.length)%tabs.length;
       setActive(tabs[next].id);
       buttons.current[next]?.focus();
      }}
     >{tab.label}</button>)}
    </div>
-   <a href="/customer/password?reset=1">เปลี่ยนรหัสผ่าน</a>
   </nav>
   <div id="panel-orders" role="tabpanel" aria-labelledby="tab-orders" hidden={active!=='orders'}>{orders}</div>
   <div id="panel-profile" role="tabpanel" aria-labelledby="tab-profile" hidden={active!=='profile'}>{profile}</div>
+  <div id="panel-password" role="tabpanel" aria-labelledby="tab-password" hidden={active!=='password'}>
+   <section className="portal-section"><h2>เปลี่ยนรหัสผ่าน</h2><CustomerPasswordForm setup reset inline/></section>
+  </div>
  </>;
 }
