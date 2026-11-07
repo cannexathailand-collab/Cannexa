@@ -191,6 +191,7 @@ model Customer {
  createdAt DateTime @default(now())
  orders OrderIntake[]
  accessLinks CustomerAccessLink[]
+ rewardRedemptions CrmRewardRedemption[]
 }
 model CustomerCodeDelivery {
  userKey String @id
@@ -244,6 +245,40 @@ model CrmPointPromotion {
  createdAt DateTime @default(now())
  updatedAt DateTime @updatedAt
  @@index([enabled,startsAt,endsAt])
+}
+model CrmReward {
+ id String @id @default(cuid())
+ requestKey String @unique
+ requestFingerprint String
+ name String
+ description String @default("")
+ points Int
+ availableUnits Int
+ enabled Boolean @default(false)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ redemptions CrmRewardRedemption[]
+ @@index([enabled,createdAt])
+}
+model CrmRewardRedemption {
+ id String @id @default(cuid())
+ requestKey String
+ customerCode String
+ customer Customer @relation(fields:[customerCode],references:[code],onDelete:Restrict)
+ rewardId String
+ reward CrmReward @relation(fields:[rewardId],references:[id],onDelete:Restrict)
+ rewardName String
+ points Int
+ recipient String
+ phone String
+ address String
+ status String @default("PENDING")
+ createdAt DateTime @default(now())
+ resolvedAt DateTime?
+ resolvedBy String?
+ @@unique([customerCode,requestKey])
+ @@index([customerCode,status])
+ @@index([status,createdAt])
 }
 model MetaPurchase {
  orderId String @id

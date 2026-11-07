@@ -48,13 +48,16 @@ export function customerLifetimeStats(summary:ReturnType<typeof summarizeCustome
 export async function loadCustomerCrm(codes:string[],filters?:CrmFilters,client:Prisma.TransactionClient=db){
  const orders=codes.length?await client.orderIntake.findMany({where:{customerCode:{in:codes}},orderBy:{eventAt:'desc'}}):[];
  const ids=orders.map(o=>o.id);
- const [sales,shipments,costs,rules]=await Promise.all([client.salesOrder.findMany({where:{orderId:{in:ids}}}),client.shipment.findMany({where:{orderId:{in:ids}}}),client.stockDispatch.findMany({where:{orderId:{in:ids}},select:{orderId:true,status:true,totalCostSatang:true}}),client.crmPointRule.findMany({orderBy:{effectiveAt:'asc'}})]);
+ const [sales,shipments,costs,rules,redemptions]=await Promise.all([client.salesOrder.findMany({where:{orderId:{in:ids}}}),client.shipment.findMany({where:{orderId:{in:ids}}}),client.stockDispatch.findMany({where:{orderId:{in:ids}},select:{orderId:true,status:true,totalCostSatang:true}}),client.crmPointRule.findMany({orderBy:{effectiveAt:'asc'}}),client.crmRewardRedemption.groupBy({by:['customerCode'],where:{customerCode:{in:codes},status:{in:['PENDING','FULFILLED']}},_sum:{points:true}})]);
+ const redeemedByCustomer=new Map(redemptions.map(redemption=>[redemption.customerCode,redemption._sum.points??0]));
  const receipts=shipments.length?await client.codReceipt.findMany({where:{tracking:{in:shipments.map(s=>s.tracking)}}}):[];
  const byOrder=new Map(orders.map(o=>[o.id,o])),byShipment=new Map(shipments.map(s=>[s.orderId,s])),byReceipt=new Map(receipts.map(r=>[r.tracking,r]));
  const rows:SaleRow[]=sales.map(s=>({...s,order:byOrder.get(s.orderId)??null,shipment:byShipment.get(s.orderId)??null,receipt:s.tracking?byReceipt.get(s.tracking)??null:null,affiliate:null}));
  return new Map(codes.map(code=>{
   const customerOrders=orders.filter(o=>o.customerCode===code),orderIds=new Set(customerOrders.map(o=>o.id));
-  return [code,summarizeCustomerOrders(customerOrders,rows.filter(s=>orderIds.has(s.orderId)),shipments.filter(s=>!!s.orderId&&orderIds.has(s.orderId)),costs,rules,filters)] as const;
+  const summary=summarizeCustomerOrders(customerOrders,rows.filter(s=>orderIds.has(s.orderId)),shipments.filter(s=>!!s.orderId&&orderIds.has(s.orderId)),costs,rules,filters);
+  const redeemedPoints=redeemedByCustomer.get(code)??0;
+  return [code,{...summary,redeemedPoints,availablePoints:summary.lifetimePoints-redeemedPoints}] as const;
  }));
 }
 export function crmMoney(satang:number){return (satang/100).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})+' บาท';}

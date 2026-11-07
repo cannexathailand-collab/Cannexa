@@ -8,6 +8,8 @@ import './portal.css';
 import {CustomerCodeForm} from './code-form';
 import {MemberCard} from './member-card';
 import {CustomerPanels} from './customer-panels';
+import {CustomerPromotions} from './promotions';
+import {CustomerGreenCoin} from './green-coin';
 export const metadata:Metadata={title:'Customer',description:'ข้อมูลสมาชิก Green Coin และติดตามออเดอร์ของคุณ',robots:{index:false,follow:false}};
 export const dynamic='force-dynamic';
 export default async function CustomerPage({searchParams}:{searchParams:Promise<{error?:string;link?:string;register?:string}>}){
@@ -24,8 +26,8 @@ export default async function CustomerPage({searchParams}:{searchParams:Promise<
   {key&&<header className="portal-header"><a href="/customer" className="portal-brand">Customer</a>{key&&<form action="/api/customer/logout" method="post"><button className="portal-signout">ออกจากระบบ</button></form>}</header>}
   {!key||link?<section className="portal-welcome"><h1>ยินดีต้อนรับ</h1><p>ขอบคุณที่ร่วมเป็นสมาชิกกับเรา</p>{params.error&&<p role="alert" className="portal-alert">{params.error==='unavailable'?'ขณะนี้ยังไม่พร้อมเชื่อมต่อ LINE กรุณาลองอีกครั้ง':params.error==='link'?'ลิงก์หมดอายุหรือถูกใช้แล้ว กรุณาขอลิงก์ใหม่จากร้าน':'เข้าสู่ระบบหรือผูกบัญชีไม่สำเร็จ กรุณาลองใหม่ หรือติดต่อร้านหากบัญชีนี้ผูกกับลูกค้าคนอื่นแล้ว'}</p>}<a className="button portal-line" href={'/api/customer/login'+(link?'?link='+encodeURIComponent(link):'')}>{link?'ยืนยันผูกข้อมูลด้วย LINE':'เข้าสู่ระบบด้วย LINE'}</a></section>:<>
    {!customer&&<section className="portal-intro"><span className="portal-eyebrow">MY ACCOUNT</span><h1>ยินดีต้อนรับ</h1><p>กรอกข้อมูลเพื่อรับรหัสลูกค้าและเริ่มใช้งาน</p></section>}
-   {customer&&<><div className="portal-member-overview"><MemberCard level={memberLevel} name={[customer.title??'คุณ',customer.name].filter(Boolean).join(' ')||'ลูกค้า'} code={displayCustomerCode(customer.code)}/><section className="portal-coin-balance" aria-label="ยอด Green Coin"><h2>Green Coin</h2><span className="portal-coin-mark" aria-hidden="true">G</span><strong>{(summary?.lifetimePoints??0).toLocaleString('th-TH')}</strong><span>เหรียญสะสม</span></section></div>
-   <CustomerPanels profile={profileContent} orders={
+   {customer&&<><div className="portal-member-overview"><MemberCard level={memberLevel} name={[customer.title??'คุณ',customer.name].filter(Boolean).join(' ')||'ลูกค้า'} code={displayCustomerCode(customer.code)}/><section className="portal-coin-balance" aria-label="ยอด Green Coin"><h2>Green Coin</h2><span className="portal-coin-mark" aria-hidden="true">G</span><strong>{Math.max(0,summary?.availablePoints??0).toLocaleString('th-TH')}</strong><span>เหรียญคงเหลือ</span></section></div>
+   <CustomerPanels profile={profileContent} promotions={<CustomerPromotions/>} coins={<CustomerGreenCoin customerCode={customer.code} balance={Math.max(0,summary?.availablePoints??0)}/>} orders={
    <section className="portal-section"><div className="portal-section-title"><h2>ออเดอร์ของฉัน</h2><span>{summary?.allHistory.length??0} รายการ</span></div>{summary?.allHistory.length?<div className="portal-orders">{summary.allHistory.map(row=><article key={row.order.id} className="portal-order"><header><strong>{row.order.orderNumber}</strong><span className="portal-status">{row.status}</span></header><div className="portal-order-meta"><span>{crmDate(row.order.eventAt)} · {row.order.payment}</span><strong>{row.amountSatang!==null?crmMoney(row.amountSatang):'รอยืนยันยอด'}</strong></div><div className="portal-tracking"><span>เลขพัสดุ</span><strong>{row.tracking??'รอจัดส่ง'}</strong></div></article>)}</div>:<div className="portal-empty">ยังไม่มีออเดอร์<br/><small>แจ้งรหัสลูกค้านี้กับพนักงานเมื่อสั่งซื้อ เพื่อให้แสดงออเดอร์ที่นี่</small></div>}</section>}/></>}
    {!customer&&profileContent}
   </>}

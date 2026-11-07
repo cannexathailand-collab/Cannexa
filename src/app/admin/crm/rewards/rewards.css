@@ -1,0 +1,8 @@
+.reward-admin-list{display:grid;gap:16px;margin-top:18px}
+.reward-admin-list>details,.reward-admin-list>article{border:1px solid #dbe5d9;border-radius:12px;padding:18px;background:#fcfdfb}
+.reward-admin-list summary{cursor:pointer;display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap}
+.reward-admin-list summary>span{font-size:13px;color:#60735d}
+.reward-admin-list header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.reward-editor-numbers{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.reward-resolution{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+@media(max-width:600px){.reward-editor-numbers{grid-template-columns:1fr}.reward-admin-list header{flex-wrap:wrap}}

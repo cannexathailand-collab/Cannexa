@@ -1,12 +1,18 @@
 'use client';
 
 import {useRef,useState,type ReactNode} from 'react';
+import {useRouter} from 'next/navigation';
 import {CustomerPasswordForm} from './password/password-form';
 
-export function CustomerPanels({orders,profile}:{orders:ReactNode;profile:ReactNode}){
+export function CustomerPanels({orders,profile,promotions,coins}:{orders:ReactNode;profile:ReactNode;promotions:ReactNode;coins:ReactNode}){
  const [active,setActive]=useState('orders');
+ const router=useRouter();
  const buttons=useRef<Array<HTMLButtonElement|null>>([]);
- const tabs=[{id:'orders',label:'ออเดอร์ของฉัน'},{id:'profile',label:'ข้อมูลส่วนตัว'},{id:'password',label:'เปลี่ยนรหัสผ่าน'}];
+ const tabs=[{id:'orders',label:'ออเดอร์ของฉัน'},{id:'profile',label:'ข้อมูลส่วนตัว'},{id:'password',label:'เปลี่ยนรหัสผ่าน'},{id:'promotions',label:'โปรโมชั่น'},{id:'coins',label:'Green Coin'}];
+ function selectTab(id:string){
+  setActive(id);
+  if(id==='promotions'||id==='coins')router.refresh();
+ }
 
  return <>
   <nav className="portal-tabs" aria-label="เมนูลูกค้า">
@@ -20,13 +26,13 @@ export function CustomerPanels({orders,profile}:{orders:ReactNode;profile:ReactN
      aria-controls={'panel-'+tab.id}
      aria-selected={active===tab.id}
      tabIndex={active===tab.id?0:-1}
-     onClick={()=>setActive(tab.id)}
+     onClick={()=>selectTab(tab.id)}
      onKeyDown={event=>{
       if(event.key!=='ArrowLeft'&&event.key!=='ArrowRight')return;
       event.preventDefault();
       const direction=event.key==='ArrowRight'?1:-1;
       const next=(index+direction+tabs.length)%tabs.length;
-      setActive(tabs[next].id);
+      selectTab(tabs[next].id);
       buttons.current[next]?.focus();
      }}
     >{tab.label}</button>)}
@@ -37,5 +43,7 @@ export function CustomerPanels({orders,profile}:{orders:ReactNode;profile:ReactN
   <div id="panel-password" role="tabpanel" aria-labelledby="tab-password" hidden={active!=='password'}>
    <section className="portal-section"><h2>เปลี่ยนรหัสผ่าน</h2><CustomerPasswordForm setup reset inline/></section>
   </div>
+  <div id="panel-promotions" role="tabpanel" aria-labelledby="tab-promotions" hidden={active!=='promotions'}>{promotions}</div>
+  <div id="panel-coins" role="tabpanel" aria-labelledby="tab-coins" hidden={active!=='coins'}>{coins}</div>
  </>;
 }
