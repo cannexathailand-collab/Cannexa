@@ -1,5 +1,4 @@
 import type {Metadata} from 'next';
-import Image from 'next/image';
 import {portalCustomer,hasPortalAccess} from '@/lib/customer-portal';
 import {db} from '@/lib/db';
 import {loadCustomerCrm,crmMoney,crmDate} from '@/lib/customer-crm';
@@ -17,7 +16,7 @@ export default async function CustomerPage({searchParams}:{searchParams:Promise<
  if(key&&!link&&(customer||params.register!=='1')&&(!customer||!await hasPortalAccess(key,customer.code)))return <main className="customer-portal"><section className="portal-welcome"><h1>รหัสลูกค้า</h1><CustomerCodeForm/></section></main>;
  const summary=customer?(await loadCustomerCrm([customer.code])).get(customer.code):null;
  const member=customer?await db.crmMembershipReview.findFirst({where:{customerCode:customer.code},orderBy:{month:'desc'},select:{level:true}}):null;
- const memberLevel=member?.level??'ลูกค้าใหม่';
+ const memberLevel=member?.level??'Bronze';
 
  return <main className="customer-portal">
   {key&&<header className="portal-header"><a href="/customer" className="portal-brand">พื้นที่ลูกค้า</a>{key&&<form action="/api/customer/logout" method="post"><button className="portal-signout">ออกจากระบบ</button></form>}</header>}
