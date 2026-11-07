@@ -40,3 +40,19 @@ test('draft blocks incomplete phone and postcode before customer creation or cop
  assert.deepEqual(orderDraftIssues({...draft,phone:'+66 81 234 5678',address:'10 Bangkok 10200'}),[]);
  assert.equal(hasCompletePostalCode('เลขที่ 12345 Bangkok รหัสไปรษณีย์ 1020'),false);assert.equal(hasCompletePostalCode('เลขที่ 12345 Bangkok'),false);assert.equal(hasCompletePostalCode('12345 ถนนตัวอย่าง กรุงเทพ 10200'),true);
 });
+
+test('postal-first locality lines are accepted without accepting a five-digit house number',()=>{
+ assert.equal(hasCompletePostalCode('85000, Mueang Ranong, Ranong'),true);
+ assert.equal(hasCompletePostalCode('10200, Bangkok'),true);
+ assert.equal(hasCompletePostalCode('8500, Mueang Ranong, Ranong'),false);
+ assert.equal(hasCompletePostalCode('12345 ถนนสุขุมวิท กรุงเทพ'),false);
+ assert.equal(hasCompletePostalCode('12345, Example Road, Bangkok'),false);
+ assert.equal(hasCompletePostalCode('เลขที่ 12345, Bangkok'),false);
+});
+
+test('a named location ending with a comma and house number stays with its postal-first address',()=>{
+ const address='Example fishmarket ระนอง แพปลา test, 7\n85000, Mueang Ranong, Ranong';
+ const parsed=extractOrderDraft('(🟢Example Person)\n'+address+'\n0812345678\n\nCG2 10g\n\nCod 610\n\nL. Example');
+ assert.equal(parsed.recipient,'(🟢Example Person)');assert.equal(parsed.address,address);
+ assert.deepEqual(orderDraftIssues({...emptyOrderDraft,...parsed,seller:'seller'}),[]);
+});

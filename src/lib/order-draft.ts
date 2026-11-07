@@ -5,7 +5,12 @@ export function differentDraftAddress(incoming:string,stored:string){return !!in
 export function hasCompletePostalCode(address:string){
  const explicit=address.match(/(?:รหัสไปรษณีย์|ไปรษณีย์|ปณ\.?|postcode|zip(?:code)?)\s*[:=]?\s*(\d+)/i);
  if(explicit)return explicit[1].length===5;
- return [...address.matchAll(/(?<!\d)\d{5}(?!\d)/g)].some(m=>!/(?:บ้านเลขที่|เลขที่)\s*$/.test(address.slice(0,m.index))&&(!(m.index===0)||address.trim()===m[0]));
+ return [...address.matchAll(/(?<!\d)\d{5}(?!\d)/g)].some(m=>{
+  if(/(?:บ้านเลขที่|เลขที่)\s*$/.test(address.slice(0,m.index)))return false;
+  if(m.index!==0||address.trim()===m[0])return true;
+  // Postal-first locality lines use a comma; street-first house numbers do not qualify.
+  return /^\d{5}\s*,\s*[A-Za-zก-๙]/.test(address)&&!/^\d{5}\s*,[^\n]*(?:บ้านเลขที่|เลขที่|ถนน|ซอย|\b(?:road|street|soi|lane|avenue)\b)/i.test(address);
+ });
 }
 export const draftFields={seller:'รหัสผู้ขาย',recipient:'ชื่อผู้รับ',phone:'เบอร์โทร',address:'ที่อยู่',products:'สินค้า',payment:'ชำระเงิน',amount:'ยอดตามข้อความ',customerCode:'รหัสลูกค้า'} as const;
 export type OrderDraft=Record<keyof typeof draftFields,string>;

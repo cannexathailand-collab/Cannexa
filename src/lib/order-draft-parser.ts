@@ -60,7 +60,7 @@ export function analyzeOrderDraft(text:string):DraftAnalysis{
  const explicitRecipient=values.has('recipient');
  const addName=(line:string)=>{if(!/[\d:=]/.test(line)&&line.length<100&&!/^(?:COD|โอน|เคลม|เครม|ที่อยู่|สินค้า)$/i.test(line))nameCandidates.push(line.replace(/^คุณ\s*/,''));};
  for(const groupId of new Set(freeGroups)){
-  let block=free.filter((_,index)=>freeGroups[index]===groupId);const rawIndices=freeIndices.filter((_,index)=>freeGroups[index]===groupId),marker=block.findIndex(line=>addressSignal.test(line)||/^\d{1,6}(?:\/\d{1,6})?\s/.test(line));
+  let block=free.filter((_,index)=>freeGroups[index]===groupId);const rawIndices=freeIndices.filter((_,index)=>freeGroups[index]===groupId),marker=block.findIndex(line=>addressSignal.test(line)||/^\d{1,6}(?:\/\d{1,6})?\s/.test(line)||/,\s*\d{1,6}(?:\/\d{1,6})?\s*$/.test(line));
   if(explicitRecipient&&marker>=0){addressParts.push(...block);continue;}
   const last=block.at(-1)!;
   if(marker===0&&block.length>1&&!/[\d:=]/.test(last)&&!addressSignal.test(last)&&phones(lines[(rawIndices.at(-1)??0)+1]??'').length){addName(last);block=block.slice(0,-1);}
