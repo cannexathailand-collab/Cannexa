@@ -7,8 +7,8 @@ import {quotedTotal} from '../src/lib/shipment-matching';
 test('draft extracts labelled customer fields and multiline address without confusing product code with customer code',()=>{
  const parsed=extractOrderDraft('ชื่อผู้รับ: ลูกค้าทดสอบ\nเบอร์โทร: ๐๘๑๒๓๔๕๖๗๘\nที่อยู่: 10 ถนนทดสอบ\nกรุงเทพ 10200\nสินค้า: AB1234 20g\nชำระเงิน: COD\nยอดเงิน: 1,260 บาท');
  assert.equal(parsed.address,'10 ถนนทดสอบ\nกรุงเทพ 10200');assert.equal(parsed.phone,'0812345678');assert.equal(parsed.products,'AB1234 20g');assert.equal(parsed.amount,'1260.00');assert.equal(parsed.customerCode,undefined);
- const draft={...emptyOrderDraft,...parsed,seller:'seller'};const text=renderOrderDraft(defaultOrderTemplate,draft);
- assert.deepEqual(orderDraftIssues(draft),[]);assert.equal(parseOrderText(text)?.address,'10 ถนนทดสอบ กรุงเทพ 10200');assert.equal(quotedTotal(text),126000);assert.ok(text.endsWith('รหัสลูกค้า: \nGreen Coin: —'));
+ const draft={...emptyOrderDraft,...parsed,seller:'seller',customerCode:'C0001'};const text=renderOrderDraft(defaultOrderTemplate,draft);
+ assert.deepEqual(orderDraftIssues(draft),[]);assert.equal(parseOrderText(text)?.address,'10 ถนนทดสอบ กรุงเทพ 10200');assert.equal(quotedTotal(text),126000);assert.ok(text.endsWith('รหัสลูกค้า: C0001\nGreen Coin: —'));
 });
 test('draft leaves missing money and payment blank rather than inventing data',()=>{
  const parsed=extractOrderDraft('ลูกค้าทดสอบ\n0812345678');assert.equal(parsed.recipient,'ลูกค้าทดสอบ');assert.equal(parsed.phone,'0812345678');assert.equal(parsed.amount,undefined);assert.equal(parsed.payment,undefined);assert.ok(orderDraftIssues({...emptyOrderDraft,...parsed}).length>0);
@@ -28,16 +28,16 @@ test('address comparison ignores formatting and flags a genuinely different dest
 test('raw inline shipping contact, unlabelled SKU and COD amount are separated into columns',()=>{
  const parsed=extractOrderDraft('ส่งน.ส.ทดสอบ ใจดี 12/34 ถ.ทดลอง1 ต.ในเมือง อ.เมือง จ.บุรีรัมย์ 31000 โทร0812345678\n\nTM2 50g\n\nCod 350\n\nL. demo999');
  assert.equal(parsed.recipient,'น.ส.ทดสอบ ใจดี');assert.equal(parsed.address,'12/34 ถ.ทดลอง1 ต.ในเมือง อ.เมือง จ.บุรีรัมย์ 31000');assert.equal(parsed.phone,'0812345678');assert.equal(parsed.products,'TM2 50g');assert.equal(parsed.payment,'COD');assert.equal(parsed.amount,'350.00');assert.equal(parsed.customerCode,undefined);
- assert.deepEqual(orderDraftIssues({...emptyOrderDraft,...parsed,seller:'seller'}),[]);
+ assert.deepEqual(orderDraftIssues({...emptyOrderDraft,...parsed,seller:'seller'},{requireCustomerCode:false}),[]);
 });
 test('unlabelled multiline address preceding phone is kept as one address',()=>{
  const parsed=extractOrderDraft('ผู้รับ\nชื่อ : TEST\nตัวอย่างริมน้ำเลข28\nบ้านเกิด9 11000\nเมืองนนทบุรี,นนทบุรี.ไทย\n0812345678\n\nNT16 5g\n\nCod 200\n\nL. demo');
- assert.equal(parsed.recipient,'TEST');assert.equal(parsed.address,'ตัวอย่างริมน้ำเลข28\nบ้านเกิด9 11000\nเมืองนนทบุรี,นนทบุรี.ไทย');assert.equal(parsed.products,'NT16 5g');assert.equal(parsed.amount,'200.00');assert.deepEqual(orderDraftIssues({...emptyOrderDraft,...parsed,seller:'seller'}),[]);
+ assert.equal(parsed.recipient,'TEST');assert.equal(parsed.address,'ตัวอย่างริมน้ำเลข28\nบ้านเกิด9 11000\nเมืองนนทบุรี,นนทบุรี.ไทย');assert.equal(parsed.products,'NT16 5g');assert.equal(parsed.amount,'200.00');assert.deepEqual(orderDraftIssues({...emptyOrderDraft,...parsed,seller:'seller'},{requireCustomerCode:false}),[]);
 });
 test('draft blocks incomplete phone and postcode before customer creation or copying',()=>{
  const draft={...emptyOrderDraft,seller:'seller',recipient:'Name',phone:'081234567',address:'10 Bangkok 1020',products:'TM2 10g',payment:'COD',amount:'100'};
  assert.ok(orderDraftIssues(draft).includes('เบอร์โทรต้องครบ 10 หลัก'));assert.ok(orderDraftIssues(draft).includes('รหัสไปรษณีย์ต้องครบ 5 หลัก'));
- assert.deepEqual(orderDraftIssues({...draft,phone:'+66 81 234 5678',address:'10 Bangkok 10200'}),[]);
+ assert.deepEqual(orderDraftIssues({...draft,phone:'+66 81 234 5678',address:'10 Bangkok 10200',customerCode:'C0001'}),[]);
  assert.equal(hasCompletePostalCode('เลขที่ 12345 Bangkok รหัสไปรษณีย์ 1020'),false);assert.equal(hasCompletePostalCode('เลขที่ 12345 Bangkok'),false);assert.equal(hasCompletePostalCode('12345 ถนนตัวอย่าง กรุงเทพ 10200'),true);
 });
 
@@ -54,7 +54,7 @@ test('a named location ending with a comma and house number stays with its posta
  const address='Example fishmarket ระนอง แพปลา test, 7\n85000, Mueang Ranong, Ranong';
  const parsed=extractOrderDraft('(🟢Example Person)\n'+address+'\n0812345678\n\nCG2 10g\n\nCod 610\n\nL. Example');
  assert.equal(parsed.recipient,'(🟢Example Person)');assert.equal(parsed.address,address);
- assert.deepEqual(orderDraftIssues({...emptyOrderDraft,...parsed,seller:'seller'}),[]);
+ assert.deepEqual(orderDraftIssues({...emptyOrderDraft,...parsed,seller:'seller'},{requireCustomerCode:false}),[]);
 });
 
 test('Green Coin follows the customer code and remains informational to the order bot',()=>{
@@ -66,4 +66,12 @@ test('Green Coin follows the customer code and remains informational to the orde
  assert.equal(quotedTotal(text),126000);
  assert.deepEqual(orderTemplateIssues(defaultOrderTemplate),[]);
  assert.ok(orderTemplateIssues(defaultOrderTemplate.replace('\nGreen Coin: {{Green Coin}}','')).length);
+});
+
+test('a customer code is mandatory for a completed work draft but not for the preliminary customer search',()=>{
+ const draft={...emptyOrderDraft,seller:'seller',recipient:'Sample',phone:'0812345678',address:'Bangkok 10200',products:'CG13 20g',payment:'COD',amount:'1260'};
+ assert.deepEqual(orderDraftIssues(draft),['ต้องมีรหัสลูกค้าก่อนคัดลอกข้อความ']);
+ assert.deepEqual(orderDraftIssues(draft,{requireCustomerCode:false}),[]);
+ assert.deepEqual(orderDraftIssues({...draft,customerCode:'C0001'}),[]);
+ assert.ok(orderDraftIssues({...draft,customerCode:'wrong'}).includes('รหัสลูกค้าไม่ถูกต้อง'));
 });

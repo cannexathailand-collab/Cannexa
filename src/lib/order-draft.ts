@@ -23,8 +23,10 @@ export function renderOrderDraft(template:string,draft:OrderDraft){
   return key?(key==='address'?draft[key].trim().replace(/\n+/g,' '):key==='points'?draft[key].trim()||'—':draft[key].trim()):'';
  }).trimEnd();
 }
-export function orderDraftIssues(draft:OrderDraft){
+export function orderDraftIssues(draft:OrderDraft,{requireCustomerCode=true}:{requireCustomerCode?:boolean}={}){
  const issues:string[]=[];
+ if(requireCustomerCode&&!draft.customerCode.trim())issues.push('ต้องมีรหัสลูกค้าก่อนคัดลอกข้อความ');
+ if(draft.customerCode&&!/^(?:[A-Z]{1,3}\d{4,8}|CUS-\d{8})$/.test(draft.customerCode.trim().toUpperCase()))issues.push('รหัสลูกค้าไม่ถูกต้อง');
  for(const key of ['seller','recipient','phone','address','products'] as const)if(!draft[key].trim())issues.push('กรอก'+draftFields[key]);
  if(draft.phone){let digits=draft.phone.replace(/[\s()+-]/g,'');if(digits.startsWith('660'))digits='0'+digits.slice(3);else if(digits.startsWith('66'))digits='0'+digits.slice(2);if(!/^0\d{9}$/.test(digits)||/^0+$/.test(digits))issues.push('เบอร์โทรต้องครบ 10 หลัก');}
  if(draft.address&&!hasCompletePostalCode(draft.address))issues.push('รหัสไปรษณีย์ต้องครบ 5 หลัก');

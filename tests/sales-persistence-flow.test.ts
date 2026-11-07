@@ -76,7 +76,7 @@ test('LINE and Gmail flow persists sales once, rereads exact revenue, and preser
  const env={SESSION_SECRET:process.env.SESSION_SECRET,USER_HASH_SECRET:process.env.USER_HASH_SECRET};process.env.SESSION_SECRET='isolated-sales-flow';process.env.USER_HASH_SECRET='isolated-sales-flow';t.after(()=>{for(const [key,value]of Object.entries(env))if(value===undefined)delete process.env[key];else process.env[key]=value;});
  h.model('orderGroup',{enabled:true,purpose:'ORDER'},[['id']]);h.model('orderMessageWithdrawal',{},[['messageKey']]);
  h.model('crmPointRule');
- h.model('customer',{code:'CUS-00000001'},[['identityKey']]);
+ const customerModel=h.model('customer',{},[['identityKey']]);customerModel.seed({code:'CUS-00000001',referrerId:'seller'});customerModel.seed({code:'CUS-00000002',referrerId:'seller'});
  h.model('affiliate').seed({id:'seller',name:'Test seller',code:'ADM001',active:true,archivedAt:null,salesCommissionBasis:'REVENUE',salesCommissionBps:1000,accounts:[{username:'adm001',role:'employee',active:true}]});
  h.model('orderIntake',{},[['id'],['messageKey'],['eventKey']]);h.model('salesOrder',{tracking:null,recognizedAt:null,paidAt:null,paidAmountSatang:null},[['id'],['orderId'],['tracking']]);
  h.model('shipment',{orderId:null,status:'WAITING_ORDER',fulfillmentStatus:'UNCONFIRMED',dispatchedAt:null,dispatchEvidence:null},[['tracking'],['orderId']]);h.model('codReceipt',{},[['tracking']]);
@@ -86,7 +86,7 @@ test('LINE and Gmail flow persists sales once, rereads exact revenue, and preser
  h.model('stockIntegrationConfig').seed({id:'active',enabled:true,activeFrom:new Date(at-10*day)});
  h.model('gmailConnection').seed({id:'active',email:'test@example.com',revision:'isolated',encryptedConfig:encryptGmail({clientId:'test.apps.googleusercontent.com',clientSecret:'secret'}),encryptedToken:encryptGmail({refreshToken:'refresh'}),syncPageToken:null});
  const cod={tracking:'EF123456789TH',recipient:'ลูกค้า COD',phone:'0812345678',address:'123 ถนนทดสอบ 10100',amount:2560},transfer={tracking:'EA123456789TH',recipient:'ลูกค้า โอน',phone:'0898765432',address:'456 ถนนตัวอย่าง 10200',amount:1000};
- const event=(id:string,payment:string,parcel:typeof cod):OrderEvent=>({webhookEventId:'event-'+id,type:'message',timestamp:at-2*day,source:{type:'group',groupId:'sales-group',userId:'seller-user'},message:{type:'text',id,text:'รหัสผู้ขาย: ADM001\nผู้รับ: '+parcel.recipient+'\nโทร: '+parcel.phone+'\nที่อยู่: '+parcel.address+'\nชำระเงิน: '+payment+'\nรายการสินค้า\nA1 x 10 G\nยอดรวม: '+parcel.amount}});
+ const event=(id:string,payment:string,parcel:typeof cod):OrderEvent=>({webhookEventId:'event-'+id,type:'message',timestamp:at-2*day,source:{type:'group',groupId:'sales-group',userId:'seller-user'},message:{type:'text',id,text:'รหัสผู้ขาย: ADM001\nผู้รับ: '+parcel.recipient+'\nโทร: '+parcel.phone+'\nที่อยู่: '+parcel.address+'\nชำระเงิน: '+payment+'\nรายการสินค้า\nA1 x 10 G\nยอดรวม: '+parcel.amount+'\nรหัสลูกค้า: '+(parcel===cod?'C0001':'C0002')}});
  const codEvent=event('cod','COD',cod),transferEvent=event('transfer','โอน',transfer);
  const concurrentOrders=await Promise.all([receiveOrderEvent('test-bot',codEvent),receiveOrderEvent('test-bot',codEvent),receiveOrderEvent('test-bot',{...codEvent,webhookEventId:'concurrent-redelivery'})]);
  const codOrder=concurrentOrders.find(Boolean),transferOrder=await receiveOrderEvent('test-bot',transferEvent);assert.ok(codOrder);assert.ok(transferOrder);assert.equal(concurrentOrders.filter(Boolean).length,1);

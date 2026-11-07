@@ -12,27 +12,52 @@ function harness(enabled=true){
  db.$transaction=(async(fn:any)=>fn(tx)) as any;
  tx.additionalCommission={create:async({data}:any)=>data};
  tx.crmPointRule={findFirst:async()=>null};
- const customers:any[]=[];
+ const customers:any[]=[{code:'CUS-00000001',referrerId:'seller'}];
  tx.customer={findUnique:async({where}:any)=>customers.find(c=>where.code?c.code===where.code:c.identityKey===where.identityKey)??null,update:async({where,data}:any)=>Object.assign(customers.find(c=>c.code===where.code),data),upsert:async({where,create}:any)=>{let c=customers.find(c=>c.identityKey===where.identityKey);if(!c){c={code:'CUS-'+String(customers.length+1).padStart(8,'0'),...create};customers.push(c);}return c;}};
- return {rows,groups,tx,sales};
+ return {rows,groups,tx,sales,customers};
 }
-function event(message="m1"):OrderEvent{return {webhookEventId:"e-"+message,type:"message",timestamp:Date.now(),source:{type:"group",groupId:"group",userId:"person"},message:{type:"text",id:message,text:"รหัสผู้ขาย: ADM001\nผู้รับ: ตัวอย่าง\nโทร: 0812345678\nที่อยู่: 1\nชำระเงิน: COD\nยอดรวม: 2560"}};}
+function event(message="m1"):OrderEvent{return {webhookEventId:"e-"+message,type:"message",timestamp:Date.now(),source:{type:"group",groupId:"group",userId:"person"},message:{type:"text",id:message,text:"รหัสผู้ขาย: ADM001\nผู้รับ: ตัวอย่าง\nโทร: 0812345678\nที่อยู่: 1 กรุงเทพ 10200\nชำระเงิน: COD\nยอดรวม: 2560\nรหัสลูกค้า: C0001"}};}
 test('customer code links an order without replacing the seller or rewarding the referrer again',async()=>{
- const h=harness();await h.tx.customer.upsert({where:{identityKey:'seed'},create:{referrerId:'seller'}});
+ const h=harness();
  h.tx.orderIntake.update=async({where,data}:any)=>Object.assign(h.rows.find(r=>r.id===where.id),data);
- const e=event();e.message!.text+='\nรหัสลูกค้า: cus-00000001';const order=await receiveOrderEvent('bot-a',e);
+ const e=event();e.message!.text=e.message!.text!.replace('C0001','cus-00000001');const order=await receiveOrderEvent('bot-a',e);
  assert.equal(order?.customerCode,'CUS-00000001');assert.equal(order?.affiliateId,'seller');assert.equal(h.sales.length,0);
  await receiveOrderEvent('bot-a',e);assert.equal(h.rows.length,1);
- const bad=event('bad-customer');bad.message!.text+='\nรหัสลูกค้า: CUS-99999999';const invalid=await receiveOrderEvent('bot-a',bad);
+ const bad=event('bad-customer');bad.message!.text=bad.message!.text!.replace('C0001','CUS-99999999');const invalid=await receiveOrderEvent('bot-a',bad);
  assert.equal(invalid?.status,'NEEDS_REVIEW');assert.equal(invalid?.customerCode,null);assert.ok((invalid?.issues as string[]).some(i=>i.includes('รหัสลูกค้า')));
+});
+
+test('missing or blank customer code rejects COD, transfer and claim before any order or customer write',async()=>{
+ for(const payment of ['COD','โอน','เคลม'])for(const suffix of ['', '\nรหัสลูกค้า:   ']){
+  const h=harness(),e=event('missing-'+payment+suffix.length);
+  e.message!.text=e.message!.text!.replace('\nรหัสลูกค้า: C0001',suffix).replace('ชำระเงิน: COD','ชำระเงิน: '+payment);
+  h.tx.customer={findUnique:async()=>assert.fail('must not resolve customer'),upsert:async()=>assert.fail('must not create customer')};
+  assert.equal(await receiveOrderEvent('bot-a',e),null);assert.equal(h.rows.length,0);assert.equal(h.sales.length,0);assert.equal(h.customers.length,1);
+ }
+});
+
+test('missing or incomplete postcode prevents all order and financial writes',async()=>{
+ for(const address of ['10 Bangkok','10 Bangkok 1020','12345 ถนนทดสอบ']){
+  const h=harness(),e=event('postal');e.message!.text=e.message!.text!.replace('1 กรุงเทพ 10200',address);
+  h.tx.customer={findUnique:async()=>assert.fail('must not resolve customer')};
+  assert.equal(await receiveOrderEvent('bot-a',e),null);assert.equal(h.rows.length,0);assert.equal(h.sales.length,0);
+ }
+});
+
+test('missing or incomplete phone prevents order and customer creation',async()=>{
+ for(const phone of ['','081234567','0000000000']){
+  const h=harness(),e=event('phone');e.message!.text=e.message!.text!.replace('0812345678',phone);
+  h.tx.customer={findUnique:async()=>assert.fail('must not resolve customer')};
+  assert.equal(await receiveOrderEvent('bot-a',e),null);assert.equal(h.rows.length,0);assert.equal(h.sales.length,0);
+ }
 });
 test("shared affiliate orders belong to the matching employee, ambiguous code assigns nobody",async()=>{
  const h=harness();h.tx.affiliate.findMany=async()=>[{id:"seller",salesCommissionBasis:"REVENUE",salesCommissionBps:200,accounts:[{username:"adm001"},{username:"other"}]}];
  await receiveOrderEvent("bot-a",event());assert.equal(h.rows[0].sellerUsername,"adm001");
  const e=event("ambiguous");e.message!.text=e.message!.text!.replace("ADM001","11155");await receiveOrderEvent("bot-a",e);assert.equal(h.rows[1].sellerUsername,null);
 });
-test('automatic customer survives repeat purchase and a different selling employee with one commission per order',async()=>{
- const h=harness();let current='first';
+test('existing customer survives repeat purchase and a different selling employee with one commission per order',async()=>{
+ const h=harness();h.customers[0].referrerId='first';let current='first';
  const first={id:'first',salesCommissionBasis:'REVENUE',salesCommissionBps:200},second={id:'second',salesCommissionBasis:'REVENUE',salesCommissionBps:500};
  h.tx.affiliate.findMany=async()=>[current==='first'?first:second];h.tx.affiliate.findUnique=async()=>first;
  const make=(id:string)=>{const e=event(id);e.message!.text=e.message!.text!.replace('ชำระเงิน: COD','ชำระเงิน: โอน');return e;};

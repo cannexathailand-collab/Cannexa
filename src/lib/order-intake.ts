@@ -8,6 +8,7 @@ import {reverseOrderSales} from "./sales-cancellation";
 import {salesCommissionRate,salesCommissionUsesCost} from './sales-commission-rate';
 import {resolveOrderCustomer} from './order-customer';
 import {capturePointSnapshot} from './crm-point-snapshot';
+import {orderRejectionReasons} from './order-validation';
 
 export type OrderEvent={webhookEventId:string;type:string;timestamp:number;replyToken?:string;source:{type?:string;groupId?:string;userId?:string};message?:{type:string;id:string;text?:string};unsend?:{messageId:string}};
 export async function receiveOrderEvent(botId:string,e:OrderEvent){
@@ -31,6 +32,8 @@ export async function receiveOrderEvent(botId:string,e:OrderEvent){
  }
  if(!group.enabled||e.type!=="message"||e.message?.type!=="text"||!e.message.text)return null;
  const parsed=parseOrderText(e.message.text);if(!parsed)return null;
+ // Required identity and postal data are checked before customer, order or financial writes.
+ if(orderRejectionReasons(parsed).length)return null;
  const messageKey=userKey("order-message:"+botId+":"+e.message.id);
  const eventKey=userKey("order-event:"+botId+":"+e.webhookEventId);
  return transaction(async tx=>{

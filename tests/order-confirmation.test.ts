@@ -15,7 +15,7 @@ test('invalid phone warning retains the correction path and claim excludes new c
  const text=orderConfirmationText({...order,status:'NEEDS_REVIEW',issues:['เบอร์โทรไม่ถูกต้อง']},null,seller,summary);assert.ok(text.includes('กรุณาตรวจเบอร์โทรผู้รับ'));assert.ok(text.includes('ยกเลิกข้อความออเดอร์เดิม'));
  assert.ok(orderConfirmationText({...order,payment:'เคลม'},null,seller,summary).includes('ไม่เพิ่มยอดขายหรือค่าคอม'));
 });
-const event:OrderEvent={webhookEventId:'event',timestamp:Date.now(),type:'message',source:{type:'group',groupId:'group'},message:{type:'text',id:'message',text:'รหัสผู้ขาย: ADM001'},replyToken:'test-reply-token'};
+const event:OrderEvent={webhookEventId:'event',timestamp:Date.now(),type:'message',source:{type:'group',groupId:'group'},message:{type:'text',id:'message',text:'รหัสผู้ขาย: ADM001\nรหัสลูกค้า: C0001\nที่อยู่: Bangkok 10200\nโทร: 0812345678'},replyToken:'test-reply-token'};
 test('stored order sends compact reply once and duplicate delivery does not send twice',async t=>{
  const restore:Array<()=>void>=[];const patch=(obj:any,key:string,value:any)=>{const old=obj[key];obj[key]=value;restore.push(()=>obj[key]=old);};t.after(()=>restore.reverse().forEach(fn=>fn()));
  const stored={...order,affiliateId:'linked-affiliate',id:'order',replyStatus:'NOT_SENT',replyAttempts:0};let sends=0;

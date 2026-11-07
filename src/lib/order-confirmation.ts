@@ -4,6 +4,7 @@ import {userKey} from "./crypto";
 import type {OrderEvent} from "./order-intake";
 import {confirmationMessages,getOrderStockNotice} from './order-stock-notice';
 import {loadOrderReplyContext,type OrderReplyContext} from './order-reply-context';
+import {replyRejectedOrder} from './order-rejection';
 type Confirmation={orderNumber:string;status:string;payment:string|null;issues:unknown;sellerCode?:string|null;customerCode?:string|null};
 type Sale={status:string;commissionSatang:number|null;recognizedAt?:Date|null};
 type Seller={code:string;name:string};
@@ -30,7 +31,8 @@ export async function replyOrderConfirmation(botId:string,event:OrderEvent,acces
  if(event.type!=="message"||event.message?.type!=="text"||event.source.type!=="group"||!event.replyToken)return;
  const messageKey=userKey("order-message:"+botId+":"+event.message.id);
  const order=await db.orderIntake.findUnique({where:{messageKey}});
- if(!order||["WITHDRAWN","EXPIRED","CANCELLED","RETURNED"].includes(order.status)||["SENT","SENDING"].includes(order.replyStatus))return;
+ if(!order){await replyRejectedOrder(botId,event,accessToken);return;}
+ if(["WITHDRAWN","EXPIRED","CANCELLED","RETURNED"].includes(order.status)||["SENT","SENDING"].includes(order.replyStatus))return;
  if(!accessToken){await db.orderIntake.updateMany({where:{id:order.id,replyStatus:{not:"SENT"}},data:{replyStatus:"NOT_CONFIGURED",replyLastError:"ACCESS_TOKEN_MISSING"}});return;}
  const claimed=await db.orderIntake.updateMany({where:{id:order.id,status:{notIn:["WITHDRAWN","EXPIRED","CANCELLED","RETURNED"]},replyStatus:{in:["NOT_SENT","FAILED","NOT_CONFIGURED"]},replyAttempts:{lt:2}},data:{replyStatus:"SENDING",replyAttempts:{increment:1},replyLastError:null}});
  if(!claimed.count)return;
