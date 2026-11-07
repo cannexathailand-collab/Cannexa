@@ -1,8 +1,50 @@
-.reward-admin-list{display:grid;gap:16px;margin-top:18px}
-.reward-admin-list>details,.reward-admin-list>article{border:1px solid #dbe5d9;border-radius:12px;padding:18px;background:#fcfdfb}
-.reward-admin-list summary{cursor:pointer;display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap}
-.reward-admin-list summary>span{font-size:13px;color:#60735d}
-.reward-admin-list header{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.reward-editor-numbers{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-.reward-resolution{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
-@media(max-width:600px){.reward-editor-numbers{grid-template-columns:1fr}.reward-admin-list header{flex-wrap:wrap}}
+.reward-create {
+ margin:24px 0;
+ border:1px solid #d6e3d6;
+ border-radius:16px;
+ background:#fff;
+ overflow:hidden;
+}
+.reward-create>summary {padding:18px 22px;color:#235b3d;background:#edf4ec}
+.reward-admin-cards {display:grid;gap:18px;margin:20px 0 30px}
+.reward-editor-card {border:1px solid #d6e3d6;border-radius:16px;background:#fff;box-shadow:0 5px 18px #21492c08;overflow:hidden}
+.reward-create .reward-editor-card {border:0;border-radius:0;box-shadow:none}
+.reward-editor-grid {display:grid;grid-template-columns:180px minmax(0,1fr);gap:26px;min-width:0;margin:0;padding:22px;border:0}
+.reward-editor-image {min-width:0}
+.reward-editor-image>img,.reward-image-placeholder {width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;border:1px solid #dde6d5;background:#f0f4e9}
+.reward-editor-image>img {display:block}
+.reward-image-placeholder {display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#7c8f6b;font-size:13px}
+.reward-image-placeholder>span {font-size:34px;font-weight:400;line-height:1}
+.reward-image-upload {position:relative;display:block;padding:10px 12px;margin:12px 0 8px;border:1px solid #a4b99a;border-radius:9px;text-align:center;color:#315d3c;background:#f8faf4;font-weight:600;cursor:pointer}
+.reward-image-upload:focus-within {outline:2px solid #287145;outline-offset:3px}
+.reward-image-upload input {position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.reward-editor-image>small {display:block;text-align:center;font-size:11px;line-height:1.7;color:#72816b}
+.reward-editor-details {min-width:0;align-self:center}
+.reward-editor-details h2 {margin:8px 0 10px;font-size:21px;color:#204c32;overflow-wrap:anywhere}
+.reward-editor-details p {margin:8px 0 16px;color:#64765c;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.reward-editor-details label {font-size:13px;color:#48613e}
+.reward-editor-details input,.reward-editor-details textarea {font-size:16px;min-width:0}
+.reward-editor-details label>small {display:block;margin-top:6px;color:#7b8873;font-size:12px}
+.reward-editor-numbers {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.reward-availability {display:inline-block;padding:4px 10px;border-radius:20px;background:#f0f1eb;color:#788271;font-size:11px;font-weight:600}
+.reward-availability.is-enabled {background:#e7f3e8;color:#307245}
+.reward-card-stats {display:flex;flex-wrap:wrap;align-items:center;gap:9px 18px;margin-top:14px}
+.reward-card-stats strong {color:#927020;font-size:18px}
+.reward-card-stats span {font-size:13px;color:#64765c}
+.reward-expiry {display:block;margin:9px 0 17px;font-size:12px;color:#7a806e}
+.reward-resolution {display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.reward-admin-list {display:grid;gap:16px;margin-top:18px}
+.reward-admin-list>article {border:1px solid #dbe5d9;border-radius:12px;padding:18px;background:#fcfdfb}
+.reward-admin-list header {display:flex;align-items:center;justify-content:space-between;gap:12px}
+@media(max-width:600px) {
+ .reward-create>summary {padding:16px}
+ .reward-editor-grid {grid-template-columns:96px minmax(0,1fr);gap:14px;padding:16px}
+ .reward-editor-details h2 {font-size:18px;line-height:1.6}
+ .reward-card-stats {display:grid;gap:6px}
+ .reward-card-stats strong {font-size:16px}
+ .reward-editor-numbers {grid-template-columns:1fr;gap:0}
+ .reward-image-upload {font-size:12px;padding:9px 4px}
+ .reward-editor-image>small {font-size:10px}
+ .reward-resolution button {width:100%}
+ .reward-admin-list header {flex-wrap:wrap}
+}

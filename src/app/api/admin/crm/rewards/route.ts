@@ -10,7 +10,13 @@ export async function POST(request:Request){
   await saveReward(actor,await request.json());
   return NextResponse.json({ok:true});
  }catch(error){
-  const changed=error instanceof Error&&['REWARD_VERSION_REQUIRED','REWARD_VERSION_CONFLICT','REWARD_REQUEST_CONFLICT'].includes(error.message);
-  return NextResponse.json({error:changed?'รายการนี้มีการเปลี่ยนแปลงแล้ว กรุณารีเฟรชก่อนแก้ไข':'บันทึกไม่สำเร็จ กรุณาตรวจชื่อ จำนวน Green Coin และจำนวนพร้อมแลก'},{status:changed?409:400});
+  const code=error instanceof Error?error.message:'';
+  const changed=['REWARD_VERSION_REQUIRED','REWARD_VERSION_CONFLICT','REWARD_REQUEST_CONFLICT'].includes(code);
+  const messages:Record<string,string>={
+   INVALID_REWARD_IMAGE:'เลือกรูป JPG, PNG หรือ WebP ที่เปิดอ่านได้',
+   REWARD_IMAGE_TOO_LARGE:'รูปภาพต้องมีขนาดไม่เกิน 2 MB',
+   INVALID_REWARD_EXPIRY:'กรุณาระบุวันสุดท้ายที่แลกได้ให้ถูกต้อง',
+  };
+  return NextResponse.json({error:changed?'รายการนี้มีการเปลี่ยนแปลงแล้ว กรุณารีเฟรชก่อนแก้ไข':messages[code]??'บันทึกไม่สำเร็จ กรุณาตรวจชื่อ จำนวน Green Coin และจำนวนพร้อมแลก'},{status:changed?409:400});
  }
 }

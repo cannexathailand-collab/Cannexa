@@ -2,11 +2,15 @@ import type { NextConfig } from "next";
 const config:NextConfig = {
   poweredByHeader:false,
   distDir:process.env.DEMO_DIST_DIR || ".next",
-  async headers(){ return [{source:"/:path*",headers:[
-    {key:"X-Content-Type-Options",value:"nosniff"},
-    {key:"Referrer-Policy",value:"same-origin"},
-    {key:"X-Frame-Options",value:"DENY"},
-    {key:"Cache-Control",value:"no-store"},
-  ]}]; }
+  async headers(){ return [
+    {source:"/:path*",headers:[
+      {key:"X-Content-Type-Options",value:"nosniff"},
+      {key:"Referrer-Policy",value:"same-origin"},
+      {key:"X-Frame-Options",value:"DENY"},
+    ]},
+    {source:"/:path((?!api/rewards/[^/]+/image/?$).*)",headers:[
+      {key:"Cache-Control",value:"no-store"},
+    ]},
+  ]; }
 };
 export default config;

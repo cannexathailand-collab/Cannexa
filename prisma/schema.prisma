@@ -255,6 +255,10 @@ model CrmReward {
  points Int
  availableUnits Int
  enabled Boolean @default(false)
+ imageData Bytes?
+ imageMime String?
+ imageVersion String?
+ expiresAt DateTime?
  createdAt DateTime @default(now())
  updatedAt DateTime @updatedAt
  redemptions CrmRewardRedemption[]

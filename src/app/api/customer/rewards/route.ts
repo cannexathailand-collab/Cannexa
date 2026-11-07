@@ -19,6 +19,7 @@ export async function POST(request:Request){
   const messages:Record<string,string>={
    INSUFFICIENT_POINTS:'Green Coin ไม่เพียงพอสำหรับแลกของรางวัลนี้',
    REWARD_UNAVAILABLE:'ของรางวัลนี้หมดหรือปิดให้แลกแล้ว',
+   REWARD_EXPIRED:'หมดเขตแลกของรางวัลนี้แล้ว กรุณาเลือกรายการอื่น',
    REWARD_NOT_FOUND:'ไม่พบของรางวัลนี้',
    REWARD_CHANGED:'ชื่อหรือจำนวนเหรียญที่ใช้แลกเปลี่ยนแล้ว กรุณาปิดหน้าต่างและเลือกรายการใหม่',
    INVALID_DELIVERY:'กรุณากรอกชื่อ เบอร์โทร และที่อยู่จัดส่งในข้อมูลส่วนตัวให้ครบก่อนแลก',
