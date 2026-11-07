@@ -8,7 +8,7 @@ import {db} from "@/lib/db";
 import {syncLoginCustomer} from '@/lib/customer-code-message';
 import {lineSettings} from "@/lib/line-settings";
 import {lineCustomerDestination} from "@/lib/line-customer-destination";
-import {linkPortalCustomer,portalCookie,portalToken,portalDuration} from '@/lib/customer-portal';
+import {linkPortalCustomer,portalCookie,portalAccessCookie,portalToken,portalDuration} from '@/lib/customer-portal';
 import {cookieOptions} from '@/lib/auth';
 export async function GET(req:NextRequest){
  if(mockMode())return new Response("Real callback disabled in mock mode",{status:409});
@@ -27,6 +27,8 @@ export async function GET(req:NextRequest){
    await linkPortalCustomer(key,a.customerLinkHash);
    const res=NextResponse.redirect(baseUrl()+'/customer');
    res.cookies.set(portalCookie,portalToken(key),{...cookieOptions,maxAge:portalDuration});
+   res.cookies.delete(portalAccessCookie);
+   res.cookies.delete('customer_password_step');
    res.cookies.delete('oauth_'+sha(state).slice(0,16));return res;
   }
   if(!a.clickId)throw new Error('Missing affiliate click');

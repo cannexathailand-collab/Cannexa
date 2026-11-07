@@ -172,6 +172,8 @@ model MetaConnection {
  datasetId String
 }
 model Customer {
+ portalPasswordSalt String?
+ portalPasswordHash String?
  code String @id @default(dbgenerated("customer_code()"))
  lineUserKey String? @unique
  conversionId String? @unique

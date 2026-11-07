@@ -1,17 +1,19 @@
 import type {Metadata} from 'next';
-import {portalCustomer} from '@/lib/customer-portal';
+import {portalCustomer,hasPortalAccess} from '@/lib/customer-portal';
 import {db} from '@/lib/db';
 import {loadCustomerCrm,crmMoney,crmDate} from '@/lib/customer-crm';
 import {displayCustomerCode} from '@/lib/customer-code';
 import {ProfileForm} from './profile-form';
 import './portal.css';
+import {CustomerCodeForm} from './code-form';
 export const metadata:Metadata={title:'พื้นที่ลูกค้า',description:'ข้อมูลสมาชิก Green Coin และติดตามออเดอร์ของคุณ',robots:{index:false,follow:false}};
 export const dynamic='force-dynamic';
-export default async function CustomerPage({searchParams}:{searchParams:Promise<{error?:string;link?:string}>}){
+export default async function CustomerPage({searchParams}:{searchParams:Promise<{error?:string;link?:string;register?:string}>}){
  const params=await searchParams;const {key,customer}=await portalCustomer();
+ const link=params.link&&/^[A-Za-z0-9_-]{43}$/.test(params.link)?params.link:null;
+ if(key&&!link&&(customer||params.register!=='1')&&(!customer||!await hasPortalAccess(key,customer.code)))return <main className="customer-portal"><section className="portal-welcome"><h1>รหัสลูกค้า</h1><CustomerCodeForm/></section></main>;
  const summary=customer?(await loadCustomerCrm([customer.code])).get(customer.code):null;
  const member=customer?await db.crmMembershipReview.findFirst({where:{customerCode:customer.code},orderBy:{month:'desc'},select:{level:true}}):null;
- const link=params.link&&/^[A-Za-z0-9_-]{43}$/.test(params.link)?params.link:null;
  return <main className="customer-portal">
   {key&&<header className="portal-header"><a href="/customer" className="portal-brand">พื้นที่ลูกค้า</a>{key&&<form action="/api/customer/logout" method="post"><button className="portal-signout">ออกจากระบบ</button></form>}</header>}
   {!key||link?<section className="portal-welcome"><h1>ยินดีต้อนรับ</h1><p>ขอบคุณที่ร่วมเป็นสมาชิกกับเรา</p>{params.error&&<p role="alert" className="portal-alert">{params.error==='unavailable'?'ขณะนี้ยังไม่พร้อมเชื่อมต่อ LINE กรุณาลองอีกครั้ง':params.error==='link'?'ลิงก์หมดอายุหรือถูกใช้แล้ว กรุณาขอลิงก์ใหม่จากร้าน':'เข้าสู่ระบบหรือผูกบัญชีไม่สำเร็จ กรุณาลองใหม่ หรือติดต่อร้านหากบัญชีนี้ผูกกับลูกค้าคนอื่นแล้ว'}</p>}<a className="button portal-line" href={'/api/customer/login'+(link?'?link='+encodeURIComponent(link):'')}>{link?'ยืนยันผูกข้อมูลด้วย LINE':'เข้าสู่ระบบด้วย LINE'}</a></section>:<>
