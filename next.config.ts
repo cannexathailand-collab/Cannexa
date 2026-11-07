@@ -8,7 +8,7 @@ const config:NextConfig = {
       {key:"Referrer-Policy",value:"same-origin"},
       {key:"X-Frame-Options",value:"DENY"},
     ]},
-    {source:"/:path((?!api/rewards/[^/]+/image/?$).*)",headers:[
+    {source:"/:path((?!api/(?:rewards|stock)/[^/]+/image/?$).*)",headers:[
       {key:"Cache-Control",value:"no-store"},
     ]},
   ]; }

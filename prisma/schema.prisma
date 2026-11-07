@@ -529,6 +529,15 @@ model StockProduct {
  updatedAt DateTime @updatedAt
 }
 
+model StockProductImage {
+ code String @id
+ imageData Bytes
+ imageMime String
+ imageVersion String
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+}
+
 model StockProductUpdate {
  id String @id
  fingerprint String
