@@ -6,6 +6,7 @@ import {cookieOptions} from '@/lib/auth';
 import {lineSettings} from '@/lib/line-settings';
 import {authorizationUrl} from '@/lib/line';
 import {limit} from '@/lib/rate-limit';
+import {customerAgeCookie} from '@/lib/customer-age';
 export async function GET(req:NextRequest){
  if(mockMode())return NextResponse.redirect(baseUrl()+'/customer?error=unavailable');
  const connection=await lineSettings();
@@ -20,5 +21,6 @@ export async function GET(req:NextRequest){
  const state=random(),browser=random(),verifier=random(),nonce=random();
  await db.oAuthAttempt.create({data:{purpose:'CUSTOMER',customerLinkHash:linkHash,lineRevision:connection.revision,stateHash:sha(state),browserHash:sha(browser),verifier,nonce,expiresAt:new Date(Date.now()+600000)}});
  const res=NextResponse.redirect(authorizationUrl(state,nonce,verifier,connection.settings));
+ res.cookies.delete(customerAgeCookie);
  res.cookies.set('oauth_'+sha(state).slice(0,16),browser,{...cookieOptions,maxAge:600});return res;
 }

@@ -5,6 +5,7 @@ import {canonicalCustomerCode} from '@/lib/customer-code';
 import {equal,passwordHash,signToken,userKey} from '@/lib/crypto';
 import {account} from '@/lib/accounts';
 import {ownerEmployeeCookie} from '@/lib/employee-view';
+import {customerAgeCookie} from '@/lib/customer-age';
 import {db} from '@/lib/db';
 import {limit} from '@/lib/rate-limit';
 import {portalAccessCookie,portalCookie,portalDuration,portalPasswordCookie,portalPasswordToken} from '@/lib/customer-portal';
@@ -31,6 +32,7 @@ export async function POST(request:Request){
   const jar=await cookies();
   jar.set('admin_session',signToken({role:owner.role,username:owner.username,version:owner.version,exp:Date.now()+30*86400000}),{...cookieOptions,maxAge:2592000});
   jar.delete(portalCookie);jar.delete(portalAccessCookie);jar.delete(portalPasswordCookie);jar.delete('customer_password_step');
+  jar.delete(customerAgeCookie);
   return NextResponse.json({ok:true,redirect:'/customer'});
  }
  if(identifier.length>30)return invalid();
@@ -41,5 +43,6 @@ export async function POST(request:Request){
  jar.set(portalPasswordCookie,portalPasswordToken(customer),{...cookieOptions,maxAge:portalDuration});
  jar.delete(portalCookie);jar.delete(portalAccessCookie);jar.delete('customer_password_step');
  jar.delete('admin_session');jar.delete(ownerEmployeeCookie);
+ jar.delete(customerAgeCookie);
  return NextResponse.json({ok:true});
 }
