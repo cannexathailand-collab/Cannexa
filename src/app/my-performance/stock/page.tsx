@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import {after} from 'next/server';
+import {syncEmployeeStock} from '@/lib/employee-stock-sync';
 import {StockSearch} from './stock-search';
 import {requireAdminPage} from '@/lib/auth';
 import {employeeStock} from '@/lib/employee-stock';
@@ -6,6 +8,7 @@ import {EmployeeNav} from '../employee-nav';
 const number=(value:number|null)=>value===null?'รอตรวจสอบ':value.toLocaleString('th-TH',{maximumFractionDigits:3});
 export default async function EmployeeStockPage({searchParams}:{searchParams:Promise<{q?:string;status?:string}>}){
  await requireAdminPage(['employee']);
+ after(()=>syncEmployeeStock().catch(()=>{}));
  const input=await searchParams,q=(input.q??'').trim().slice(0,100),status=['available','empty','unknown'].includes(input.status??'')?input.status!:'all';
  const data=await employeeStock(),search=q.normalize('NFKC').toUpperCase();
  const rows=data.rows.filter(p=>(!search||(p.code+' '+(p.name??'')).normalize('NFKC').toUpperCase().includes(search))&&(status==='all'||status==='available'&&p.available!==null&&p.available>0||status==='empty'&&p.available!==null&&p.available<=0||status==='unknown'&&p.available===null));
