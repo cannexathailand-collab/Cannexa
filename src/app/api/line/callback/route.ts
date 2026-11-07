@@ -15,6 +15,10 @@ export async function GET(req:NextRequest){
  let clickId:string|undefined;let customerLogin=false;
  const state=req.nextUrl.searchParams.get("state")??"";
  try{
+  if(/^[A-Za-z0-9_-]{40,100}$/.test(state)){
+   const pending=await db.oAuthAttempt.findUnique({where:{stateHash:sha(state)},select:{purpose:true}});
+   customerLogin=pending?.purpose==='CUSTOMER';
+  }
   const a=await consume(state);clickId=a.clickId??undefined;customerLogin=a.purpose==='CUSTOMER';
   if(req.nextUrl.searchParams.has("error"))throw new Error("Login declined");
   const code=req.nextUrl.searchParams.get("code");if(!code)throw new Error("Missing code");
