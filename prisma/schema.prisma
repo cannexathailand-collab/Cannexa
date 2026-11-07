@@ -460,6 +460,11 @@ model StockDailySnapshot {
  createdAt DateTime @default(now())
 }
 
+model EmployeeStockSnapshot {
+ id String @id
+ rows Json
+ fetchedAt DateTime
+}
 model StockProduct {
  issuedQuantity Decimal? @db.Decimal(18, 3)
  remainingQuantity Decimal? @db.Decimal(18, 3)
