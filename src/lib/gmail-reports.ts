@@ -3,7 +3,7 @@ import {sha} from "./crypto";
 import {decryptGmail,type GmailConfig} from "./gmail";
 import {saveFreightCost} from "./freight-cost";
 import {parseMyOrderXlsx} from "./myorder-xlsx";
-import {phoneShipmentCandidates,quotedTotal} from "./shipment-matching";
+import {shipmentCandidates,nonCodShipmentCandidates,compatibleCodCandidates} from "./shipment-matching";
 import {hasActualDispatch,reconcileSalesRecognition,revokeSalesRecognition} from "./sales-recognition";
 import {recordReturnEmail,STOCK_RETURN_SENDER} from "./stock-return-email";
 import {salesCommissionUsesCost} from './sales-commission-rate';
@@ -72,10 +72,10 @@ export async function matchShipments(actor:string){
   const setStatus=(shipment:{tracking:string;status:string},status:string)=>{if(shipment.status===status)statusChanges.delete(shipment.tracking);else statusChanges.set(shipment.tracking,status);};
   for(const shipment of shipments){
    if(shipment.codSatang===0){
-    const candidates=phoneShipmentCandidates(shipment,nonCodOrders.filter(o=>!used.has(o.id)&&(!o.eventAt||!shipment.reportAt||o.eventAt<=shipment.reportAt)));
+    const candidates=nonCodShipmentCandidates(shipment,nonCodOrders.filter(o=>!used.has(o.id)&&(!o.eventAt||!shipment.reportAt||o.eventAt<=shipment.reportAt)));
     if(candidates.length!==1){setStatus(shipment,candidates.length?"AMBIGUOUS_NON_COD":"WAITING_NON_COD_ORDER");continue;}
     const order=nonCodOrders.find(o=>o.id===candidates[0].id)!;
-    const alternatives=shipments.filter(s=>!s.orderId&&(!order.eventAt||!s.reportAt||order.eventAt<=s.reportAt)&&phoneShipmentCandidates(s,[order]).length);
+    const alternatives=shipments.filter(s=>!s.orderId&&(!order.eventAt||!s.reportAt||order.eventAt<=s.reportAt)&&nonCodShipmentCandidates(s,[order]).length);
     if(alternatives.length!==1){setStatus(shipment,"AMBIGUOUS_NON_COD");continue;}
     if(order.payment==="เคลม"){
      if(await tx.shipment.findUnique({where:{orderId:order.id},select:{tracking:true}}))continue;
@@ -98,12 +98,17 @@ export async function matchShipments(actor:string){
    let matchMethod=shipment.orderId?"LINKED_TRACKING":"EXACT";
    if(!shipment.orderId){
    const available=orders.filter(o=>o.status==="WAITING_SHIPMENT"&&!used.has(o.id));
-   const candidates=phoneShipmentCandidates(shipment,available.filter(o=>!o.eventAt||!shipment.reportAt||o.eventAt<=shipment.reportAt));matchMethod="PHONE_UNIQUE";
+   let candidates=shipmentCandidates(shipment,available);
+   if(!candidates.length){
+    candidates=compatibleCodCandidates(shipment,available);matchMethod="COMPATIBLE_UNIQUE";
+    if(!candidates.length)continue;
+    // A still-unpaid plausible parcel is also a conflict: don't steal an older receipt.
+    const alternatives=shipments.filter(s=>!s.orderId&&s.codSatang>0&&compatibleCodCandidates(s,[candidates[0]]).length);
+    if(candidates.length!==1||alternatives.length!==1){ambiguous++;setStatus(shipment,"AMBIGUOUS_ORDER");continue;}
+   }
    if(!candidates.length)continue;
-   let alternatives=shipments.filter(s=>!s.orderId&&s.codSatang>0&&(!candidates[0].eventAt||!s.reportAt||candidates[0].eventAt<=s.reportAt)&&phoneShipmentCandidates(s,[candidates[0]]).length);
-   if(alternatives.length>1)alternatives=alternatives.filter(s=>s.codSatang===quotedTotal(candidates[0].rawText??''));
-   if(candidates.length!==1||alternatives.length!==1||alternatives[0].tracking!==shipment.tracking){ambiguous++;setStatus(shipment,"AMBIGUOUS_ORDER");continue;}
-   if(excludedParcels.some(s=>s.reportAt>shipment.reportAt&&phoneShipmentCandidates(s,[candidates[0]]).length)){ambiguous++;setStatus(shipment,"NEWER_RETURNED_OR_CANCELLED_PARCEL");continue;}
+   if(candidates.some(o=>excludedParcels.some(s=>s.reportAt>shipment.reportAt&&compatibleCodCandidates(s,[o]).length))){ambiguous++;setStatus(shipment,"NEWER_RETURNED_OR_CANCELLED_PARCEL");continue;}
+   if(new Set(candidates.map(o=>o.affiliateId)).size>1){ambiguous++;setStatus(shipment,"AMBIGUOUS_SELLER");continue;}
    order=orders.find(o=>o.id===candidates[0].id)!;
    await tx.shipment.update({where:{tracking:shipment.tracking},data:{orderId:order.id,status:"MATCHED_WAITING_COD"}});
    statusChanges.delete(shipment.tracking);
@@ -111,8 +116,6 @@ export async function matchShipments(actor:string){
    await tx.auditLog.create({data:{actor,action:"SHIPMENT_LINKED",entityId:order.id,details:{tracking:shipment.tracking,matchMethod}}});used.add(order.id);shipmentLinked++;
    }
    if(!order)continue;
-   const declared=quotedTotal(order.rawText??"" );
-   if(declared!==shipment.codSatang){await tx.shipment.update({where:{tracking:shipment.tracking},data:{status:"MATCHED_COD_AMOUNT_MISMATCH"}});await tx.orderIntake.update({where:{id:order.id},data:{status:"COD_AMOUNT_MISMATCH"}});continue;}
    if(receipt&&receipt.amountSatang!==shipment.codSatang){
     await tx.shipment.update({where:{tracking:shipment.tracking},data:{status:"MATCHED_COD_AMOUNT_MISMATCH"}});
     await tx.orderIntake.update({where:{id:order.id},data:{status:"COD_AMOUNT_MISMATCH"}});continue;
