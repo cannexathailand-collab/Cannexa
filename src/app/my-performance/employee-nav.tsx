@@ -3,9 +3,9 @@ const items=[
  {key:'overview',href:'/my-performance',label:'ภาพรวม',short:'ภาพรวม',icon:'M3 10 12 3l9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V10Z'},
  {key:'monthly',href:'/my-performance/monthly',label:'สรุปผลงานรายเดือน',short:'รายเดือน',icon:'M4 3v18h17M8 16v-5m5 5V7m5 9V4'},
  {key:'orders',href:'/my-performance/orders',label:'ออเดอร์จาก LINE',short:'ออเดอร์',icon:'m3 7 9-4 9 4v10l-9 4-9-4V7Zm0 0 9 4 9-4M12 11v10M7.5 5l9 4'},
- {key:'tasks',href:'/my-performance/tasks',label:'งานค้าง',short:'งานค้าง',icon:'M9 6h12M9 12h12M9 18h8M3 5l1 1 2-2M3 11l1 1 2-2M3 17l1 1 2-2'},
- {key:'prepare',href:'/my-performance/prepare',label:'สรุปยอดส่งงาน',short:'ส่งงาน',icon:'M9 4H5v17h14V4h-4M9 3h6v4H9V3Zm-1 9h8m-8 4h5'},
  {key:'stock',href:'/my-performance/stock',label:'สต๊อกสินค้า',short:'สต๊อก',icon:'M3 7h18v14H3V7Zm-1-4h20v4H2V3Zm7 9h6'},
+ {key:'prepare',href:'/my-performance/prepare',label:'สรุปยอดส่งงาน',short:'ส่งงาน',icon:'M9 4H5v17h14V4h-4M9 3h6v4H9V3Zm-1 9h8m-8 4h5'},
+ {key:'tasks',href:'/my-performance/tasks',label:'งานค้าง',short:'งานค้าง',icon:'M9 6h12M9 12h12M9 18h8M3 5l1 1 2-2M3 11l1 1 2-2M3 17l1 1 2-2'},
 ] as const;
 export function EmployeeNav({active}:{active:'overview'|'monthly'|'orders'|'tasks'|'prepare'|'stock'}){
  return <nav className="employee-nav" aria-label="เมนูผลงานพนักงาน">
