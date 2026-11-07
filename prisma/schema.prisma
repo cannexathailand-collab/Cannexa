@@ -169,6 +169,7 @@ model Customer {
  identityKey String? @unique
  name String?
  phone String?
+ address String?
  referrerId String?
  referrer Affiliate? @relation(fields:[referrerId],references:[id],onDelete:Restrict)
  metaFbc String?
