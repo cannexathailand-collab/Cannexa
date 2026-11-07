@@ -11,12 +11,15 @@ export function OrderDraftBuilder({seller,initialTemplates,canManage=false}:{sel
  const [parseIssues,setParseIssues]=useState<Partial<Record<keyof OrderDraft,string>>>({});
  const [customerOptions,setCustomerOptions]=useState<CustomerOption[]>([]),[identityStatus,setIdentityStatus]=useState<'idle'|'found'|'none'|'dismissed'|'created'|'error'>('idle'),[identityBusy,setIdentityBusy]=useState(false);
  const [identityError,setIdentityError]=useState('');
+ const [creationResult,setCreationResult]=useState<{code:string;copied:boolean}|null>(null);
  const resultDialog=useRef<HTMLDialogElement>(null);
  const customerDialog=useRef<HTMLDialogElement>(null);
+ const successDialog=useRef<HTMLDialogElement>(null);
  useEffect(()=>{if(ready&&!busy&&!resultDialog.current?.open)resultDialog.current?.showModal();},[ready,busy,draft]);
  const dataIssues=[...orderDraftIssues(draft,{requireCustomerCode:false}),...Object.values(parseIssues),...(lookupIssue?[lookupIssue]:[]),...(addressComparison&&!addressChoice?['เลือกที่อยู่จัดส่งจากสองรายการก่อนคัดลอก']:[])];
  const customerPromptReady=!draft.customerCode&&dataIssues.length===0;
  useEffect(()=>{if(ready&&!busy&&customerPromptReady&&!identityBusy&&(identityStatus==='none'||identityStatus==='found')){if(!customerDialog.current?.open)customerDialog.current?.showModal();}else customerDialog.current?.close();},[ready,busy,customerPromptReady,identityStatus,identityBusy]);
+ useEffect(()=>{if(creationResult){if(!successDialog.current?.open)successDialog.current?.showModal();}else successDialog.current?.close();},[creationResult]);
  useEffect(()=>{
   if(!ready||busy||!customerPromptReady)return;
   let active=true;
@@ -36,7 +39,7 @@ export function OrderDraftBuilder({seller,initialTemplates,canManage=false}:{sel
  const formatIssues=dataIssues.filter(issue=>issue?.includes('เบอร์โทร')||issue?.includes('ไปรษณีย์'));
  const selected=templates.find(t=>t.id===templateId)??templates[0],preview=renderOrderDraft(selected?.body??defaultOrderTemplate,draft),issues=[...dataIssues,...(!draft.customerCode?['ต้องมีรหัสลูกค้าก่อนคัดลอกข้อความ']:[])];
  function field(key:keyof OrderDraft,value:string){setDraft(d=>({...d,[key]:value,...(key==='customerCode'?{points:''}:{})}));setParseIssues(previous=>{const next={...previous};delete next[key];return next;});setCopied(false);if(key==='customerCode')setLookupIssue('');if(key==='address'&&addressComparison)setAddressChoice('custom');if(key==='phone'&&!draft.customerCode){setCustomerOptions([]);setIdentityStatus('idle');}}
- async function writeClipboard(text=preview,customerCode=draft.customerCode){if(!customerCode.trim()||dataIssues.length){setNotice('ต้องมีรหัสลูกค้าที่ถูกต้องและข้อมูลครบก่อนคัดลอกข้อความ');return;}try{await navigator.clipboard.writeText(text);setCopied(true);}catch{setNotice('คัดลอกอัตโนมัติไม่ได้ เปิดข้อความด้านล่างแล้วเลือกคัดลอกได้');}}
+ async function writeClipboard(text=preview,customerCode=draft.customerCode){if(!customerCode.trim()||dataIssues.length){setNotice('ต้องมีรหัสลูกค้าที่ถูกต้องและข้อมูลครบก่อนคัดลอกข้อความ');return false;}try{await navigator.clipboard.writeText(text);setCopied(true);return true;}catch{setNotice('คัดลอกอัตโนมัติไม่ได้ เปิดข้อความด้านล่างแล้วเลือกคัดลอกได้');return false;}}
  function dismissCustomer(){setIdentityStatus('dismissed');customerDialog.current?.close();}
  async function copy(){if(!draft.customerCode){setNotice('ต้องมีรหัสลูกค้าก่อนคัดลอกข้อความ');return;}await writeClipboard();}
  async function useCustomer(code:string){setIdentityBusy(true);setIdentityError('');try{
@@ -50,10 +53,11 @@ export function OrderDraftBuilder({seller,initialTemplates,canManage=false}:{sel
   if(!response.ok){setIdentityError(data.error);return;}
   const createdDraft={...draft,customerCode:data.customer.customerCode,points:'0'};
   setDraft(createdDraft);setLookup(data.customer.customerCode);setIdentityStatus('created');setNotice('สร้างรหัสลูกค้าและบันทึกในระบบแล้ว ยังไม่ได้สร้างออเดอร์');setCopied(false);
-  await writeClipboard(renderOrderDraft(selected?.body??defaultOrderTemplate,createdDraft),createdDraft.customerCode);
+  const copied=await writeClipboard(renderOrderDraft(selected?.body??defaultOrderTemplate,createdDraft),createdDraft.customerCode);
+  setCreationResult({code:createdDraft.customerCode,copied});
  }catch{setIdentityError('สร้างรหัสไม่สำเร็จ ลองค้นหาจากเบอร์ก่อนทำซ้ำ');}finally{setIdentityBusy(false);}}
  async function analyze(){
-  setBusy(true);setCopied(false);setNotice('');setLookupIssue('');setAddressComparison(null);setAddressChoice('');setCustomerOptions([]);setIdentityStatus('idle');setIdentityError('');
+  setBusy(true);setCopied(false);setCreationResult(null);setNotice('');setLookupIssue('');setAddressComparison(null);setAddressChoice('');setCustomerOptions([]);setIdentityStatus('idle');setIdentityError('');
   const analysis=analyzeOrderDraft(source),parsed=analysis.fields,next={...emptyOrderDraft,...parsed,seller,points:''};delete analysis.issues.points;setParseIssues(analysis.issues);if(!parsed.customerCode&&lookup.trim())parsed.customerCode=lookup.trim().toUpperCase();next.customerCode=parsed.customerCode??'';let info='จัดข้อมูลแล้ว ตรวจคอลัมน์ด้านล่างก่อนคัดลอก';
   if(parsed.customerCode){try{const response=await fetch('/api/order-drafts/customer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:parsed.customerCode})});const data=await response.json();if(response.ok){next.customerCode=data.customerCode;next.points=customerPoints(data.points);next.recipient=parsed.recipient||data.recipient;next.phone=parsed.phone||data.phone;next.address=parsed.address||data.address;if(differentDraftAddress(parsed.address??'',data.address??''))setAddressComparison({incoming:parsed.address!,stored:data.address});info='จัดข้อมูลและเติมข้อมูลจากรหัสลูกค้าแล้ว ตรวจที่อยู่ สินค้า และยอดเงินสำหรับครั้งนี้';}else{setLookupIssue(data.error);info=data.error;}}catch{setLookupIssue('ยังตรวจรหัสลูกค้าไม่ได้');info='ยังตรวจรหัสลูกค้าไม่ได้ กรุณาลองใหม่';}}
   setDraft(next);setLookup(next.customerCode);setReady(true);setNotice(info);setBusy(false);
@@ -85,6 +89,12 @@ export function OrderDraftBuilder({seller,initialTemplates,canManage=false}:{sel
     {(identityStatus==='found'&&customerOptions.length>0)&&<div className="draft-customer-options">{customerOptions.map(c=><div key={c.customerCode}><span><strong>{c.customerCode}</strong> · {c.recipient||'ยังไม่ระบุชื่อ'}<small>{c.phone}</small></span><button type="button" className="secondary" disabled={identityBusy} onClick={()=>useCustomer(c.customerCode)}>ใช้รหัสนี้</button></div>)}</div>}
     <div className="draft-customer-actions">{(identityStatus==='none'||identityStatus==='dismissed'&&!customerOptions.length)&&<button type="button" disabled={identityBusy||!draft.recipient||!draft.phone} onClick={createCustomer}>{identityBusy?'กำลังสร้างและคัดลอก…':'คัดลอกและสร้างลูกค้าใหม่'}</button>}<button type="button" className="secondary" disabled={identityBusy} onClick={dismissCustomer}>กลับไปตรวจข้อมูล</button></div><small>สร้างรหัสในระบบแล้วคัดลอกข้อความพร้อมรหัสให้ทันที ยังไม่สร้างออเดอร์</small>
    </section>
+  </dialog>}
+  {creationResult&&<dialog ref={successDialog} className="draft-customer-dialog draft-success-dialog" aria-labelledby="draft-success-title" onCancel={e=>{e.preventDefault();setCreationResult(null);}}>
+   <div className="draft-success-mark" aria-hidden="true">✓</div><h2 id="draft-success-title">สร้างลูกค้าสำเร็จ</h2>
+   <p>รหัสลูกค้า <strong>{creationResult.code}</strong></p><p>{creationResult.copied?'คัดลอกข้อความพร้อมรหัสลูกค้าแล้ว':'บันทึกลูกค้าแล้ว แต่ยังคัดลอกข้อความไม่สำเร็จ กรุณาลองอีกครั้ง'}</p>
+   {!creationResult.copied&&<button type="button" onClick={async()=>{const copied=await writeClipboard();setCreationResult(result=>result?{...result,copied}:null);}}>คัดลอกข้อความอีกครั้ง</button>}
+   <button type="button" className={creationResult.copied?'':'secondary'} onClick={()=>setCreationResult(null)}>ตกลง</button>
   </dialog>}
   {canManage&&<details className="draft-template-settings"><summary>เพิ่มแบบฟอร์มส่งงาน</summary><p>ใช้ชื่อช่องตามที่แสดง รหัสผู้ขายเป็นบรรทัดแรก และ Green Coin อยู่ใต้รหัสลูกค้าเป็นบรรทัดท้าย</p><form onSubmit={async e=>{e.preventDefault();setSaving(true);try{const response=await fetch('/api/admin/order-templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:templateName,body:templateBody})});const data=await response.json();if(!response.ok){setNotice(data.error);return;}setTemplates(t=>[...t,data.template]);setTemplateId(data.template.id);setTemplateName('');setNotice('บันทึกแบบฟอร์มแล้ว');}catch{setNotice('บันทึกแบบฟอร์มไม่ได้');}finally{setSaving(false);}}}><label>ชื่อแบบฟอร์ม<input value={templateName} onChange={e=>setTemplateName(e.target.value)} required maxLength={80}/></label><label>ข้อความแบบฟอร์ม<textarea rows={10} value={templateBody} onChange={e=>setTemplateBody(e.target.value)} maxLength={4000}/></label><button disabled={saving}>{saving?'กำลังบันทึก…':'บันทึกแบบฟอร์มใหม่'}</button></form></details>}
  </div>;
