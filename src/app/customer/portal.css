@@ -118,7 +118,7 @@
 .portal-sign-in-alternative p {font-size:12px;line-height:1.8}
 .portal-sign-in-alternative .portal-line {margin-top:16px}
 @media(max-width:600px){.portal-profile-fields{grid-template-columns:1fr;gap:17px}.portal-profile-actions{gap:9px}.portal-profile-actions button{font-size:14px;padding:11px 8px}}
-.portal-tab-controls {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));width:100%}
+.portal-tab-controls {display:grid;grid-template-columns:repeat(6,minmax(0,1fr));width:100%}
 .portal-offers {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:18px}
 .portal-offer {padding:21px;border:1px solid #d9debd;border-radius:14px;background:linear-gradient(140deg,#fffdf2,#f1f5e8)}
 .portal-offer-bonus {display:inline-block;padding:7px 12px;border-radius:20px;background:#e9dbaf;color:#5e4616;font-size:16px;font-weight:700}
@@ -401,6 +401,10 @@
   .portal-tab-controls {
     display:grid;
     grid-template-columns:repeat(3,minmax(0,1fr))
+  }
+  .portal-tab-controls button,
+  .portal-tab-controls button:nth-last-child(-n+2) {
+    grid-column:auto
   }
   .shop-cart-total {
     padding:12px

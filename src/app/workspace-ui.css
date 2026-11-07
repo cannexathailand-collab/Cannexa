@@ -43,3 +43,19 @@ body{font-family:'Leelawadee UI','Noto Sans Thai',Tahoma,Arial,sans-serif;backgr
 @media(max-width:600px){.performance-page .employee-nav{position:fixed;left:0;right:0;bottom:0;top:auto;transform:translateZ(0);backface-visibility:hidden;transition:none;z-index:50}.employee-stock-filters input,.employee-stock-filters select{font-size:16px}.performance-page{padding-bottom:calc(110px + env(safe-area-inset-bottom))}}
 
 @media(max-width:600px){body:has(.performance-page){height:100dvh;overflow:hidden;overscroll-behavior:none}.performance-page{height:100dvh;min-height:0;overflow-y:auto;overflow-x:hidden;display:block;overscroll-behavior-y:none;-webkit-overflow-scrolling:touch;padding-bottom:calc(110px + env(safe-area-inset-bottom))}.performance-page>.customer{margin-left:auto;margin-right:auto}.performance-page .employee-nav{position:fixed;inset:auto 0 0;z-index:50}}
+.website-order-list { display:grid; gap:18px; }
+.website-order-card { margin:0; }
+.website-order-card>header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
+.website-order-customer { display:flex; justify-content:space-between; gap:20px; margin:22px 0; }
+.website-order-customer p { margin:6px 0; overflow-wrap:anywhere; }
+.website-order-total { white-space:nowrap; font-size:22px; color:#1b5b3b; }
+.website-order-filter { display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap; }
+.website-order-filter label { min-width:220px; margin:0; }
+.website-order-review { border-top:1px solid #e0e8dd; margin-top:20px; padding-top:8px; }
+.website-order-review textarea { max-width:650px; }
+.website-order-item-summary { margin:6px 0; font-size:13px; color:#57705c; }
+@media(max-width:600px) {
+ .website-order-card>header,.website-order-customer { flex-direction:column; gap:12px; }
+ .website-order-filter label { min-width:0; width:100%; }
+ .website-order-total { font-size:20px; }
+}

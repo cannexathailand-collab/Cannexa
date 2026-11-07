@@ -15,6 +15,7 @@ import {CustomerOrderHistory} from './order-history';
 import {OwnerCustomerView} from './owner-customer-view';
 import {CustomerShop} from './shop';
 import {loadCustomerCatalog} from '@/lib/customer-catalog';
+import {CustomerWebsiteOrders} from './website-orders';
 export const metadata:Metadata={title:'Customer',description:'ข้อมูลสมาชิก Green Coin และติดตามออเดอร์ของคุณ',robots:{index:false,follow:false}};
 export const dynamic='force-dynamic';
 export default async function CustomerPage({searchParams}:{searchParams:Promise<{error?:string;link?:string;register?:string;q?:string;customer?:string}>}){
@@ -37,7 +38,7 @@ export default async function CustomerPage({searchParams}:{searchParams:Promise<
   {!method||link?<section className="portal-welcome"><h1>ยินดีต้อนรับ</h1><p>ขอบคุณที่ร่วมเป็นสมาชิกกับเรา</p>{params.error&&<p role="alert" className="portal-alert">{params.error==='unavailable'?'ขณะนี้ยังไม่พร้อมเชื่อมต่อ LINE กรุณาลองอีกครั้ง':params.error==='link'?'ลิงก์หมดอายุหรือถูกใช้แล้ว กรุณาขอลิงก์ใหม่จากร้าน':'เข้าสู่ระบบหรือผูกบัญชีไม่สำเร็จ กรุณาลองใหม่ หรือติดต่อร้านหากบัญชีนี้ผูกกับลูกค้าคนอื่นแล้ว'}</p>}<a className="button portal-line" href={'/api/customer/login'+(link?'?link='+encodeURIComponent(link):'')}>{link?'ยืนยันผูกข้อมูลด้วย LINE':'เข้าสู่ระบบด้วย LINE'}</a>{!link&&<p><a href="/customer/sign-in">เข้าสู่ระบบด้วยรหัสลูกค้า</a></p>}</section>:<>
    {(!customer||completing)&&<section className="portal-intro"><span className="portal-eyebrow">MY ACCOUNT</span><h1>ยินดีต้อนรับ</h1><p>{completing?'กรอกข้อมูลสมัครสมาชิก รหัสลูกค้า '+displayCustomerCode(customer!.code):'กรอกข้อมูลเพื่อรับรหัสลูกค้าและเริ่มใช้งาน'}</p></section>}
    {customer&&!completing&&<><div className="portal-member-overview"><MemberCard level={memberLevel} name={[customer.title??'คุณ',customer.name].filter(Boolean).join(' ')||'ลูกค้า'} code={displayCustomerCode(customer.code)}/><section className="portal-coin-balance" aria-label="ยอด Green Coin"><h2>Green Coin</h2><span className="portal-coin-mark" aria-hidden="true">G</span><strong>{Math.max(0,summary?.availablePoints??0).toLocaleString('th-TH')}</strong><span>เหรียญคงเหลือ</span></section></div>
-   <CustomerPanels passwordRequiresCurrent={method==='password'} shop={<CustomerShop customerCode={customer.code} initialCatalog={catalog!}/>} profile={profileContent} promotions={<CustomerPromotions/>} coins={<CustomerGreenCoin customerCode={customer.code} balance={Math.max(0,summary?.availablePoints??0)}/>} orders={<CustomerOrderHistory history={summary?.allHistory??[]}/>}/></>}
+   <CustomerPanels passwordRequiresCurrent={method==='password'} shop={<CustomerShop customerCode={customer.code} initialCatalog={catalog!}/>} profile={profileContent} promotions={<CustomerPromotions/>} coins={<CustomerGreenCoin customerCode={customer.code} balance={Math.max(0,summary?.availablePoints??0)}/>} orders={<><CustomerWebsiteOrders customerCode={customer.code}/><CustomerOrderHistory history={summary?.allHistory??[]} title="ออเดอร์จัดส่ง" emptyText="ยังไม่มีออเดอร์จัดส่ง"/></>}/></>}
    {(!customer||completing)&&profileContent}
   </>}
   

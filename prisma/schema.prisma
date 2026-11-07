@@ -197,6 +197,30 @@ model Customer {
  orders OrderIntake[]
  accessLinks CustomerAccessLink[]
  rewardRedemptions CrmRewardRedemption[]
+ websiteOrders WebsiteOrder[]
+}
+
+model WebsiteOrder {
+ id String @id @default(cuid())
+ orderNumber String @unique
+ customerCode String
+ customer Customer @relation(fields:[customerCode],references:[code],onDelete:Restrict)
+ requestKey String
+ requestFingerprint String
+ status String @default("PENDING_REVIEW")
+ items Json
+ totalSatang Int
+ recipient String
+ phone String
+ address String
+ reviewNote String @default("")
+ reviewedBy String?
+ reviewedAt DateTime?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@unique([customerCode,requestKey])
+ @@index([status,createdAt])
+ @@index([customerCode,createdAt])
 }
 model CustomerCodeDelivery {
  userKey String @id

@@ -1,0 +1,48 @@
+import Link from 'next/link';
+import {requireAdminPage} from '@/lib/auth';
+import {displayCustomerCode} from '@/lib/customer-code';
+import {listWebsiteOrders} from '@/lib/website-orders';
+import {websiteOrderStatusLabels} from '@/lib/website-order-status';
+import {WebsiteOrderReviewControls} from './review-controls';
+
+export const dynamic = 'force-dynamic';
+const money = (satang: number) => (satang / 100).toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+export default async function WebsiteOrdersPage({searchParams}: {searchParams: Promise<{status?: string}>}) {
+  await requireAdminPage();
+  const params = await searchParams;
+  const status = params.status === 'ALL' ? undefined : Object.hasOwn(websiteOrderStatusLabels, params.status ?? '') ? params.status : 'PENDING_REVIEW';
+  const orders = await listWebsiteOrders(status);
+  return <>
+    <div className="intro"><div><div className="eyebrow">ออเดอร์ / เว็บไซต์</div><h1>ออเดอร์จากเว็บไซต์</h1>
+      <p className="muted">รายการที่ลูกค้าส่งจากตะกร้า Shop เพื่อให้เจ้าหน้าที่ตรวจสอบ</p>
+    </div><Link className="button secondary" href="/admin/orders/list">รายการออเดอร์</Link></div>
+    <section className="card">
+      <form method="get" className="website-order-filter">
+        <label>สถานะการตรวจสอบ<select name="status" defaultValue={status ?? 'ALL'}>
+          <option value="ALL">ทั้งหมด</option>
+          {Object.entries(websiteOrderStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select></label><button>แสดงรายการ</button>
+      </form>
+      <p className="muted small">แสดง {orders.length} รายการล่าสุด</p>
+    </section>
+    <div className="website-order-list">
+      {orders.map(order => <article className="card website-order-card" key={order.id} aria-label={'ออเดอร์ ' + order.orderNumber}>
+        <header><div><h2>{order.orderNumber}</h2><span className="muted small">{new Date(order.createdAt).toLocaleString('th-TH', {timeZone: 'Asia/Bangkok'})}</span></div>
+          <span className="pill">{websiteOrderStatusLabels[order.status] ?? order.status}</span></header>
+        <div className="website-order-customer">
+          <div><strong>{order.recipient}</strong><p>{displayCustomerCode(order.customerCode)} · {order.phone}</p><p>{order.address}</p></div>
+          <strong className="website-order-total">{money(order.totalSatang)} บาท</strong>
+        </div>
+        <div className="table-wrap"><table><thead><tr><th>สินค้า</th><th>ขนาด</th><th>จำนวน</th><th>ราคาต่อชิ้น</th><th>รวม</th></tr></thead>
+          <tbody>{order.items.map(item => <tr key={item.code + '|' + item.pack}>
+            <td><strong>{item.code}</strong><div>{item.name}</div></td><td>{item.pack}</td><td>{item.quantity}</td><td>{money(item.unitPriceSatang)}</td><td>{money(item.lineTotalSatang)}</td>
+          </tr>)}</tbody></table></div>
+        {order.reviewedAt && <p className="muted small">ตรวจสอบโดย {order.reviewedBy} · {new Date(order.reviewedAt).toLocaleString('th-TH', {timeZone: 'Asia/Bangkok'})}</p>}
+        {order.reviewNote && <p>หมายเหตุ {order.reviewNote}</p>}
+        <WebsiteOrderReviewControls id={order.id} status={order.status}/>
+      </article>)}
+      {!orders.length && <section className="card"><p className="empty">ไม่มีออเดอร์จากเว็บไซต์ในสถานะนี้</p></section>}
+    </div>
+  </>;
+}

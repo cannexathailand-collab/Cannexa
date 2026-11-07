@@ -9,6 +9,7 @@ import {CustomerPromotions} from './promotions';
 import {CustomerGreenCoin} from './green-coin';
 import {CustomerShop} from './shop';
 import {loadCustomerCatalog} from '@/lib/customer-catalog';
+import {CustomerWebsiteOrders} from './website-orders';
 
 export async function OwnerCustomerView({params}:{params:{q?:string;customer?:string}}){
  const query=typeof params.q==='string'?params.q.trim().slice(0,100):'';
@@ -52,7 +53,7 @@ export async function OwnerCustomerView({params}:{params:{q?:string;customer?:st
     <MemberCard level={member?.level??'Bronze'} name={[selected.title??'คุณ',selected.name].filter(Boolean).join(' ')} code={displayCustomerCode(selected.code)}/>
     <section className="portal-coin-balance" aria-label="ยอด Green Coin"><h2>Green Coin</h2><span className="portal-coin-mark" aria-hidden="true">G</span><strong>{balance.toLocaleString('th-TH')}</strong><span>เหรียญคงเหลือ</span></section>
    </div>
-   <CustomerPanels key={selected.code} readOnly shop={<CustomerShop customerCode={selected.code} initialCatalog={catalog!} readOnly/>} orders={<CustomerOrderHistory history={summary?.allHistory??[]}/>} profile={
+   <CustomerPanels key={selected.code} readOnly shop={<CustomerShop customerCode={selected.code} initialCatalog={catalog!} readOnly/>} orders={<><CustomerWebsiteOrders customerCode={selected.code}/><CustomerOrderHistory history={summary?.allHistory??[]} title="ออเดอร์จัดส่ง" emptyText="ยังไม่มีออเดอร์จัดส่ง"/></>} profile={
     <section className="portal-section"><h2>ข้อมูลส่วนตัว</h2><div className="portal-profile">
      <label>คำนำหน้า<input value={selected.title??''} readOnly/></label>
      <label>ชื่อผู้รับ<input value={selected.name??''} readOnly/></label>
