@@ -6,7 +6,7 @@ export function LiveUpdates(){
  const pathname=usePathname(),router=useRouter();const [pending,startTransition]=useTransition();const pendingRef=useRef(pending);pendingRef.current=pending;
  useEffect(()=>{
   if(!isLivePage(pathname))return;
-  return installLiveRefresh({doc:document,win:window,pending:()=>pendingRef.current,refresh:()=>startTransition(()=>router.refresh())});
+  return installLiveRefresh({doc:document,win:window,pending:()=>pendingRef.current,intervalMs:pathname==='/my-performance/stock'?60000:5000,refresh:()=>startTransition(()=>router.refresh())});
  },[pathname,router]);
  return null;
 }

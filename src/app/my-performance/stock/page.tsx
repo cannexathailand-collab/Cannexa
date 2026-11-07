@@ -20,7 +20,7 @@ export default async function EmployeeStockPage({searchParams}:{searchParams:Pro
   <p className="muted small">{data.live?'ข้อมูลล่าสุด':'ข้อมูลสำรอง'}{data.readAt?' · '+data.readAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'}):' · ยังไม่มีข้อมูลสต๊อก'}</p>
   <StockSearch query={q} status={status} catalog={data.rows.map(({code,name,available})=>({code,name,available}))}/>
   <div className="employee-order-list-heading"><h2>รายการสินค้า</h2><span>{rows.length.toLocaleString('th-TH')} รายการ</span></div>
-  <div className="employee-stock-table"><table><thead><tr><th>สินค้า</th><th>ขายได้ (G)</th><th>ราคาขาย</th></tr></thead><tbody>{rows.map(p=><tr key={p.code}><td><strong>{p.code}</strong><small>{p.name||'—'}</small></td><td><strong>{number(p.available)}</strong></td><td>{p.prices.length?p.prices.map((price,i)=><div key={i}>{price.pack} · <b>{(price.priceSatang/100).toLocaleString('th-TH')}</b></div>):'—'}</td></tr>)}</tbody></table></div>
+  <div className="employee-stock-table"><table><thead><tr><th>สินค้า</th><th>ขายได้ (G)</th><th>ราคาขาย</th></tr></thead><tbody>{rows.map(p=><tr key={p.code}><td><strong>{p.code}</strong><small>{p.name||'—'}</small></td><td className={p.available===0?"employee-stock-sold-out":undefined}><strong>{p.available===0?"สินค้าหมด":number(p.available)}</strong></td><td>{p.prices.length?p.prices.map((price,i)=><div key={i}>{price.pack} · <b>{(price.priceSatang/100).toLocaleString('th-TH')}</b></div>):'—'}</td></tr>)}</tbody></table></div>
   {!rows.length&&<p className="commission-empty">{data.rows.length?'ไม่พบสินค้าที่ตรงกับตัวกรอง':'ยังไม่มีข้อมูลสินค้า'}</p>}
  </section></main>;
 }
