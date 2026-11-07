@@ -19,7 +19,14 @@ export async function admin(allowed:Role[]=["owner"]){
  return a.username;
 }
 export async function sameOrigin(){if((await headers()).get("origin")!==baseUrl())throw new Error("BAD_ORIGIN");}
-export async function requireAccount(){try{return await currentAccount();}catch{redirect("/login");}}
+export async function requireAccount(){
+ try{return await currentAccount();}
+ catch(error){
+  if(error instanceof Error&&error.message==='UNAUTHORIZED')redirect('/login');
+  // A transient database failure is not evidence that a valid session expired.
+  throw error;
+ }
+}
 export async function requireAdminPage(allowed:Role[]=["owner"]){
  const a=await requireAccount();
  if(!allowed.includes(a.role as Role))redirect(a.role==="employee"?home(a.role):"/admin");
