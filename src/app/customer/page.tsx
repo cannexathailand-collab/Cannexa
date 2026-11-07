@@ -13,7 +13,7 @@ export default async function CustomerPage({searchParams}:{searchParams:Promise<
  const params=await searchParams;const {key,customer}=await portalCustomer();
  if(customer?.portalRegistrationPending)return <main className="customer-portal"><section className="portal-welcome"><h1>รอร้านอนุมัติสมาชิก</h1><p>รหัสลูกค้า {displayCustomerCode(customer.code)}</p><p>ส่งข้อมูลสมัครเรียบร้อยแล้ว เมื่อร้านอนุมัติ คุณจะใช้รหัสนี้เพื่อตั้งรหัสผ่านและเข้าใช้งานได้</p><a className="button" href="/customer">ตรวจสถานะอีกครั้ง</a></section></main>;
  const link=params.link&&/^[A-Za-z0-9_-]{43}$/.test(params.link)?params.link:null;
- if(key&&!link&&(customer||params.register!=='1')&&(!customer||!await hasPortalAccess(key,customer.code)))return <main className="customer-portal"><section className="portal-welcome"><h1>รหัสลูกค้า</h1><CustomerCodeForm/></section></main>;
+ if(key&&!link&&(customer||params.register!=='1')&&(!customer||!await hasPortalAccess(key,customer.code)))return <main className="customer-portal"><section className="portal-welcome"><h1>รหัสลูกค้า</h1><CustomerCodeForm customerCode={customer?displayCustomerCode(customer.code):undefined}/></section></main>;
  const summary=customer?(await loadCustomerCrm([customer.code])).get(customer.code):null;
  const member=customer?await db.crmMembershipReview.findFirst({where:{customerCode:customer.code},orderBy:{month:'desc'},select:{level:true}}):null;
  const memberLevel=member?.level??'Bronze';
