@@ -4,6 +4,14 @@ import {db} from "../src/lib/db";
 import {matchShipments} from "../src/lib/gmail-reports";
 import {shipmentCandidates,quotedTotal,moneySatang,compatibleCodCandidates,compatibleAddress} from "../src/lib/shipment-matching";
 const recipient={recipient:"ทดสอบ",phone:"0812345678",address:"1 ต.ราไวย์ อ.เมือง จ.ภูเก็ต 83130"};
+test('flexible matching normalizes titles and Bangkok abbreviations while retaining phone amount and house checks',()=>{
+ const o={id:'title',affiliateId:'seller',recipient:'สมชาย ใจดี',phone:'0812345678',address:'25 กทม. 10200',rawText:'ยอดรวม: 100',payment:'COD'};
+ const s={recipient:'คุณ สมชาย ใจดี',phone:'+66 81 234 5678',address:'25 กรุงเทพมหานคร 10200',codSatang:10000};
+ assert.equal(compatibleCodCandidates(s,[o]).length,1);
+ assert.equal(compatibleCodCandidates({...s,address:'26 กรุงเทพมหานคร 10200'},[o]).length,0);
+ assert.equal(compatibleCodCandidates({...s,codSatang:10001},[o]).length,0);
+ assert.equal(compatibleCodCandidates({...s,phone:'0898765432'},[o]).length,0);
+});
 const order=(id:string,affiliateId="seller")=>({id,affiliateId,...recipient,payment:"COD",status:"WAITING_SHIPMENT",rawText:"ยอดตามข้อความ: 2,560",salesCommissionBasis:"REVENUE",salesCommissionBps:1000});
 test("matching requires recipient phone address and total, never guesses transfer COD zero",()=>{
  const shipment={...recipient,codSatang:256000};assert.equal(shipmentCandidates(shipment,[order("a")]).length,1);

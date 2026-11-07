@@ -20,7 +20,8 @@ export function nonCodShipmentCandidates(shipment:MatchShipment,orders:MatchOrde
  return orders.filter(o=>o.affiliateId&&(o.payment==="โอน"||o.payment==="เคลม")&&o.recipient&&o.phone&&o.address&&phonesMatch(o.phone,shipment.phone)&&comparableRecipient(o.recipient)===comparableRecipient(shipment.recipient)&&compatibleAddress(o.address,shipment.address));
 }
 function comparableRecipient(value:string){
- const name=normalizeName(value.replace(/^(?:ส่ง(?:ถึง)?|เรียน)\s*(?=คุณ|นาย|นาง|น\.?ส\.?)/,""));
+ const withoutLabel=value.trim().replace(/^(?:ส่ง(?:ถึง)?|เรียน)\s*(?=คุณ|นาย|นาง|น\.?ส\.?)/,'');
+ const name=normalizeName(withoutLabel.replace(/^(?:คุณ|นาย|นางสาว|นาง|น\.?\s*ส\.?|(?:mr|mrs|ms|miss)\.?\s+)/i,'').replace(/[.,]/g,''));
  // A narrowly defined English nickname spelling variant, not general fuzzy names.
  return /^[a-z]{3,}$/.test(name)?name.replace(/ie$/, "y"):name;
 }
@@ -33,7 +34,8 @@ function structuredThaiAddress(value:string){
  return [...new Set(tokens.map(t=>t==="เมือง"+province?"เมือง":t))].join("|");
 }
 export function compatibleAddress(first:string,second:string){
- const a=normalizeAddress(first),b=normalizeAddress(second);if(a===b)return !!a;
+ const canonical=(value:string)=>value.replace(/กรุงเทพมหานคร|กรุงเทพฯ|กทม\.?/g,'กรุงเทพ');
+ const a=normalizeAddress(canonical(first)),b=normalizeAddress(canonical(second));if(a===b)return !!a;
  const structuredFirst=structuredThaiAddress(first),structuredSecond=structuredThaiAddress(second);
  if(structuredFirst&&structuredSecond&&structuredFirst===structuredSecond)return true;
  const [short,long]=a.length<=b.length?[a,b]:[b,a];
