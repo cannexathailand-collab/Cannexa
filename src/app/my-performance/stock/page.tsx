@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import {StockSearch} from './stock-search';
 import {requireAdminPage} from '@/lib/auth';
 import {employeeStock} from '@/lib/employee-stock';
 import {EmployeeNav} from '../employee-nav';
@@ -15,7 +16,7 @@ export default async function EmployeeStockPage({searchParams}:{searchParams:Pro
   {!data.live&&<p className="notice">กำลังแสดงข้อมูลที่นำเข้าไว้ กรุณาดูเวลาอัปเดตก่อนแจ้งยอดให้ลูกค้า</p>}
   <p className="notice live">จำนวนพร้อมขายหักยอดสำรอง 20 กรัมต่อสินค้าแล้ว สินค้าที่เหลือ 20 กรัมหรือน้อยกว่าถือว่าหมดสำหรับขาย</p>
   <p className="muted small">{data.live?'ข้อมูลล่าสุด':'ข้อมูลสำรอง'}{data.readAt?' · '+data.readAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'}):' · ยังไม่มีข้อมูลสต๊อก'}</p>
-  <form className="employee-stock-filters" method="get"><label>ค้นหาสินค้า<input name="q" defaultValue={q} maxLength={100} placeholder="รหัสหรือชื่อสินค้า"/></label><label>สถานะ<select name="status" defaultValue={status}><option value="all">ทั้งหมด</option><option value="available">พร้อมขาย</option><option value="empty">หมด / ติดลบ</option><option value="unknown">รอตรวจสอบยอด</option></select></label><button>ค้นหา</button>{(q||status!=='all')&&<Link href="/my-performance/stock">ล้างตัวกรอง</Link>}</form>
+  <StockSearch query={q} status={status}/>
   <div className="employee-order-list-heading"><h2>รายการสินค้า</h2><span>{rows.length.toLocaleString('th-TH')} รายการ</span></div>
   <div className="employee-stock-table"><table><thead><tr><th>สินค้า</th><th>ขายได้ (G)</th><th>ราคาขาย</th></tr></thead><tbody>{rows.map(p=><tr key={p.code}><td><strong>{p.code}</strong><small>{p.name||'—'}</small></td><td><strong>{number(p.available)}</strong></td><td>{p.prices.length?p.prices.map((price,i)=><div key={i}>{price.pack} · <b>{(price.priceSatang/100).toLocaleString('th-TH')}</b></div>):'—'}</td></tr>)}</tbody></table></div>
   {!rows.length&&<p className="commission-empty">{data.rows.length?'ไม่พบสินค้าที่ตรงกับตัวกรอง':'ยังไม่มีข้อมูลสินค้า'}</p>}
