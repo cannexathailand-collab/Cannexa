@@ -11,7 +11,10 @@ export default async function Result({searchParams}:{searchParams:Promise<{error
  const c=!error&&s&&s.exp>Date.now()?await db.conversion.findUnique({where:{id:s.id}}):null;
  const mock=mockMode(),friend=c?.friendFlag===true;
  const basicId=!mock?(await lineSettings())?.settings.basicId:null;
- if(!mock&&!error&&basicId)redirect(lineCustomerDestination(basicId,c?.friendFlag??null));
+ if(!mock){
+  if(basicId&&/^@[\w.-]+$/.test(basicId))redirect(lineCustomerDestination(basicId,error?null:c?.friendFlag??null));
+  redirect('/marketing/connect?error=unavailable');
+ }
  return <main className="center-page"><div className="customer"><div className="check">{c?"✓":"!"}</div>
  {mock&&<div className="notice">MOCK · ไม่ใช่ผลจาก LINE จริง</div>}
  <h1>{!c?"ยังทำรายการไม่สำเร็จ":friend?"บันทึกการเชื่อมต่อเรียบร้อย":"บันทึกผล Login แล้ว"}</h1>
