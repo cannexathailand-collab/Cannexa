@@ -1,0 +1,23 @@
+import Link from 'next/link';
+import {requireAdminPage} from '@/lib/auth';
+import {employeeStock} from '@/lib/employee-stock';
+import {EmployeeNav} from '../employee-nav';
+const number=(value:number|null)=>value===null?'รอตรวจสอบ':value.toLocaleString('th-TH',{maximumFractionDigits:3});
+export default async function EmployeeStockPage({searchParams}:{searchParams:Promise<{q?:string;status?:string}>}){
+ await requireAdminPage(['employee']);
+ const input=await searchParams,q=(input.q??'').trim().slice(0,100),status=['available','empty','unknown'].includes(input.status??'')?input.status!:'all';
+ const data=await employeeStock(),search=q.normalize('NFKC').toUpperCase();
+ const rows=data.rows.filter(p=>(!search||(p.code+' '+(p.name??'')).normalize('NFKC').toUpperCase().includes(search))&&(status==='all'||status==='available'&&p.available!==null&&p.available>0||status==='empty'&&p.available!==null&&p.available<=0||status==='unknown'&&p.available===null));
+ const counts={all:data.rows.length,available:data.rows.filter(p=>p.available!==null&&p.available>0).length,empty:data.rows.filter(p=>p.available!==null&&p.available<=0).length};
+ return <main className="center-page performance-page"><section className="customer employee-orders-page employee-stock-page">
+  <h1>สต๊อกสินค้า</h1><p className="muted">ตรวจสอบสินค้าพร้อมขายและราคาขาย · ดูข้อมูลเท่านั้น</p><EmployeeNav active="stock"/>
+  <div className="employee-stock-summary">{[['all','สินค้าทั้งหมด'],['available','พร้อมขาย'],['empty','หมด / ติดลบ']].map(([key,label])=><Link href={'/my-performance/stock?status='+key} key={key}><span>{label}</span><strong>{counts[key as keyof typeof counts].toLocaleString('th-TH')}</strong></Link>)}</div>
+  {!data.live&&<p className="notice">กำลังแสดงข้อมูลที่นำเข้าไว้ กรุณาดูเวลาอัปเดตก่อนแจ้งยอดให้ลูกค้า</p>}
+  <p className="notice live">จำนวนพร้อมขายหักยอดสำรอง 20 กรัมต่อสินค้าแล้ว สินค้าที่เหลือ 20 กรัมหรือน้อยกว่าถือว่าหมดสำหรับขาย</p>
+  <p className="muted small">{data.live?'ข้อมูลล่าสุด':'ข้อมูลสำรอง'}{data.readAt?' · '+data.readAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'}):' · ยังไม่มีข้อมูลสต๊อก'}</p>
+  <form className="employee-stock-filters" method="get"><label>ค้นหาสินค้า<input name="q" defaultValue={q} maxLength={100} placeholder="รหัสหรือชื่อสินค้า"/></label><label>สถานะ<select name="status" defaultValue={status}><option value="all">ทั้งหมด</option><option value="available">พร้อมขาย</option><option value="empty">หมด / ติดลบ</option><option value="unknown">รอตรวจสอบยอด</option></select></label><button>ค้นหา</button>{(q||status!=='all')&&<Link href="/my-performance/stock">ล้างตัวกรอง</Link>}</form>
+  <div className="employee-order-list-heading"><h2>รายการสินค้า</h2><span>{rows.length.toLocaleString('th-TH')} รายการ</span></div>
+  <div className="employee-stock-list">{rows.map(p=><article className="employee-stock-card" key={p.code}><header><div><strong>{p.code}</strong><h3>{p.name||'ยังไม่ระบุชื่อสินค้า'}</h3></div><span className={'employee-stock-badge '+(p.available===null?'unknown':p.available>0?'available':'empty')}>{p.available===null?'รอตรวจสอบ':p.available>0?'พร้อมขาย':'หมด / ติดลบ'}</span></header><div className="employee-stock-quantity"><span>จำนวนพร้อมขาย</span><strong>{number(p.available)}{p.available!==null&&<small> G</small>}</strong></div><p className="muted small">คงเหลือ {number(p.remaining)}{p.remaining!==null?' G':''}</p><div className="employee-stock-prices"><span>ราคาขาย</span>{p.prices.length?p.prices.map((price,index)=><div key={index}><span>{price.pack}</span><strong>{(price.priceSatang/100).toLocaleString('th-TH',{maximumFractionDigits:2})} บาท</strong></div>):<p className="muted small">ยังไม่ระบุราคาขาย</p>}</div></article>)}</div>
+  {!rows.length&&<p className="commission-empty">{data.rows.length?'ไม่พบสินค้าที่ตรงกับตัวกรอง':'ยังไม่มีข้อมูลสินค้า'}</p>}
+ </section></main>;
+}

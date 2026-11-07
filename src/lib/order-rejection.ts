@@ -7,15 +7,26 @@ import {orderRejectionReasons,orderRejectionText} from './order-validation';
 export async function replyRejectedOrder(botId:string,event:OrderEvent,accessToken?:string){
  if(!accessToken||event.type!=='message'||event.message?.type!=='text'||!event.message.text||event.source.type!=='group'||!event.source.groupId||!event.replyToken)return;
  const parsed=parseOrderText(event.message.text);if(!parsed)return;
- const reasons=orderRejectionReasons(parsed);if(!reasons.length)return;
+ let reasons=orderRejectionReasons(parsed);
  const groupKey=userKey('order-group:'+botId+':'+event.source.groupId);
  const group=await db.orderGroup.findUnique({where:{id:groupKey}});
  if(!group?.enabled||(group.purpose&&group.purpose!=='ORDER'))return;
  const messageKey=userKey('order-message:'+botId+':'+event.message.id),id=userKey('order-rejection:'+botId+':'+event.message.id);
  const claimed=await transaction(async tx=>{
   await userLock(tx,messageKey);
-  if(await tx.orderMessageWithdrawal.findUnique({where:{messageKey}})||await tx.orderIntake.findFirst({where:{messageKey}})||await tx.auditLog.findUnique({where:{id}}))return false;
-  await tx.auditLog.create({data:{id,actor:'line-order',action:'ORDER_REJECTED',entityId:messageKey,details:{status:'SENDING',reasons}}});return true;
+  if(await tx.orderMessageWithdrawal.findUnique({where:{messageKey}})||await tx.orderIntake.findFirst({where:{messageKey}}))return false;
+  const previous=await tx.auditLog.findUnique({where:{id}});
+  if(previous){
+   const detail=previous.details as {status?:string;reasons?:unknown};
+   if(detail?.status!=='READY'||!Array.isArray(detail.reasons))return false;
+   reasons=detail.reasons.filter((reason):reason is string=>typeof reason==='string');
+   if(!reasons.length)return false;
+   await tx.auditLog.update({where:{id},data:{details:{status:'SENDING',reasons}}});
+  }else{
+   if(!reasons.length)return false;
+   await tx.auditLog.create({data:{id,actor:'line-order',action:'ORDER_REJECTED',entityId:messageKey,details:{status:'SENDING',reasons}}});
+  }
+  return true;
  });
  if(!claimed)return;
  try{

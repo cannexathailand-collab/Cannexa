@@ -82,7 +82,8 @@ test('LINE and Gmail flow persists sales once, rereads exact revenue, and preser
  h.model('shipment',{orderId:null,status:'WAITING_ORDER',fulfillmentStatus:'UNCONFIRMED',dispatchedAt:null,dispatchEvidence:null},[['tracking'],['orderId']]);h.model('codReceipt',{},[['tracking']]);
  h.model('gmailImport',{},[['id'],['messageId','filename']]);h.model('auditLog');h.model('stockReservation');h.model('stockDispatch');h.model('stockSheetOperation');h.model('stockReturnReport');
  h.model('stockReturn',{receivedAt:null,items:[],evidence:[],issues:[],historySavedAt:null,historySnapshot:null},[['tracking'],['orderId']]);
- h.model('stockWorkflow').seed({id:'active',enabled:true,activeFrom:new Date(at-10*day),sourceSheet:'6.11.69'});
+ // This test isolates sales/report persistence; admission and live stock are exercised separately.
+ h.model('stockWorkflow').seed({id:'active',enabled:false,activeFrom:new Date(at-10*day),sourceSheet:'6.11.69'});
  h.model('stockIntegrationConfig').seed({id:'active',enabled:true,activeFrom:new Date(at-10*day)});
  h.model('gmailConnection').seed({id:'active',email:'test@example.com',revision:'isolated',encryptedConfig:encryptGmail({clientId:'test.apps.googleusercontent.com',clientSecret:'secret'}),encryptedToken:encryptGmail({refreshToken:'refresh'}),syncPageToken:null});
  const cod={tracking:'EF123456789TH',recipient:'ลูกค้า COD',phone:'0812345678',address:'123 ถนนทดสอบ 10100',amount:2560},transfer={tracking:'EA123456789TH',recipient:'ลูกค้า โอน',phone:'0898765432',address:'456 ถนนตัวอย่าง 10200',amount:1000};
@@ -92,6 +93,7 @@ test('LINE and Gmail flow persists sales once, rereads exact revenue, and preser
  const codOrder=concurrentOrders.find(Boolean),transferOrder=await receiveOrderEvent('test-bot',transferEvent);assert.ok(codOrder);assert.ok(transferOrder);assert.equal(concurrentOrders.filter(Boolean).length,1);
  await receiveOrderEvent('test-bot',codEvent);await receiveOrderEvent('test-bot',{...transferEvent,webhookEventId:'redelivered-transfer'});
  assert.equal(h.creates.get('orderIntake'),2);assert.equal(h.creates.get('salesOrder'),1);
+ await db.stockWorkflow.update({where:{id:'active'},data:{enabled:true}});
  // Transfer is stored at intake, but reporting must wait for actual dispatch.
  const range={from:new Date(at-3*day).toISOString().slice(0,10),to:new Date(at+day).toISOString().slice(0,10)};
  assert.equal((await salesReport(range)).summary.revenueSatang,0);

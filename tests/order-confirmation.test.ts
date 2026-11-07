@@ -24,4 +24,10 @@ test('stored order sends compact reply once and duplicate delivery does not send
  patch(globalThis,'fetch',async(input:any,options:any)=>{assert.equal(input,'https://api.line.me/v2/bot/message/reply');const body=JSON.parse(options.body);assert.equal(body.replyToken,event.replyToken);assert.ok(body.messages[0].text.includes('ค่าคอมรอรับสะสม: 12.50 บาท'));assert.ok(!body.messages[0].text.includes('ORD-TEST'));sends++;return new Response(null,{status:200});});
  await replyOrderConfirmation('bot',event,'test-access-token',async()=>summary);await replyOrderConfirmation('bot',event,'test-access-token',async()=>summary);assert.equal(sends,1);assert.equal(stored.replyStatus,'SENT');
 });
-test('no stored order sends no confirmation',async t=>{const old=db.orderIntake.findUnique;t.after(()=>{db.orderIntake.findUnique=old;});db.orderIntake.findUnique=(async()=>null) as any;await replyOrderConfirmation('bot',event,'token',async()=>summary);});
+test('no stored order or pending rejection sends no confirmation',async t=>{
+ const old=db.orderIntake.findUnique,oldGroup=db.orderGroup.findUnique,oldTransaction=db.$transaction;
+ t.after(()=>{db.orderIntake.findUnique=old;db.orderGroup.findUnique=oldGroup;db.$transaction=oldTransaction;});
+ db.orderIntake.findUnique=(async()=>null) as any;db.orderGroup.findUnique=(async()=>({enabled:true,purpose:'ORDER'})) as any;
+ db.$transaction=(async(fn:any)=>fn({$queryRawUnsafe:async()=>[],orderMessageWithdrawal:{findUnique:async()=>null},orderIntake:{findFirst:async()=>null},auditLog:{findUnique:async()=>null}})) as any;
+ await replyOrderConfirmation('bot',event,'token',async()=>summary);
+});
