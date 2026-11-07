@@ -53,6 +53,9 @@ body{font-family:'Leelawadee UI','Noto Sans Thai',Tahoma,Arial,sans-serif;backgr
 .website-order-filter label { min-width:220px; margin:0; }
 .website-order-review { border-top:1px solid #e0e8dd; margin-top:20px; padding-top:8px; }
 .website-order-review textarea { max-width:650px; }
+.website-order-approval { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; max-width:650px; }
+.website-order-approval label { margin:0; }
+.nav-count { display:inline-block; min-width:20px; margin-left:6px; padding:0 6px; border-radius:10px; background:#c2410c; color:#fff; font-size:12px; line-height:20px; text-align:center; font-weight:700; }
 .website-order-item-summary { margin:6px 0; font-size:13px; color:#57705c; }
 @media(max-width:600px) {
  .website-order-card>header,.website-order-customer { flex-direction:column; gap:12px; }

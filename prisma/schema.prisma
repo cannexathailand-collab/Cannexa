@@ -216,6 +216,7 @@ model WebsiteOrder {
  reviewNote String @default("")
  reviewedBy String?
  reviewedAt DateTime?
+ intakeOrderId String? @unique
  createdAt DateTime @default(now())
  updatedAt DateTime @updatedAt
  @@unique([customerCode,requestKey])

@@ -6,6 +6,7 @@ import {stockSellableQuantity,stockSafetyReserveGrams} from './stock-sales-limit
 import {milli} from './stock-flow-plan';
 import {reservationOperationId} from './stock-flow';
 import type {StockRow} from './stock-import';
+import {websiteOrderStockItems} from './website-order-stock';
 export type StockReader=typeof readStockSheet;
 export async function pendingStockSaleItems(tx:Prisma.TransactionClient=db){
  const reservations=await tx.stockReservation.findMany({where:{status:'QUEUED',precounted:false,needsReconciliation:false}});
@@ -13,7 +14,10 @@ export async function pendingStockSaleItems(tx:Prisma.TransactionClient=db){
  const active=new Set(orders.map(o=>o.id));const ids=reservations.map(reservationOperationId);
  const operations=ids.length?await tx.stockSheetOperation.findMany({where:{id:{in:ids},status:'APPLIED'},select:{id:true}}):[];
  const applied=new Set(operations.map(o=>o.id));
- return reservations.filter(r=>active.has(r.orderId)&&!applied.has(reservationOperationId(r))).flatMap(r=>r.items as unknown as OrderStockItem[]);
+ const queued=reservations.filter(r=>active.has(r.orderId)&&!applied.has(reservationOperationId(r))).flatMap(r=>r.items as unknown as OrderStockItem[]);
+ // Website orders hold stock while they wait for owner review; approval moves the hold to a reservation.
+ const websiteOrders=await tx.websiteOrder.findMany({where:{status:'PENDING_REVIEW'},select:{items:true}});
+ return [...queued,...websiteOrders.flatMap(order=>websiteOrderStockItems(order.items))];
 }
 export function unavailableStock(items:OrderStockItem[],products:StockRow[],pending:OrderStockItem[]=[]){
  const reasons:string[]=[];
