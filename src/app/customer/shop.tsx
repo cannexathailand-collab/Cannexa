@@ -27,7 +27,7 @@ function ShopProduct({product, disabled, onAdd}: {
     </div>
     <div className="shop-product-details">
       <span className="shop-product-code">{product.code}</span>
-      <h3>{product.name || product.code}</h3>
+      <h3>{product.name || 'ยังไม่ระบุชื่อสินค้า'}</h3>
       {product.prices.length > 0 ? <label className="shop-package-label">ขนาดสินค้า
         <select aria-label={'ขนาด ' + product.code} value={selected?.pack ?? ''} onChange={event => setPack(event.target.value)}>
           {product.prices.map(price => <option key={price.pack} value={price.pack} disabled={price.priceSatang <= 0}>
@@ -68,7 +68,7 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
   activeKey.current = checkoutKey;
   const ready = cart.key === storageKey && checkout.key === checkoutKey;
   const pending = ready ? checkout.payload : null;
-  const locked = readOnly || !ready || submitting || !!pending;
+  const locked = !ready || submitting || !!pending;
   const confirmation = submitted?.key === checkoutKey ? submitted.order : null;
   const items = ready ? cart.items : [];
   const count = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -232,7 +232,7 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
       }}>{refreshing ? 'กำลังอัปเดต…' : 'อัปเดตรายการ'}</button>
     </div>
     {catalog.readAt && <p className="shop-updated">ข้อมูลล่าสุด {new Date(catalog.readAt).toLocaleString('th-TH', {timeZone: 'Asia/Bangkok'})}</p>}
-    {readOnly && <p className="portal-muted">โหมดเจ้าของระบบสำหรับดูตัวอย่างหน้าลูกค้า</p>}
+    {readOnly && <p className="portal-muted">โหมดเจ้าของระบบ · ทดลองตะกร้า</p>}
     {pending && <p className="portal-alert" role="status">มีคำขอส่งออเดอร์ที่ยังไม่ยืนยันผล เปิดตะกร้าแล้วกด “ลองส่งอีกครั้ง”</p>}
     {error && <p className="portal-alert" role="alert">{error}</p>}
     <div className="shop-product-grid">
@@ -249,7 +249,7 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
         const unitPrice = pending?.items.find(candidate => cartItemKey(candidate) === cartItemKey(item))?.expectedUnitPriceSatang ?? price?.priceSatang;
         const problem = pending ? null : product && price ? cartQuantityError(items, product, price, item.quantity) : 'สินค้าขนาดนี้ไม่อยู่ในรายการล่าสุด';
         return <article key={cartItemKey(item)} className="shop-cart-item">
-          <div><strong>{product?.name || item.code}</strong><p>{item.code} · {item.pack}</p>{unitPrice !== undefined && <span>{money(unitPrice)} บาท / ชิ้น</span>}</div>
+          <div><strong>{product?.name || 'ยังไม่ระบุชื่อสินค้า'}</strong><p>{item.code} · {item.pack}</p>{unitPrice !== undefined && <span>{money(unitPrice)} บาท / ชิ้น</span>}</div>
           <label>จำนวน<input type="number" min={1} max={999} step={1} aria-label={'จำนวน ' + item.code + ' ' + item.pack} value={item.quantity} disabled={locked || !price} onChange={event => setQuantity(item, Number(event.target.value))}/></label>
           <strong>{unitPrice !== undefined ? money(unitPrice * item.quantity) + ' บาท' : 'รอราคา'}</strong>
           <button type="button" className="secondary" aria-label={'ลบ ' + item.code + ' ' + item.pack} disabled={locked} onClick={() => {
@@ -261,10 +261,10 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
         </article>;
       })}</div> : <p className="portal-empty">ยังไม่มีสินค้าในตะกร้า</p>}
       <div className="shop-cart-total"><span>ยอดรวมสินค้า</span><strong>{Number.isSafeInteger(total) ? money(total) + ' บาท' : 'กรุณาตรวจสอบยอดรวม'}</strong></div>
-      <p className="portal-muted">ออเดอร์ที่ส่งจะรอเจ้าหน้าที่ตรวจสอบ</p>
+      <p className="portal-muted">{readOnly ? 'ตะกร้าทดลองสำหรับเจ้าของระบบ' : 'ออเดอร์ที่ส่งจะรอเจ้าหน้าที่ตรวจสอบ'}</p>
       {pending && <p className="portal-muted">กำลังใช้รายการและราคาของคำขอเดิม กรุณายืนยันผลก่อนแก้ไขตะกร้า</p>}
-      {items.length > 0 && !readOnly && <div className="actions">
-        <button type="button" disabled={!ready || submitting} onClick={sendOrder}>{submitting ? 'กำลังส่งออเดอร์…' : pending ? 'ลองส่งอีกครั้ง' : 'ส่งออเดอร์ให้ตรวจสอบ'}</button>
+      {items.length > 0 && <div className="actions">
+        {!readOnly && <button type="button" disabled={!ready || submitting} onClick={sendOrder}>{submitting ? 'กำลังส่งออเดอร์…' : pending ? 'ลองส่งอีกครั้ง' : 'ส่งออเดอร์ให้ตรวจสอบ'}</button>}
         <button type="button" className="secondary" disabled={locked} onClick={() => {
           if (locked || sending.current) return;
           setCart({key: storageKey, items: []}); setError('');
