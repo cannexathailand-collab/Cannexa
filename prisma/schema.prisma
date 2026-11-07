@@ -172,6 +172,7 @@ model MetaConnection {
  datasetId String
 }
 model Customer {
+ portalRegistrationPending Boolean @default(false)
  portalPasswordSalt String?
  portalPasswordHash String?
  code String @id @default(dbgenerated("customer_code()"))

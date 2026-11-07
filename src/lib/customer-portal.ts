@@ -54,7 +54,7 @@ export async function savePortalProfile(key:string,input:{name?:unknown;phone?:u
   const matches=await matchingCustomerPhones(tx,data.phone);
   if(matches.some(row=>row.code!==existing?.code))throw Error('EXISTING_CUSTOMER');
   const identityKey=customerIdentity(data.name,data.phone);
-  const saved=existing?await tx.customer.update({where:{code:existing.code},data:{...data,identityKey}}):await tx.customer.create({data:{...data,identityKey,lineUserKey:key}});
+  const saved=existing?await tx.customer.update({where:{code:existing.code},data:{...data,identityKey}}):await tx.customer.create({data:{...data,identityKey,lineUserKey:key,portalRegistrationPending:true}});
   await tx.auditLog.create({data:{actor:'customer',action:existing?'CUSTOMER_PROFILE_UPDATED':'CUSTOMER_REGISTERED',entityId:saved.code,details:{source:'customer-portal'}}});
   return saved;
  });

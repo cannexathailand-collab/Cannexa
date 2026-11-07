@@ -7,6 +7,7 @@ import {displayCustomerCode} from '@/lib/customer-code';
 import '../portal.css';
 export default async function CustomerPasswordPage(){
  const {key,customer}=await portalCustomer();
+ if(customer?.portalRegistrationPending)redirect('/customer');
  const step=readToken<{purpose:string;key:string;code:string;exp:number}>((await cookies()).get('customer_password_step')?.value??'');
  if(!key||!customer||step?.purpose!=='CUSTOMER_PASSWORD_STEP'||step.key!==key||step.code!==customer.code||step.exp<=Date.now())redirect('/customer');
  const setup=!customer.portalPasswordHash;
