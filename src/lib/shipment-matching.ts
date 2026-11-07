@@ -7,6 +7,10 @@ export function moneySatang(value:string|number){const v=String(value).replace(/
 export function quotedTotal(text:string){const values=text.split(/\r?\n/).map(line=>line.match(/^\s*(?:ยอดตามข้อความ|ยอดรวม|รวมทั้งสิ้น|ยอดโอน|โอน|COD)\s*[:=：]\s*([\d,.]+)\s*(?:บาท|฿)?\s*$/i)).filter(Boolean);return values.length===1?moneySatang(values[0]![1]):null;}
 export type MatchOrder={id:string;affiliateId:string|null;recipient:string|null;phone:string|null;address:string|null;rawText:string|null;payment:string|null};
 export type MatchShipment={recipient:string;phone:string;address:string;codSatang:number};
+export function phoneShipmentCandidates<T extends MatchOrder>(shipment:MatchShipment,orders:T[]){
+ const candidates=orders.filter(o=>o.affiliateId&&o.phone&&phonesMatch(o.phone,shipment.phone)&&(shipment.codSatang>0?o.payment==='COD':shipment.codSatang===0&&(o.payment==='โอน'||o.payment==='เคลม')));
+ return candidates.length>1&&shipment.codSatang>0?candidates.filter(o=>quotedTotal(o.rawText??'')===shipment.codSatang):candidates;
+}
 export function shipmentCandidates(shipment:MatchShipment,orders:MatchOrder[]){
  if(shipment.codSatang<=0||!shipment.recipient||!shipment.phone||!shipment.address)return [];
  return orders.filter(o=>o.affiliateId&&o.recipient&&o.phone&&o.address&&o.rawText&&o.payment==="COD"&&normalizeName(o.recipient)===normalizeName(shipment.recipient)&&phonesMatch(o.phone,shipment.phone)&&normalizeAddress(o.address)===normalizeAddress(shipment.address)&&quotedTotal(o.rawText)===shipment.codSatang);
