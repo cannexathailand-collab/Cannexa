@@ -114,6 +114,9 @@
 .portal-profile-actions-single {grid-template-columns:1fr}
 .portal-profile-actions button {min-height:48px;border-radius:11px;font-size:16px;font-weight:600;background:#20543a;color:#fff}
 .portal-profile-actions .portal-edit-button {background:transparent;color:#20543a;border:1px solid #a7bda3}
+.portal-sign-in-alternative {margin-top:26px;padding-top:15px;border-top:1px solid #c9d8bb35}
+.portal-sign-in-alternative p {font-size:12px;line-height:1.8}
+.portal-sign-in-alternative .portal-line {margin-top:16px}
 @media(max-width:600px){.portal-profile-fields{grid-template-columns:1fr;gap:17px}.portal-profile-actions{gap:9px}.portal-profile-actions button{font-size:14px;padding:11px 8px}}
 .portal-tab-controls {display:grid;grid-template-columns:repeat(5,minmax(0,1fr));width:100%}
 .portal-offers {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:18px}

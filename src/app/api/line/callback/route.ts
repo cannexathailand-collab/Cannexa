@@ -8,7 +8,7 @@ import {db} from "@/lib/db";
 import {syncLoginCustomer} from '@/lib/customer-code-message';
 import {lineSettings} from "@/lib/line-settings";
 import {lineCustomerDestination} from "@/lib/line-customer-destination";
-import {linkPortalCustomer,portalCookie,portalAccessCookie,portalAccessToken,portalToken,portalDuration} from '@/lib/customer-portal';
+import {linkPortalCustomer,portalCookie,portalAccessCookie,portalAccessToken,portalToken,portalDuration,portalPasswordCookie} from '@/lib/customer-portal';
 import {cookieOptions} from '@/lib/auth';
 export async function GET(req:NextRequest){
  if(mockMode())return new Response("Real callback disabled in mock mode",{status:409});
@@ -31,6 +31,7 @@ export async function GET(req:NextRequest){
    const customer=await linkPortalCustomer(key,a.customerLinkHash);
    const res=NextResponse.redirect(baseUrl()+'/customer');
    res.cookies.set(portalCookie,portalToken(key),{...cookieOptions,maxAge:portalDuration});
+   res.cookies.delete(portalPasswordCookie);
    if(customer&&!customer.portalRegistrationPending){
     res.cookies.set(portalAccessCookie,portalAccessToken(key,customer.code),{...cookieOptions,maxAge:portalDuration});
    }else{

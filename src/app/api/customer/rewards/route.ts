@@ -8,7 +8,7 @@ export async function POST(request:Request){
  try{await sameOrigin();}catch{return NextResponse.json({error:'ไม่อนุญาต'},{status:403});}
  const {key,customer}=await portalCustomer();
  if(customer?.portalRegistrationPending)return NextResponse.json({error:'กำลังรอร้านอนุมัติสมาชิก'},{status:403});
- if(!key||!customer||!await hasPortalAccess(key,customer.code))return NextResponse.json({error:'กรุณาเข้าสู่ระบบด้วย LINE'},{status:401});
+ if(!customer||!await hasPortalAccess(key,customer.code))return NextResponse.json({error:'กรุณาเข้าสู่ระบบ'},{status:401});
  if(!await limit('customer-reward:'+customer.code,30))return NextResponse.json({error:'กรุณารอสักครู่แล้วลองใหม่'},{status:429});
  try{
   const text=await request.text();

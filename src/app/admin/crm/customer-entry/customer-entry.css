@@ -1,0 +1,15 @@
+.customer-entry-grid {
+ display:grid;
+ grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:22px;
+ margin:26px 0;
+}
+.customer-entry-card {padding:26px;border:1px solid #d4e4d7;border-radius:17px;background:#fff;box-shadow:0 5px 20px #23472e08;min-width:0}
+.customer-entry-tag {display:inline-block;padding:6px 12px;border-radius:20px;background:#e7f3e9;color:#276b41;font-size:12px;font-weight:600}
+.customer-entry-card h2 {margin:18px 0 10px;font-size:21px;color:#254e35}
+.customer-entry-card p {color:#6c806d;min-height:50px}
+.customer-entry-card label {color:#5f765f}
+.customer-entry-card input {color:#476c4e;background:#f7faf4;font-size:13px}
+.customer-entry-actions {display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.customer-entry-actions .button {text-align:center}
+@media(max-width:850px){.customer-entry-grid{grid-template-columns:1fr}.customer-entry-card{padding:21px}.customer-entry-card p{min-height:0}}

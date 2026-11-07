@@ -4,7 +4,7 @@ import {useRef,useState,type ReactNode} from 'react';
 import {useRouter} from 'next/navigation';
 import {CustomerPasswordForm} from './password/password-form';
 
-export function CustomerPanels({orders,profile,promotions,coins}:{orders:ReactNode;profile:ReactNode;promotions:ReactNode;coins:ReactNode}){
+export function CustomerPanels({orders,profile,promotions,coins,passwordRequiresCurrent=false}:{orders:ReactNode;profile:ReactNode;promotions:ReactNode;coins:ReactNode;passwordRequiresCurrent?:boolean}){
  const [active,setActive]=useState('orders');
  const router=useRouter();
  const buttons=useRef<Array<HTMLButtonElement|null>>([]);
@@ -41,7 +41,7 @@ export function CustomerPanels({orders,profile,promotions,coins}:{orders:ReactNo
   <div id="panel-orders" role="tabpanel" aria-labelledby="tab-orders" hidden={active!=='orders'}>{orders}</div>
   <div id="panel-profile" role="tabpanel" aria-labelledby="tab-profile" hidden={active!=='profile'}>{profile}</div>
   <div id="panel-password" role="tabpanel" aria-labelledby="tab-password" hidden={active!=='password'}>
-   <section className="portal-section"><h2>เปลี่ยนรหัสผ่าน</h2><CustomerPasswordForm setup reset inline/></section>
+   <section className="portal-section"><h2>เปลี่ยนรหัสผ่าน</h2><CustomerPasswordForm setup reset inline requiresCurrentPassword={passwordRequiresCurrent}/></section>
   </div>
   <div id="panel-promotions" role="tabpanel" aria-labelledby="tab-promotions" hidden={active!=='promotions'}>{promotions}</div>
   <div id="panel-coins" role="tabpanel" aria-labelledby="tab-coins" hidden={active!=='coins'}>{coins}</div>

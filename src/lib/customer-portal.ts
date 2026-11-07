@@ -1,17 +1,17 @@
 import {cookies} from 'next/headers';
 import {db,transaction,userLock} from './db';
-import {readToken,signToken} from './crypto';
+import {equal,readToken,sha,signToken} from './crypto';
 import {validContactPhones} from './contact-phones';
 import {matchingCustomerPhones} from './draft-customer-identity';
 import {customerIdentity} from './order-customer';
 
 export const portalCookie='customer_portal';
 export const portalAccessCookie='customer_access';
+export const portalPasswordCookie='customer_password_session';
 export function portalAccessToken(key:string,code:string){return signToken({purpose:'CUSTOMER_ACCESS',key,code,exp:Date.now()+portalDuration*1000});}
-export async function hasPortalAccess(key:string,code:string){
- if(await portalKey()!==key)return false;
- const customer=await db.customer.findUnique({where:{lineUserKey:key},select:{code:true,portalRegistrationPending:true}});
- return customer?.code===code&&!customer.portalRegistrationPending;
+export async function hasPortalAccess(key:string|null,code:string){
+ const session=await portalCustomer();
+ return session.key===key&&session.customer?.code===code&&!session.customer.portalRegistrationPending;
 }
 export const portalDuration=86400;
 export function portalToken(key:string){return signToken({purpose:'CUSTOMER_PORTAL',key,exp:Date.now()+portalDuration*1000});}
@@ -20,7 +20,22 @@ export function readPortalToken(value:string){
  return token?.purpose==='CUSTOMER_PORTAL'&&typeof token.key==='string'&&/^[a-f0-9]{64}$/.test(token.key)&&typeof token.exp==='number'&&token.exp>Date.now()?token.key:null;
 }
 export async function portalKey(){return readPortalToken((await cookies()).get(portalCookie)?.value??'');}
-export async function portalCustomer(){const key=await portalKey();return {key,customer:key?await db.customer.findUnique({where:{lineUserKey:key}}):null};}
+export function portalPasswordVersion(customer:{portalPasswordSalt:string|null;portalPasswordHash:string|null}){
+ return sha(JSON.stringify([customer.portalPasswordSalt,customer.portalPasswordHash]));
+}
+export function portalPasswordToken(customer:{code:string;portalPasswordSalt:string|null;portalPasswordHash:string|null}){
+ return signToken({purpose:'CUSTOMER_PASSWORD_SESSION',code:customer.code,version:portalPasswordVersion(customer),exp:Date.now()+portalDuration*1000});
+}
+export async function portalCustomer(){
+ const key=await portalKey();
+ if(key)return {key,customer:await db.customer.findUnique({where:{lineUserKey:key}}),method:'line' as const};
+ const token=readToken<{purpose?:string;code?:string;version?:string;exp?:number}>((await cookies()).get(portalPasswordCookie)?.value??'');
+ if(token?.purpose==='CUSTOMER_PASSWORD_SESSION'&&typeof token.code==='string'&&token.code.length<=30&&typeof token.version==='string'&&/^[a-f0-9]{64}$/.test(token.version)&&typeof token.exp==='number'&&token.exp>Date.now()){
+  const customer=await db.customer.findUnique({where:{code:token.code}});
+  if(customer&&!customer.portalRegistrationPending&&customer.portalPasswordSalt&&customer.portalPasswordHash&&equal(token.version,portalPasswordVersion(customer)))return {key:null,customer,method:'password' as const};
+ }
+ return {key:null,customer:null,method:null};
+}
 export function portalProfile(input:{title?:unknown;name?:unknown;phone?:unknown;address?:unknown;houseNumber?:unknown;road?:unknown;subdistrict?:unknown;district?:unknown;province?:unknown;postalCode?:unknown}){
  const name=typeof input.name==='string'?input.name.trim():'';
  let address=typeof input.address==='string'?input.address.trim():'';
@@ -56,12 +71,15 @@ export async function linkPortalCustomer(key:string,linkHash?:string|null){
   return saved;
  });
 }
-export async function savePortalProfile(key:string,input:Parameters<typeof portalProfile>[0]&{referrerCode?:unknown}){
+export async function savePortalProfile(key:string|null,input:Parameters<typeof portalProfile>[0]&{referrerCode?:unknown},customerCode?:string){
  const data=portalProfile(input);
  return transaction(async tx=>{
-  await userLock(tx,key);
+  if(!key&&!customerCode)throw Error('UNAUTHORIZED');
+  await userLock(tx,key??'customer-profile:'+customerCode);
+  const existing=key?await tx.customer.findUnique({where:{lineUserKey:key}}):await tx.customer.findUnique({where:{code:customerCode}});
+  if(!key&&(!existing||existing.portalRegistrationPending))throw Error('UNAUTHORIZED');
+  if(existing)await userLock(tx,'customer-profile:'+existing.code);
   for(const phone of validContactPhones(data.phone)!.sort())await userLock(tx,'draft-customer-phone:'+phone);
-  const existing=await tx.customer.findUnique({where:{lineUserKey:key}});
   let referrerId:string|null=null;
   if(!existing&&input.referrerCode){
    if(typeof input.referrerCode!=='string'||input.referrerCode.length>100)throw Error('กรุณาตรวจสอบรหัสผู้แนะนำ');
