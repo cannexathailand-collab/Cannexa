@@ -152,7 +152,7 @@ bot_prompt=aggressive ถูกใส่ใน source แล้ว ไม่ต�
 1. สร้าง Git repository จากโฟลเดอร์นี้ โดยไม่ commit .env, node_modules, .next หรือ work
 2. สร้าง PostgreSQL production ที่ Neon หรือ Supabase แยกจาก development
 3. DATABASE_URL ใช้ pooled connection ที่รองรับ Prisma; DIRECT_URL ใช้ direct/session connection สำหรับ migrations พร้อม TLS ตามผู้ให้บริการ อย่าปิด certificate validation
-4. ติดตั้ง dependencies และรัน npm run db:migrate จากเครื่อง/CI ที่เชื่อม direct database ได้ ใช้ migration deploy สำหรับ production ไม่ใช้ migrate dev หรือ db push
+4. ติดตั้ง dependencies และรัน npm run db:migrate จากเครื่อง/CI ที่เชื่อม direct database ได้ ใช้ migration deploy สำหรับ production ไม่ใช้ migrate dev หรือ db push · Vercel production build รัน prisma migrate deploy ให้อัตโนมัติผ่าน scripts/vercel-migrate.mjs (ต้องตั้ง DATABASE_URL และ DIRECT_URL ใน Production) ส่วน Preview และการ build ในเครื่องจะข้ามขั้นตอนนี้
 5. Import repo ใน Vercel เลือก Next.js กำหนด Node.js 22.x หรือ 24.x และ build command npm run build
 6. สร้าง secrets ใหม่สำหรับ production ด้วย setup script ในสภาพแวดล้อมส่วนตัว เก็บ USER_HASH_SECRET ให้คงที่และสำรองอย่างปลอดภัย การเปลี่ยน key โดยไม่มี migration ทำให้ตรวจนับซ้ำผิดได้
 7. ตั้ง environment variables จาก .env.example ใน Vercel: APP_URL เป็นโดเมน HTTPS จริง, MOCK_MODE=false, database, admin hash/salt, secrets และ LINE credentials ให้ครบ

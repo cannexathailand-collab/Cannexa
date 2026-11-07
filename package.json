@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "prisma generate && next build --webpack",
+    "build": "node scripts/vercel-migrate.mjs && prisma generate && next build --webpack",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
