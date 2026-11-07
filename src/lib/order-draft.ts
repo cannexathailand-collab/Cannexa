@@ -2,6 +2,11 @@ import {moneySatang,normalizeAddress} from './shipment-matching';
 import {analyzeOrderDraft} from './order-draft-parser';
 export {analyzeOrderDraft} from './order-draft-parser';
 export function differentDraftAddress(incoming:string,stored:string){return !!incoming.trim()&&!!stored.trim()&&normalizeAddress(incoming)!==normalizeAddress(stored);}
+export function hasCompletePostalCode(address:string){
+ const explicit=address.match(/(?:รหัสไปรษณีย์|ไปรษณีย์|ปณ\.?|postcode|zip(?:code)?)\s*[:=]?\s*(\d+)/i);
+ if(explicit)return explicit[1].length===5;
+ return [...address.matchAll(/(?<!\d)\d{5}(?!\d)/g)].some(m=>!/(?:บ้านเลขที่|เลขที่)\s*$/.test(address.slice(0,m.index))&&(!(m.index===0)||address.trim()===m[0]));
+}
 export const draftFields={seller:'รหัสผู้ขาย',recipient:'ชื่อผู้รับ',phone:'เบอร์โทร',address:'ที่อยู่',products:'สินค้า',payment:'ชำระเงิน',amount:'ยอดตามข้อความ',customerCode:'รหัสลูกค้า'} as const;
 export type OrderDraft=Record<keyof typeof draftFields,string>;
 export const defaultOrderTemplate=Object.values(draftFields).map(label=>label+': {{'+label+'}}').join('\n');
@@ -16,7 +21,8 @@ export function renderOrderDraft(template:string,draft:OrderDraft){
 export function orderDraftIssues(draft:OrderDraft){
  const issues:string[]=[];
  for(const key of ['seller','recipient','phone','address','products'] as const)if(!draft[key].trim())issues.push('กรอก'+draftFields[key]);
- if(draft.phone){const digits=draft.phone.replace(/[\s()+-]/g,'');if(!/^(0\d{8,9}|66\d{8,9})$/.test(digits))issues.push('ตรวจสอบเบอร์โทร');}
+ if(draft.phone){let digits=draft.phone.replace(/[\s()+-]/g,'');if(digits.startsWith('660'))digits='0'+digits.slice(3);else if(digits.startsWith('66'))digits='0'+digits.slice(2);if(!/^0\d{9}$/.test(digits)||/^0+$/.test(digits))issues.push('เบอร์โทรต้องครบ 10 หลัก');}
+ if(draft.address&&!hasCompletePostalCode(draft.address))issues.push('รหัสไปรษณีย์ต้องครบ 5 หลัก');
  if(!['COD','โอน','เคลม'].includes(draft.payment))issues.push('เลือกวิธีชำระเงิน');
  const amount=moneySatang(draft.amount);if(amount===null||(draft.payment!=='เคลม'&&amount<=0))issues.push('กรอกยอดเงินให้ถูกต้อง');
  return issues;

@@ -4,7 +4,7 @@ import {normalizePhone} from './shipment-matching';
 import {customerIdentity} from './order-customer';
 import {displayCustomerCode} from './customer-code';
 type Client=Prisma.TransactionClient;
-export function validCustomerPhone(value:string){const phone=normalizePhone(value);return /^0\d{8,9}$/.test(phone)?phone:null;}
+export function validCustomerPhone(value:string){const phone=normalizePhone(value);return /^0\d{9}$/.test(phone)&&!/^0+$/.test(phone)?phone:null;}
 async function matches(tx:Client,phone:string){
  const international='66'+phone.slice(1);
  const schema=new URL(process.env.DATABASE_URL!).searchParams.get('schema')??'public';if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(schema))throw Error('INVALID_SCHEMA');

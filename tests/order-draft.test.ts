@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {defaultOrderTemplate,emptyOrderDraft,extractOrderDraft,renderOrderDraft,orderDraftIssues,differentDraftAddress} from '../src/lib/order-draft';
+import {defaultOrderTemplate,emptyOrderDraft,extractOrderDraft,renderOrderDraft,orderDraftIssues,differentDraftAddress,hasCompletePostalCode} from '../src/lib/order-draft';
 import {orderTemplateIssues} from '../src/lib/order-templates';
 import {parseOrderText} from '../src/lib/order-parser';
 import {quotedTotal} from '../src/lib/shipment-matching';
@@ -33,4 +33,10 @@ test('raw inline shipping contact, unlabelled SKU and COD amount are separated i
 test('unlabelled multiline address preceding phone is kept as one address',()=>{
  const parsed=extractOrderDraft('ผู้รับ\nชื่อ : TEST\nตัวอย่างริมน้ำเลข28\nบ้านเกิด9 11000\nเมืองนนทบุรี,นนทบุรี.ไทย\n0812345678\n\nNT16 5g\n\nCod 200\n\nL. demo');
  assert.equal(parsed.recipient,'TEST');assert.equal(parsed.address,'ตัวอย่างริมน้ำเลข28\nบ้านเกิด9 11000\nเมืองนนทบุรี,นนทบุรี.ไทย');assert.equal(parsed.products,'NT16 5g');assert.equal(parsed.amount,'200.00');assert.deepEqual(orderDraftIssues({...emptyOrderDraft,...parsed,seller:'seller'}),[]);
+});
+test('draft blocks incomplete phone and postcode before customer creation or copying',()=>{
+ const draft={...emptyOrderDraft,seller:'seller',recipient:'Name',phone:'081234567',address:'10 Bangkok 1020',products:'TM2 10g',payment:'COD',amount:'100'};
+ assert.ok(orderDraftIssues(draft).includes('เบอร์โทรต้องครบ 10 หลัก'));assert.ok(orderDraftIssues(draft).includes('รหัสไปรษณีย์ต้องครบ 5 หลัก'));
+ assert.deepEqual(orderDraftIssues({...draft,phone:'+66 81 234 5678',address:'10 Bangkok 10200'}),[]);
+ assert.equal(hasCompletePostalCode('เลขที่ 12345 Bangkok รหัสไปรษณีย์ 1020'),false);assert.equal(hasCompletePostalCode('เลขที่ 12345 Bangkok'),false);assert.equal(hasCompletePostalCode('12345 ถนนตัวอย่าง กรุงเทพ 10200'),true);
 });
