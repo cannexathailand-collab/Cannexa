@@ -13,6 +13,6 @@ export async function POST(req:NextRequest){
  const actual=passwordHash(password.slice(0,256),a?.salt??"invalid-account-salt");
  if(password.length>256||!a?.active||!equal(actual,a.hash))return NextResponse.redirect(baseUrl()+"/login?error=1",303);
  const res=NextResponse.redirect(baseUrl()+home(a.role),303);
- res.cookies.set("admin_session",signToken({role:a.role,username:a.username,version:a.version,exp:Date.now()+8*3600000}),{...cookieOptions,maxAge:28800});
+ res.cookies.set("admin_session",signToken({role:a.role,username:a.username,version:a.version,exp:Date.now()+30*86400000}),{...cookieOptions,maxAge:2592000});
  return res;
 }
