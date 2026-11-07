@@ -9,11 +9,12 @@ export async function POST(request:Request){
  const approved=await transaction(async tx=>{
   await userLock(tx,'customer-registration:'+code);
   const row=await tx.customer.findUnique({where:{code}});if(!row)return false;
+  if(row.portalProfileIncomplete)return 'incomplete';
   if(row.portalRegistrationPending){
    await tx.customer.update({where:{code},data:{portalRegistrationPending:false}});
    await tx.auditLog.create({data:{actor,action:'CUSTOMER_REGISTRATION_APPROVED',entityId:code,details:{}}});
   }
   return true;
  });
- return approved?NextResponse.json({ok:true}):NextResponse.json({error:'ไม่พบคำขอสมัคร'},{status:404});
+ return approved==='incomplete'?NextResponse.json({error:'ลูกค้ายังกรอกข้อมูลสมัครสมาชิกไม่ครบ'},{status:400}):approved?NextResponse.json({ok:true}):NextResponse.json({error:'ไม่พบคำขอสมัคร'},{status:404});
 }

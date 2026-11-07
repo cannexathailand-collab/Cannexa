@@ -12,4 +12,5 @@
 .customer-entry-card input {color:#476c4e;background:#f7faf4;font-size:13px}
 .customer-entry-actions {display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
 .customer-entry-actions .button {text-align:center}
+.customer-entry-marketing {grid-column:1/-1;background:linear-gradient(130deg,#f2f8eb,#fffdf2);border-color:#cedcb7}
 @media(max-width:850px){.customer-entry-grid{grid-template-columns:1fr}.customer-entry-card{padding:21px}.customer-entry-card p{min-height:0}}

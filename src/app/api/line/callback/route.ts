@@ -2,7 +2,7 @@ import {NextRequest,NextResponse} from "next/server";
 import {consume} from "@/lib/oauth";
 import {exchange} from "@/lib/line";
 import {recordLogin} from "@/lib/tracking";
-import {userKey,sha} from "@/lib/crypto";
+import {userKey,sha,readToken} from "@/lib/crypto";
 import {baseUrl,mockMode} from "@/lib/config";
 import {db} from "@/lib/db";
 import {syncLoginCustomer} from '@/lib/customer-code-message';
@@ -11,16 +11,18 @@ import {lineCustomerDestination} from "@/lib/line-customer-destination";
 import {linkPortalCustomer,portalCookie,portalAccessCookie,portalAccessToken,portalToken,portalDuration,portalPasswordCookie} from '@/lib/customer-portal';
 import {cookieOptions} from '@/lib/auth';
 import {ownerEmployeeCookie} from '@/lib/employee-view';
+import {clearMarketingCustomerSessions,completeCustomerMarketing,marketingCookie,marketingDuration,marketingPendingToken} from '@/lib/customer-marketing';
 export async function GET(req:NextRequest){
  if(mockMode())return new Response("Real callback disabled in mock mode",{status:409});
- let clickId:string|undefined;let customerLogin=false;
+ let clickId:string|undefined;let customerLogin=false,marketingLogin=false;
  const state=req.nextUrl.searchParams.get("state")??"";
  try{
   if(/^[A-Za-z0-9_-]{40,100}$/.test(state)){
    const pending=await db.oAuthAttempt.findUnique({where:{stateHash:sha(state)},select:{purpose:true}});
    customerLogin=pending?.purpose==='CUSTOMER';
+   marketingLogin=pending?.purpose==='CUSTOMER_MARKETING'||pending?.purpose==='CUSTOMER_MARKETING_RECHECK';
   }
-  const a=await consume(state);clickId=a.clickId??undefined;customerLogin=a.purpose==='CUSTOMER';
+  const a=await consume(state);clickId=a.clickId??undefined;customerLogin=a.purpose==='CUSTOMER';marketingLogin=a.purpose==='CUSTOMER_MARKETING'||a.purpose==='CUSTOMER_MARKETING_RECHECK';
   if(req.nextUrl.searchParams.has("error"))throw new Error("Login declined");
   const code=req.nextUrl.searchParams.get("code");if(!code)throw new Error("Missing code");
   const connection=await lineSettings();
@@ -28,6 +30,26 @@ export async function GET(req:NextRequest){
   const result=await exchange(code,a.verifier,a.nonce,connection.settings);
   const changed=req.nextUrl.searchParams.get("friendship_status_changed");
   const key=userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?result.userId:connection.settings.botId+":"+result.userId);
+  if(marketingLogin){
+   if(!a.clickId)throw Error('Missing marketing click');
+   const click=await db.click.findUnique({where:{id:a.clickId},select:{customerLanding:true}});
+   if(!click?.customerLanding)throw Error('Invalid marketing click');
+   if(a.purpose==='CUSTOMER_MARKETING_RECHECK'){
+    const browser=readToken<{purpose?:string;clickId?:string;key?:string;exp?:number}>(req.cookies.get('oauth_'+sha(state).slice(0,16))?.value??'');
+    if(browser?.purpose!=='CUSTOMER_MARKETING_RECHECK'||browser.clickId!==a.clickId||browser.key!==key||typeof browser.exp!=='number'||browser.exp<=Date.now())throw Error('Marketing identity changed');
+   }
+   const conversion=await recordLogin(a.clickId,key,result.friendFlag,changed==='true'?true:changed==='false'?false:null);
+   const response=NextResponse.redirect(baseUrl()+(result.friendFlag===true?'/customer':'/marketing/connect'));
+   clearMarketingCustomerSessions(response);
+   if(result.friendFlag===true){
+    const customer=await completeCustomerMarketing(a.clickId,key,conversion);
+    response.cookies.set(portalCookie,portalToken(key),{...cookieOptions,maxAge:portalDuration});
+    if(!customer.portalRegistrationPending)response.cookies.set(portalAccessCookie,portalAccessToken(key,customer.code),{...cookieOptions,maxAge:portalDuration});
+    response.cookies.delete(marketingCookie);
+   }else response.cookies.set(marketingCookie,marketingPendingToken(a.clickId,key),{...cookieOptions,maxAge:marketingDuration});
+   response.cookies.delete('oauth_'+sha(state).slice(0,16));
+   return response;
+  }
   if(customerLogin){
    const customer=await linkPortalCustomer(key,a.customerLinkHash);
    const res=NextResponse.redirect(baseUrl()+'/customer');
@@ -52,7 +74,8 @@ export async function GET(req:NextRequest){
   res.cookies.delete("oauth_"+sha(state).slice(0,16));return res;
  }catch{
   if(clickId)await db.click.update({where:{id:clickId},data:{loginResult:"FAILED"}});
-  const res=NextResponse.redirect(baseUrl()+(customerLogin?'/customer?error=login':"/result?error=1"));
+  const res=NextResponse.redirect(baseUrl()+(marketingLogin?'/marketing/connect?error=login':customerLogin?'/customer?error=login':"/result?error=1"));
+  if(marketingLogin)clearMarketingCustomerSessions(res);
   res.cookies.delete('oauth_'+sha(state).slice(0,16));return res;
  }
 }

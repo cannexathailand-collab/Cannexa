@@ -36,7 +36,7 @@ export async function POST(request:Request){
  if(identifier.length>30)return invalid();
  const customer=await db.customer.findUnique({where:{code}});
  const actual=passwordHash(input.password,customer?.portalPasswordSalt??'customer-sign-in-unavailable');
- if(!customer||customer.portalRegistrationPending||!customer.portalPasswordSalt||!customer.portalPasswordHash||!equal(actual,customer.portalPasswordHash))return invalid();
+ if(!customer||customer.portalRegistrationPending||customer.portalProfileIncomplete||!customer.portalPasswordSalt||!customer.portalPasswordHash||!equal(actual,customer.portalPasswordHash))return invalid();
  const jar=await cookies();
  jar.set(portalPasswordCookie,portalPasswordToken(customer),{...cookieOptions,maxAge:portalDuration});
  jar.delete(portalCookie);jar.delete(portalAccessCookie);jar.delete('customer_password_step');

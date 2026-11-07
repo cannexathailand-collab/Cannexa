@@ -8,7 +8,7 @@ import {limit} from '@/lib/rate-limit';
 export async function POST(request:Request){
  try{await sameOrigin();}catch{return NextResponse.json({error:'ไม่อนุญาต'},{status:403});}
  const {key,customer,method}=await portalCustomer();const jar=await cookies();
- if(customer?.portalRegistrationPending)return NextResponse.json({error:'กำลังรอร้านอนุมัติสมาชิก'},{status:403});
+ if(customer?.portalRegistrationPending||customer?.portalProfileIncomplete)return NextResponse.json({error:'กำลังรอร้านอนุมัติสมาชิก'},{status:403});
  const step=readToken<{purpose:string;key:string;code:string;exp:number}>(jar.get('customer_password_step')?.value??'');
  if(!method||!customer)return NextResponse.json({error:'กรุณาเข้าสู่ระบบ'},{status:401});
  if(!await limit('customer-password:'+customer.code,10))return NextResponse.json({error:'กรุณารอสักครู่แล้วลองใหม่'},{status:429});

@@ -11,7 +11,7 @@ export const portalPasswordCookie='customer_password_session';
 export function portalAccessToken(key:string,code:string){return signToken({purpose:'CUSTOMER_ACCESS',key,code,exp:Date.now()+portalDuration*1000});}
 export async function hasPortalAccess(key:string|null,code:string){
  const session=await portalCustomer();
- return session.key===key&&session.customer?.code===code&&!session.customer.portalRegistrationPending;
+ return session.key===key&&session.customer?.code===code&&!session.customer.portalRegistrationPending&&!session.customer.portalProfileIncomplete;
 }
 export const portalDuration=86400;
 export function portalToken(key:string){return signToken({purpose:'CUSTOMER_PORTAL',key,exp:Date.now()+portalDuration*1000});}
@@ -32,7 +32,7 @@ export async function portalCustomer(){
  const token=readToken<{purpose?:string;code?:string;version?:string;exp?:number}>((await cookies()).get(portalPasswordCookie)?.value??'');
  if(token?.purpose==='CUSTOMER_PASSWORD_SESSION'&&typeof token.code==='string'&&token.code.length<=30&&typeof token.version==='string'&&/^[a-f0-9]{64}$/.test(token.version)&&typeof token.exp==='number'&&token.exp>Date.now()){
   const customer=await db.customer.findUnique({where:{code:token.code}});
-  if(customer&&!customer.portalRegistrationPending&&customer.portalPasswordSalt&&customer.portalPasswordHash&&equal(token.version,portalPasswordVersion(customer)))return {key:null,customer,method:'password' as const};
+  if(customer&&!customer.portalRegistrationPending&&!customer.portalProfileIncomplete&&customer.portalPasswordSalt&&customer.portalPasswordHash&&equal(token.version,portalPasswordVersion(customer)))return {key:null,customer,method:'password' as const};
  }
  return {key:null,customer:null,method:null};
 }
@@ -81,7 +81,7 @@ export async function savePortalProfile(key:string|null,input:Parameters<typeof 
   if(existing)await userLock(tx,'customer-profile:'+existing.code);
   for(const phone of validContactPhones(data.phone)!.sort())await userLock(tx,'draft-customer-phone:'+phone);
   let referrerId:string|null=null;
-  if(!existing&&input.referrerCode){
+  if((!existing||existing.portalProfileIncomplete&&!existing.referrerId)&&input.referrerCode){
    if(typeof input.referrerCode!=='string'||input.referrerCode.length>100)throw Error('กรุณาตรวจสอบรหัสผู้แนะนำ');
    const code=input.referrerCode.trim();
    if(code){
@@ -93,7 +93,7 @@ export async function savePortalProfile(key:string|null,input:Parameters<typeof 
   const matches=await matchingCustomerPhones(tx,data.phone);
   if(matches.some(row=>row.code!==existing?.code))throw Error('EXISTING_CUSTOMER');
   const identityKey=customerIdentity(data.name,data.phone);
-  const saved=existing?await tx.customer.update({where:{code:existing.code},data:{...data,identityKey}}):await tx.customer.create({data:{...data,identityKey,lineUserKey:key,portalRegistrationPending:true,referrerId}});
+  const saved=existing?await tx.customer.update({where:{code:existing.code},data:{...data,identityKey,...(existing.portalProfileIncomplete?{portalProfileIncomplete:false,portalRegistrationPending:true,...(referrerId?{referrerId}:{})}:{})}}):await tx.customer.create({data:{...data,identityKey,lineUserKey:key,portalRegistrationPending:true,referrerId}});
   await tx.auditLog.create({data:{actor:'customer',action:existing?'CUSTOMER_PROFILE_UPDATED':'CUSTOMER_REGISTERED',entityId:saved.code,details:{source:'customer-portal'}}});
   return saved;
  });

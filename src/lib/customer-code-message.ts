@@ -23,7 +23,7 @@ export async function replyCustomerCode(input:{key:string;eventId:string;replyTo
   let customer;
   if(conversion){
    const click=await tx.click.findUniqueOrThrow({where:{id:conversion.clickId}});
-   customer=await tx.customer.upsert({where:{code:conversion.customerCode},create:{code:conversion.customerCode,lineUserKey:input.key,conversionId:conversion.id,referrerId:conversion.affiliateId,metaFbc:click.metaFbc},update:{lineUserKey:input.key,conversionId:conversion.id}});
+   customer=await tx.customer.upsert({where:{code:conversion.customerCode},create:{code:conversion.customerCode,lineUserKey:input.key,conversionId:conversion.id,...(click.customerLanding?{portalRegistrationPending:true,portalProfileIncomplete:true}:{referrerId:conversion.affiliateId,metaFbc:click.metaFbc})},update:{lineUserKey:input.key,conversionId:conversion.id}});
   }else customer=await tx.customer.upsert({where:{lineUserKey:input.key},create:{lineUserKey:input.key},update:{}});
   await tx.customerCodeDelivery.create({data:{userKey:deliveryKey,eventId:input.eventId,customerCode:customer.code}});
   return customer.code;
