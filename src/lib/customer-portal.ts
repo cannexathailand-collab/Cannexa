@@ -20,8 +20,16 @@ export function readPortalToken(value:string){
 }
 export async function portalKey(){return readPortalToken((await cookies()).get(portalCookie)?.value??'');}
 export async function portalCustomer(){const key=await portalKey();return {key,customer:key?await db.customer.findUnique({where:{lineUserKey:key}}):null};}
-export function portalProfile(input:{name?:unknown;phone?:unknown;address?:unknown}){
- const name=typeof input.name==='string'?input.name.trim():'',address=typeof input.address==='string'?input.address.trim():'';
+export function portalProfile(input:{name?:unknown;phone?:unknown;address?:unknown;houseNumber?:unknown;road?:unknown;subdistrict?:unknown;district?:unknown;province?:unknown;postalCode?:unknown}){
+ const name=typeof input.name==='string'?input.name.trim():'';
+ let address=typeof input.address==='string'?input.address.trim():'';
+ if(input.houseNumber!==undefined){
+  const fields=['houseNumber','road','subdistrict','district','province','postalCode'] as const;
+  const parts=Object.fromEntries(fields.map(field=>[field,typeof input[field]==='string'?input[field].trim():'']));
+  if(!parts.houseNumber||!parts.subdistrict||!parts.district||!parts.province)throw Error('กรุณากรอกบ้านเลขที่ ตำบล อำเภอ และจังหวัดให้ครบ');
+  if(!/^\d{5}$/.test(parts.postalCode))throw Error('กรุณากรอกรหัสไปรษณีย์ให้ครบ 5 หลัก');
+  address=[parts.houseNumber,parts.road&&'ถนน '+parts.road,'ตำบล/แขวง '+parts.subdistrict,'อำเภอ/เขต '+parts.district,'จังหวัด '+parts.province,parts.postalCode].filter(Boolean).join(' ');
+ }
  const phones=typeof input.phone==='string'?validContactPhones(input.phone):null;
  if(!name||name.length>200)throw Error('กรุณากรอกชื่อผู้รับไม่เกิน 200 ตัวอักษร');
  if(!phones||phones.length>2)throw Error('กรุณากรอกเบอร์โทรให้ครบ 10 หลัก รองรับสูงสุด 2 เบอร์');
@@ -45,16 +53,26 @@ export async function linkPortalCustomer(key:string,linkHash?:string|null){
   return saved;
  });
 }
-export async function savePortalProfile(key:string,input:{name?:unknown;phone?:unknown;address?:unknown}){
+export async function savePortalProfile(key:string,input:Parameters<typeof portalProfile>[0]&{referrerCode?:unknown}){
  const data=portalProfile(input);
  return transaction(async tx=>{
   await userLock(tx,key);
   for(const phone of validContactPhones(data.phone)!.sort())await userLock(tx,'draft-customer-phone:'+phone);
   const existing=await tx.customer.findUnique({where:{lineUserKey:key}});
+  let referrerId:string|null=null;
+  if(!existing&&input.referrerCode){
+   if(typeof input.referrerCode!=='string'||input.referrerCode.length>100)throw Error('กรุณาตรวจสอบรหัสผู้แนะนำ');
+   const code=input.referrerCode.trim();
+   if(code){
+    const matches=await tx.affiliate.findMany({where:{code:{equals:code,mode:'insensitive'},active:true,archivedAt:null},select:{id:true},take:2});
+    if(matches.length!==1)throw Error('กรุณาตรวจสอบรหัสผู้แนะนำ ไม่พบรหัสที่ใช้งานได้');
+    referrerId=matches[0].id;
+   }
+  }
   const matches=await matchingCustomerPhones(tx,data.phone);
   if(matches.some(row=>row.code!==existing?.code))throw Error('EXISTING_CUSTOMER');
   const identityKey=customerIdentity(data.name,data.phone);
-  const saved=existing?await tx.customer.update({where:{code:existing.code},data:{...data,identityKey}}):await tx.customer.create({data:{...data,identityKey,lineUserKey:key,portalRegistrationPending:true}});
+  const saved=existing?await tx.customer.update({where:{code:existing.code},data:{...data,identityKey}}):await tx.customer.create({data:{...data,identityKey,lineUserKey:key,portalRegistrationPending:true,referrerId}});
   await tx.auditLog.create({data:{actor:'customer',action:existing?'CUSTOMER_PROFILE_UPDATED':'CUSTOMER_REGISTERED',entityId:saved.code,details:{source:'customer-portal'}}});
   return saved;
  });
