@@ -45,3 +45,14 @@ test('conversational endings on the phone line do not become another recipient',
   assert.deepEqual(result.issues,{},ending);assert.equal(result.fields.recipient,'ทดสอบ ใจดี',ending);assert.equal(result.fields.phone,'0812345678',ending);assert.equal(result.fields.amount,'510.00',ending);
  }
 });
+test('English address continuations are grouped before deciding which line is the recipient',()=>{
+ const result=analyzeOrderDraft('Patrick Example\nBlessing Village 9/39\nVillage nr. 4\nBo Phut\nKoh Samui\n84320, Surat thani\n093 123 45 67\n\nAF2 50g\nAF4 50g\n\nCod 3260\n\nL. Example');
+ assert.deepEqual(result.issues,{});assert.equal(result.fields.recipient,'Patrick Example');assert.equal(result.fields.address,'Blessing Village 9/39\nVillage nr. 4\nBo Phut\nKoh Samui\n84320, Surat thani');assert.equal(result.fields.phone,'0931234567');assert.equal(result.fields.products,'AF2 50g\nAF4 50g');
+});
+test('120 reordered English address blocks retain recipient and all address lines',()=>{
+ const address='Blessing Village 9/39\nVillage nr. 4\nBo Phut\nKoh Samui\n84320, Surat thani';
+ for(let i=0;i<120;i++){
+  const result=analyzeOrderDraft(shuffled(['Patrick Example',address,'093 123 45 67','AF2 50g\nAF4 50g','Cod. 3260'],i+1000).join('\n\n'));
+  assert.deepEqual(result.issues,{},'English '+i);assert.equal(result.fields.recipient,'Patrick Example','English name '+i);assert.equal(result.fields.address,address,'English address '+i);assert.equal(result.fields.phone,'0931234567');assert.equal(result.fields.amount,'3260.00');
+ }
+});
