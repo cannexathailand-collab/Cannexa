@@ -4,7 +4,6 @@ import {useRouter} from 'next/navigation';
 export function StockSearch({query,status}:{query:string;status:string}){
  const router=useRouter(),[value,setValue]=useState(query),[filter,setFilter]=useState(status),[pending,startTransition]=useTransition();
  const timer=useRef<ReturnType<typeof setTimeout>|null>(null),composing=useRef(false);
- useEffect(()=>{setValue(query);setFilter(status);},[query,status]);
  useEffect(()=>()=>{if(timer.current)clearTimeout(timer.current);},[]);
  function search(q:string,s:string,delay=300){if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>{startTransition(()=>router.replace('/my-performance/stock?'+new URLSearchParams({q,status:s}),{scroll:false}));},delay);}
  return <form className="employee-stock-filters" role="search" onSubmit={event=>{event.preventDefault();search(value,filter,0);}}>
