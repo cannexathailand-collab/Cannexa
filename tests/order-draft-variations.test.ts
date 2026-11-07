@@ -17,9 +17,9 @@ test('120 free-text arrangements identify entities independently of their order'
  const blocks=['ทดสอบ ใจดี','12/34 ถนนทดลอง\nกรุงเทพ 10200','081-234-5678','NT16 5g','COD 350'];
  for(let i=0;i<120;i++){const result=analyzeOrderDraft(shuffled(blocks,i+55).join('\n\n'));assert.deepEqual(result.issues,{},'raw '+i);assert.equal(result.fields.recipient,'ทดสอบ ใจดี','name '+i);assert.equal(result.fields.address,'12/34 ถนนทดลอง\nกรุงเทพ 10200','address '+i);assert.equal(result.fields.phone,'0812345678','phone '+i);assert.equal(result.fields.products,'NT16 5g','product '+i);assert.equal(result.fields.amount,'350.00','amount '+i);}
 });
-test('conflicting phones, totals and payment types are flagged instead of guessed',()=>{
+test('both phone numbers are kept while conflicting totals and payment types need review',()=>{
  const result=analyzeOrderDraft('เบอร์โทร: 0812345678\nเบอร์โทร: 0898765432\nยอดเงิน: 350\nยอดรวม: 450\nCOD\nโอน');
- assert.ok(result.issues.phone);assert.ok(result.issues.amount);assert.ok(result.issues.payment);assert.equal(result.fields.phone,'');assert.equal(result.fields.amount,'');assert.equal(result.fields.payment,'');
+ assert.equal(result.issues.phone,undefined);assert.ok(result.issues.amount);assert.ok(result.issues.payment);assert.equal(result.fields.phone,'0812345678 / 0898765432');assert.equal(result.fields.amount,'');assert.equal(result.fields.payment,'');
 });
 test('same phone in Thai and international formats is one value',()=>{
  const result=analyzeOrderDraft('โทร: 0812345678\nโทร: +66812345678');assert.deepEqual(result.issues,{});assert.equal(result.fields.phone,'0812345678');
@@ -55,4 +55,10 @@ test('120 reordered English address blocks retain recipient and all address line
   const result=analyzeOrderDraft(shuffled(['Patrick Example',address,'093 123 45 67','AF2 50g\nAF4 50g','Cod. 3260'],i+1000).join('\n\n'));
   assert.deepEqual(result.issues,{},'English '+i);assert.equal(result.fields.recipient,'Patrick Example','English name '+i);assert.equal(result.fields.address,address,'English address '+i);assert.equal(result.fields.phone,'0931234567');assert.equal(result.fields.amount,'3260.00');
  }
+});
+
+test('alphanumeric recipient is retained while Or introduces an alternative phone rather than another name',()=>{
+ const result=analyzeOrderDraft('12\nMR.8\n0812345678\nOr 0898765432\n\n20/5 Example Village, Hua Hin, 77110\n\nCG2 200g\nCod 7,650\nL. example');
+ assert.equal(result.fields.recipient,'MR.8');assert.equal(result.fields.phone,'0812345678 / 0898765432');assert.equal(result.issues.phone,undefined);assert.equal(result.issues.recipient,undefined);
+ assert.equal(result.fields.amount,'7650.00');
 });

@@ -1,5 +1,6 @@
 import type {OrderDraft} from './order-draft';
 import {moneySatang} from './shipment-matching';
+import {contactPhones,extractContactPhones,stripContactPhones} from './contact-phones';
 type Key=keyof OrderDraft;
 export type DraftAnalysis={fields:Partial<OrderDraft>;issues:Partial<Record<Key,string>>};
 const labels:Record<Key,string>={seller:'รหัสผู้ขาย|ผู้ขาย|seller',recipient:'ชื่อผู้รับ|ชื่อผู้ซื้อ|ผู้รับ|ชื่อลูกค้า|ชื่อ|recipient|customer name|name',phone:'เบอร์โทรศัพท์|เบอร์โทร|เบอร์มือถือ|โทรศัพท์|มือถือ|โทร|เบอร์|phone|tel',address:'ที่อยู่จัดส่ง|ที่อยู่ผู้รับ|ที่อยู่|address',products:'รายการสินค้า|สินค้า|สั่งซื้อ|products?|items?',payment:'วิธีชำระเงิน|ชำระเงิน|การชำระเงิน|payment',amount:'ยอดตามข้อความ|ยอดรวมสุทธิ|ยอดรวม|รวมทั้งสิ้น|ยอดโอน|ยอดเงิน|ยอดชำระ|ยอดสุทธิ|ยอด|total|amount',customerCode:'รหัสลูกค้า|customer code',points:'green coin|points|คะแนนสะสม|แต้มสะสม'};
@@ -8,10 +9,8 @@ const productPattern=/^[A-Za-z][A-Za-z0-9._-]*\s*(?:[x×*]\s*)?\d+(?:\.\d+)?\s*(
 const metadata=/^(?:L\.|LINE\s*[:.]|ไลน์\s*[:：]|ผู้รับ\s*$|ผู้ส่ง\s*$|หมายเหตุ\s*[:：]|ขอบคุณ|ฝาก|รบกวน)/i;
 const politeOnly=/^(?:(?:ครับ|ผม|ค่ะ|คะ|จ้า|จ้ะ|นะ|ด้วย|ขอบคุณ|thank you|thanks|please)[\s!,.🙏]*)+$/i;
 const addressSignal=/บ้านเลขที่|เลขที่|ตำบล|อำเภอ|จังหวัด|แขวง|เขต|ถนน|ซอย|หมู่|กรุงเทพ|[ตอจถซม]\.\s*|\b\d{5}\b|\b(?:village|road|street|soi|lane|avenue|district|province|building|apartment|tambon|amphoe|thailand)\b/i;
-const phonePattern=/(?<!\d)(?:\+?66(?:0)?\d{8,9}|0\d{8,9})(?!\d)/g;
 const paymentPattern=/^(C[.\s]*O[.\s]*D\.?|เก็บเงินปลายทาง|เก็บปลายทาง|ปลายทาง|โอนแล้ว|โอนเงิน|โอน|เคลม|เครม|claim)(?:\s*[.:=\-]?\s*฿?\s*([\d,]+(?:\.\d{1,2})?)(?:\.-)?\s*(?:บาท|฿)?)?\s*[.:]?$/i;
-function normalizePhone(value:string){const digits=value.replace(/\D/g,'');return digits.startsWith('660')?'0'+digits.slice(3):digits.startsWith('66')?'0'+digits.slice(2):digits;}
-function phones(line:string){return line.replace(/[\s()-]/g,'').match(phonePattern)?.map(normalizePhone)??[];}
+function phones(line:string){return extractContactPhones(line);}
 function payment(value:string){return /^(?:COD|(?:เก็บ(?:เงิน)?)?ปลายทาง)$/i.test(value.replace(/[.\s]/g,''))?'COD':/^โอน|transfer|bank transfer$/i.test(value)?'โอน':/เคลม|เครม|claim/i.test(value)?'เคลม':value.trim();}
 function cleanMoney(value:string){return moneySatang(value.replace(/บาท|฿|THB/gi,'').replace(/\.-$/,'').trim());}
 function cleanPrefix(line:string){return line.replace(/^(?:ส่ง(?:ถึง)?|จัดส่ง(?:ให้)?|ผู้รับ)\s*[:：]?\s*/,'').trim();}
@@ -49,7 +48,8 @@ export function analyzeOrderDraft(text:string):DraftAnalysis{
   if(/^[A-Z]{1,3}\d{4}$/i.test(line)){add('customerCode',line.toUpperCase());used.add(index);segment++;continue;}
   const matches=phones(line);phoneValues.push(...matches);
   let remaining=line;
-  if(matches.length){remaining=line.replace(/(?:เบอร์โทรศัพท์|เบอร์โทร|โทรศัพท์|โทร|เบอร์|phone|tel)?\s*[:=]?\s*(?:\+?66(?:0)?|0)[\d\s()-]{7,}/i,'').trim();if(!remaining){used.add(index);segment++;continue;}}
+  if(matches.length){remaining=stripContactPhones(line).replace(/(?:เบอร์โทรศัพท์|เบอร์โทร|โทรศัพท์|โทร|เบอร์|phone|tel)\s*[:=]?/gi,'').replace(/^[\s/,;|]+|[\s/,;|]+$/g,'').trim();if(!remaining){used.add(index);segment++;continue;}}
+  if(matches.length&&(matches.length>1||phoneValues.length>matches.length)&&/^(?:or|หรือ)$/i.test(remaining)){used.add(index);segment++;continue;}
   remaining=cleanPrefix(remaining);if(politeOnly.test(remaining)){used.add(index);segment++;continue;}if(remaining){free.push(remaining);freeGroups.push(segment);freeIndices.push(index);}
  }
  if(products.length)add('products',products.join('\n'));
@@ -58,7 +58,7 @@ export function analyzeOrderDraft(text:string):DraftAnalysis{
  // Split inline "name house-number address" without assuming the phone is at either end.
  const addressParts:string[]=[],nameCandidates:string[]=[];
  const explicitRecipient=values.has('recipient');
- const addName=(line:string)=>{if(!/[\d:=]/.test(line)&&line.length<100&&!/^(?:COD|โอน|เคลม|เครม|ที่อยู่|สินค้า)$/i.test(line))nameCandidates.push(line.replace(/^คุณ\s*/,''));};
+ const addName=(line:string)=>{if(!/[:=]/.test(line)&&!/^\d+(?:[./-]\d+)*$/.test(line)&&line.length<100&&!/^(?:COD|โอน|เคลม|เครม|ที่อยู่|สินค้า)$/i.test(line))nameCandidates.push(line.replace(/^คุณ\s*/,''));};
  for(const groupId of new Set(freeGroups)){
   let block=free.filter((_,index)=>freeGroups[index]===groupId);const rawIndices=freeIndices.filter((_,index)=>freeGroups[index]===groupId),marker=block.findIndex(line=>addressSignal.test(line)||/^\d{1,6}(?:\/\d{1,6})?\s/.test(line)||/,\s*\d{1,6}(?:\/\d{1,6})?\s*$/.test(line));
   if(explicitRecipient&&marker>=0){addressParts.push(...block);continue;}
@@ -74,10 +74,10 @@ export function analyzeOrderDraft(text:string):DraftAnalysis{
  if(!explicitRecipient&&nameCandidates.length===1)add('recipient',nameCandidates[0]);
  if(!values.has('address')&&addressParts.length&&addressSignal.test(addressParts.join(' ')))add('address',addressParts.join('\n'));
  for(const [key,candidates] of values){
-  const converted=candidates.map(v=>key==='phone'?normalizePhone(v):key==='payment'?payment(v):key==='amount'?(cleanMoney(v)===null?v:(cleanMoney(v)!/100).toFixed(2)):key==='customerCode'?v.toUpperCase():v);
-  const unique=[...new Set(converted)];
-  if(unique.length>1&&!['products'].includes(key)){fields[key]='';issues[key]='พบข้อมูล'+({seller:'ผู้ขาย',recipient:'ชื่อผู้รับ',phone:'เบอร์โทร',address:'ที่อยู่',payment:'วิธีชำระเงิน',amount:'ยอดเงิน',customerCode:'รหัสลูกค้า',products:'สินค้า',points:'Green Coin'}[key])+'มากกว่าหนึ่งค่า กรุณาเลือกให้ถูกต้อง';}
-  else fields[key]=key==='products'?converted.join('\n'):unique[0];
+  const converted=candidates.map(v=>key==='phone'?(extractContactPhones(v).length?extractContactPhones(v):contactPhones(v)).join(' / '):key==='payment'?payment(v):key==='amount'?(cleanMoney(v)===null?v:(cleanMoney(v)!/100).toFixed(2)):key==='customerCode'?v.toUpperCase():v);
+  const unique=[...new Set(key==='phone'?converted.flatMap(contactPhones):converted)];
+  if(unique.length>1&&!['products','phone'].includes(key)){fields[key]='';issues[key]='พบข้อมูล'+({seller:'ผู้ขาย',recipient:'ชื่อผู้รับ',phone:'เบอร์โทร',address:'ที่อยู่',payment:'วิธีชำระเงิน',amount:'ยอดเงิน',customerCode:'รหัสลูกค้า',products:'สินค้า',points:'Green Coin'}[key])+'มากกว่าหนึ่งค่า กรุณาเลือกให้ถูกต้อง';}
+  else fields[key]=key==='products'?converted.join('\n'):key==='phone'?unique.join(' / '):unique[0];
  }
  if(!fields.recipient&&nameCandidates.length>1)issues.recipient='พบชื่อที่เป็นไปได้หลายค่า กรุณาระบุชื่อผู้รับ';
  return {fields,issues};

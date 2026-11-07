@@ -1,5 +1,6 @@
 import {moneySatang,normalizeAddress} from './shipment-matching';
 import {analyzeOrderDraft} from './order-draft-parser';
+import {validContactPhones} from './contact-phones';
 export {analyzeOrderDraft} from './order-draft-parser';
 export function differentDraftAddress(incoming:string,stored:string){return !!incoming.trim()&&!!stored.trim()&&normalizeAddress(incoming)!==normalizeAddress(stored);}
 export function hasCompletePostalCode(address:string){
@@ -28,7 +29,7 @@ export function orderDraftIssues(draft:OrderDraft,{requireCustomerCode=true}:{re
  if(requireCustomerCode&&!draft.customerCode.trim())issues.push('ต้องมีรหัสลูกค้าก่อนคัดลอกข้อความ');
  if(draft.customerCode&&!/^(?:[A-Z]{1,3}\d{4,8}|CUS-\d{8})$/.test(draft.customerCode.trim().toUpperCase()))issues.push('รหัสลูกค้าไม่ถูกต้อง');
  for(const key of ['seller','recipient','phone','address','products'] as const)if(!draft[key].trim())issues.push('กรอก'+draftFields[key]);
- if(draft.phone){let digits=draft.phone.replace(/[\s()+-]/g,'');if(digits.startsWith('660'))digits='0'+digits.slice(3);else if(digits.startsWith('66'))digits='0'+digits.slice(2);if(!/^0\d{9}$/.test(digits)||/^0+$/.test(digits))issues.push('เบอร์โทรต้องครบ 10 หลัก');}
+ if(draft.phone&&!validContactPhones(draft.phone))issues.push('เบอร์โทรแต่ละเบอร์ต้องครบ 10 หลัก');
  if(draft.address&&!hasCompletePostalCode(draft.address))issues.push('รหัสไปรษณีย์ต้องครบ 5 หลัก');
  if(!['COD','โอน','เคลม'].includes(draft.payment))issues.push('เลือกวิธีชำระเงิน');
  const amount=moneySatang(draft.amount);if(amount===null||(draft.payment!=='เคลม'&&amount<=0))issues.push('กรอกยอดเงินให้ถูกต้อง');

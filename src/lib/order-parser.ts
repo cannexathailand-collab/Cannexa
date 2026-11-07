@@ -1,4 +1,5 @@
 // Chat prices are declared amounts, never inventory costs.
+import {contactPhones} from './contact-phones';
 export function parseOrderText(text:string){
  const lines=text.replace(/\r/g,"").split("\n").map(x=>x.trim()).filter(Boolean);
  const seller=lines[0]?.match(/^รหัสผู้ขาย\s*[:：]\s*([A-Za-z0-9._-]{3,64})\s*$/);
@@ -6,9 +7,8 @@ export function parseOrderText(text:string){
  const field=(labels:string)=>lines.map(x=>x.match(new RegExp("^(?:"+labels+")\\s*[:：]\\s*(.+)$","i"))).find(Boolean)?.[1]?.trim()??null;
  const recipient=field("ชื่อผู้รับ|ผู้รับ|ชื่อลูกค้า");
  const phoneInput=field("เบอร์โทร|โทรศัพท์|โทร|เบอร์");
- const digits=phoneInput?.replace(/[\s()+-]/g,"")??null;
- const local=digits?.startsWith('66')?'0'+digits.slice(2):digits;
- const phone=local&&/^(?:0\d{8,9})$/.test(local)&&!/^0+$/.test(local)?digits:null;
+ const numbers=phoneInput?contactPhones(phoneInput):[];
+ const phone=numbers.length&&numbers.every(n=>/^0\d{8,9}$/.test(n)&&!/^0+$/.test(n))&&!phoneInput?.includes('+660')?numbers.join(' / '):null;
  const address=field("ที่อยู่|ที่อยู่ผู้รับ");
  const paymentInput=field("ชำระเงิน|วิธีชำระเงิน");
  const payment=paymentInput&&/^(เคลม|เครม)$/.test(paymentInput)?"เคลม":paymentInput&&/^(COD|โอน)$/i.test(paymentInput)?paymentInput.toUpperCase():null;

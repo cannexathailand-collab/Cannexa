@@ -1,5 +1,6 @@
+import {contactPhones} from './contact-phones';
 import {db} from "./db";
-import {normalizeName,normalizePhone,quotedTotal} from "./shipment-matching";
+import {normalizeName,phonesMatch,quotedTotal} from "./shipment-matching";
 import {needsTrackingReview,needsCodReceiptReview} from './order-tracking-review';
 type Access={role:"owner"}|{role:"employee";username:string;affiliateId:string|null};
 export async function orderReview(id:string,access:Access){
@@ -21,12 +22,12 @@ export async function orderReview(id:string,access:Access){
  if(order.payment==="เคลม"||sale?.status==="WAITING_COST")reasons.push("รอต้นทุนสินค้าจากระบบสต็อก");
  if(order.status==="RETURNED")reasons.push("พัสดุตีกลับ · ไม่นับยอดขายหรือค่าคอม · รอต้นทุนจากระบบสต็อก");
  const total=quotedTotal(order.rawText??"");
- const phone=normalizePhone(order.phone??"");
+ const phone=order.phone??"";
  const filters=[];
- if(phone)filters.push({phone:{in:[phone,"66"+phone.slice(1),"+66"+phone.slice(1)]}});
+ if(phone)filters.push({phone:{in:contactPhones(phone).flatMap(number=>[number,"66"+number.slice(1),"+66"+number.slice(1)])}});
  if(order.payment==="COD"&&total!==null)filters.push({codSatang:total});
  const rows=access.role==="owner"&&!shipment&&filters.length?await db.shipment.findMany({where:{OR:filters},orderBy:{reportAt:"desc"},take:100}):[];
- const candidates=rows.filter(s=>(!!phone&&normalizePhone(s.phone)===phone)||(total!==null&&s.codSatang===total&&!!order.recipient&&normalizeName(s.recipient)===normalizeName(order.recipient))).slice(0,20);
+ const candidates=rows.filter(s=>(!!phone&&phonesMatch(s.phone,phone))||(total!==null&&s.codSatang===total&&!!order.recipient&&normalizeName(s.recipient)===normalizeName(order.recipient))).slice(0,20);
  const candidateReceipts=candidates.length?await db.codReceipt.findMany({where:{tracking:{in:candidates.map(s=>s.tracking)}}}):[];
  const receiptByTracking=new Map(candidateReceipts.map(r=>[r.tracking,r]));
  if(candidates.length>1)reasons.push("พบพัสดุที่อาจเกี่ยวข้องหลายใบ ต้องตรวจให้ตรงออเดอร์ก่อนผูก");
