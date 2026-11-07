@@ -2,12 +2,13 @@
 import {useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {CustomerCodeForm} from './code-form';
-export function ProfileForm({initial,registered}:{initial:{name:string;phone:string;address:string};registered:boolean}){
+export function ProfileForm({initial,registered}:{initial:{title:string;name:string;phone:string;address:string};registered:boolean}){
  const router=useRouter();const [busy,setBusy]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState(false);
  const [accountHistory,setAccountHistory]=useState('');
  if(!registered&&accountHistory!=='new')return <div className="portal-profile"><label htmlFor="account-history">คุณเคยมีบัญชีกับเราแล้วหรือยัง</label><select id="account-history" value={accountHistory} onChange={event=>setAccountHistory(event.target.value)}><option value="">กรุณาเลือก</option><option value="existing">เคยมีแล้ว</option><option value="new">ยังไม่เคยมี</option></select>{accountHistory==='existing'&&<><p>กรอกรหัสลูกค้าเดิม หากเปลี่ยนบัญชี LINE ให้ติดต่อร้านเพื่อยืนยันการเชื่อมบัญชีเดิม</p><CustomerCodeForm/></>}</div>;
  return <form className="portal-profile" onSubmit={async event=>{event.preventDefault();if(busy)return;setBusy(true);setError('');setSaved(false);const form=new FormData(event.currentTarget);try{const response=await fetch('/api/customer/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(form)),signal:AbortSignal.timeout(15000)});const result=await response.json();if(!response.ok)throw Error(result.error||'บันทึกไม่สำเร็จ');if(!registered){window.location.assign(result.pending?'/customer':'/customer/password');return;}setSaved(true);router.refresh();}catch(e){setError(e instanceof Error?e.message:'บันทึกไม่สำเร็จ กรุณาลองใหม่');}finally{setBusy(false);}}}>
   {!registered&&<><label htmlFor="account-history">คุณเคยมีบัญชีกับเราแล้วหรือยัง</label><select id="account-history" value={accountHistory} onChange={event=>setAccountHistory(event.target.value)}><option value="existing">เคยมีแล้ว</option><option value="new">ยังไม่เคยมี</option></select></>}
+  <label>คำนำหน้า<input name="title" autoComplete="honorific-prefix" defaultValue={initial.title} placeholder="เช่น นาย นาง นางสาว" maxLength={40} required/></label>
   <label>ชื่อผู้รับ<input name="name" autoComplete="name" defaultValue={initial.name} maxLength={200} required/></label>
   <label>เบอร์โทร<input name="phone" type="tel" autoComplete="tel" defaultValue={initial.phone} placeholder="0812345678 / 0898765432" required/><small>ใส่ได้ 2 เบอร์ แต่ละเบอร์ 10 หลัก</small></label>
   {!registered&&<label>รหัสผู้แนะนำ (ถ้ามี)<input name="referrerCode" maxLength={100} autoComplete="off"/></label>}

@@ -9,6 +9,7 @@ export async function POST(req:Request){
  if(!await limit('customer-profile:'+key,30))return NextResponse.json({error:'กรุณารอสักครู่แล้วลองใหม่'},{status:429});
  let input;try{const text=await req.text();if(text.length>10000)throw Error();input=JSON.parse(text);if(!input||typeof input!=='object')throw Error();}catch{return NextResponse.json({error:'ข้อมูลไม่ถูกต้อง'},{status:400});}
  try{
+  if(typeof input.title!=='string'||!input.title.trim())return NextResponse.json({error:'กรุณากรอกคำนำหน้า'},{status:400});
   const saved=await savePortalProfile(key,input);
   return NextResponse.json({ok:true,pending:saved.portalRegistrationPending});
  }

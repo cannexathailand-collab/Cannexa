@@ -180,6 +180,7 @@ model Customer {
  conversionId String? @unique
  conversion Conversion? @relation(fields:[conversionId],references:[id],onDelete:Restrict)
  identityKey String? @unique
+ title String?
  name String?
  phone String?
  address String?

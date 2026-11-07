@@ -20,7 +20,7 @@ export function readPortalToken(value:string){
 }
 export async function portalKey(){return readPortalToken((await cookies()).get(portalCookie)?.value??'');}
 export async function portalCustomer(){const key=await portalKey();return {key,customer:key?await db.customer.findUnique({where:{lineUserKey:key}}):null};}
-export function portalProfile(input:{name?:unknown;phone?:unknown;address?:unknown;houseNumber?:unknown;road?:unknown;subdistrict?:unknown;district?:unknown;province?:unknown;postalCode?:unknown}){
+export function portalProfile(input:{title?:unknown;name?:unknown;phone?:unknown;address?:unknown;houseNumber?:unknown;road?:unknown;subdistrict?:unknown;district?:unknown;province?:unknown;postalCode?:unknown}){
  const name=typeof input.name==='string'?input.name.trim():'';
  let address=typeof input.address==='string'?input.address.trim():'';
  if(input.houseNumber!==undefined){
@@ -34,7 +34,9 @@ export function portalProfile(input:{name?:unknown;phone?:unknown;address?:unkno
  if(!name||name.length>200)throw Error('กรุณากรอกชื่อผู้รับไม่เกิน 200 ตัวอักษร');
  if(!phones||phones.length>2)throw Error('กรุณากรอกเบอร์โทรให้ครบ 10 หลัก รองรับสูงสุด 2 เบอร์');
  if(!address||address.length>2000||!/(?<!\d)\d{5}(?!\d)/.test(address))throw Error('กรุณากรอกที่อยู่พร้อมรหัสไปรษณีย์ 5 หลัก');
- return {name,phone:phones.join(' / '),address};
+ const title=typeof input.title==='string'?input.title.trim():'';
+ if(input.title!==undefined&&(!title||title.length>40))throw Error('กรุณากรอกคำนำหน้าไม่เกิน 40 ตัวอักษร');
+ return {name,phone:phones.join(' / '),address,...(input.title!==undefined?{title}:{})};
 }
 export async function linkPortalCustomer(key:string,linkHash?:string|null){
  return transaction(async tx=>{
