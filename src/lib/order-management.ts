@@ -9,6 +9,7 @@ import {loadOrderRoundSettings} from './order-round-settings';
 import {hasActualDispatch} from './sales-recognition';
 import {readStockSheet} from './stock-google';
 import {orderProductCost} from './order-product-cost';
+import {orderRoundBounds,orderRoundClosingDay} from './order-round';
 export const orderStates={ALL:'ทั้งหมด',REVIEW:'ต้องตรวจสอบ',WAITING:'รอจัดส่ง',COD:'รอรับเงิน COD',SHIPPED:'จัดส่งแล้ว',VERIFY:'รอยืนยันการจัดส่ง',CONFIRMED:'ยืนยันการจัดส่งแล้ว',RETURNED:'ตีกลับ',CANCELLED:'ยกเลิก / ปิดรายการ'} as const;
 export type OrderFilters={q?:string;from?:string;to?:string;payment?:string;status?:string;sort?:string;page?:string;team?:string;focus?:string};
 export function orderMatchesState(row:{state:string;shipped:boolean;awaitingShipment:boolean;awaitingConfirmation?:boolean;shipmentVerified?:boolean},state:string){
@@ -22,12 +23,11 @@ export function orderState(order:Pick<OrderIntake,'status'|'payment'|'issues'>&{
  return shipment?.fulfillmentStatus==='DISPATCHED'&&shipment.dispatchedAt?'SHIPPED':'WAITING';
 }
 export function orderRoundRange(input:{from?:string;to?:string;page?:string}={},now=new Date(),closeMinutes=720){
- const thaiDay=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
- const current=now.getTime()<dayStart(thaiDay).getTime()+closeMinutes*60000?shiftDay(thaiDay,-1):thaiDay;
+ const current=shiftDay(orderRoundClosingDay(now,closeMinutes),-1);
  const offset=Math.max(0,Math.min(99999,(Math.trunc(Number(input.page))||1)-1));
  const from=shiftDay(current,-offset),to=from;
  if(from>to)throw Error('INVALID_DATE_RANGE');
- return {from,to,start:new Date(+dayStart(from)+closeMinutes*60000),end:new Date(+dayStart(shiftDay(to,1))+closeMinutes*60000)};
+ return {from,to,...orderRoundBounds(shiftDay(to,1),closeMinutes)};
 }
 export async function orderManagement(input:OrderFilters={}){
  const roundSettings=await loadOrderRoundSettings();

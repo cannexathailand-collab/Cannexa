@@ -1,18 +1,21 @@
 import Link from 'next/link';
 import {db} from '@/lib/db';
-import {dayStart,shiftDay} from '@/lib/sales-dates';
+import {loadOrderRoundSettings} from '@/lib/order-round-settings';
+import {orderRoundBounds} from '@/lib/order-round';
 
-export async function StockDispatchHistory({day,page:input}:{day:string;page?:string}){
- const range={gte:dayStart(day),lt:dayStart(shiftDay(day,1))};
- const where={OR:[{status:'POSTED',processedAt:range},{status:{notIn:['POSTED','EXCLUDED']},historySavedAt:range},{status:{notIn:['POSTED','EXCLUDED']},historySavedAt:null,dispatchedAt:range}]};
+export async function StockDispatchHistory({day,page:input,historyDay=day}:{day:string;page?:string;historyDay?:string}){
+ const settings=await loadOrderRoundSettings(),round=orderRoundBounds(day,settings.closeMinutes);
+ const orders=await db.orderIntake.findMany({where:{eventAt:{gte:round.start,lt:round.end}},select:{id:true}});
+ const where={orderId:{in:orders.map(order=>order.id)},status:{not:'EXCLUDED'}};
  const total=await db.stockDispatch.count({where}),pages=Math.max(1,Math.ceil(total/50)),requested=Number(input);
  const page=Number.isSafeInteger(requested)&&requested>0?Math.min(requested,pages):1;
  const rows=await db.stockDispatch.findMany({where,orderBy:[{processedAt:{sort:'desc',nulls:'last'}},{dispatchedAt:'desc'},{id:'desc'}],skip:(page-1)*50,take:50});
- const pageLink=(n:number)=>'/admin/stock/history?'+new URLSearchParams({day,dispatchPage:String(n)})+'#dispatch-history';
+ const pageLink=(n:number)=>'/admin/stock/history?'+new URLSearchParams({day:historyDay,round:day,dispatchPage:String(n)})+'#dispatch-history';
  const number=(v:unknown)=>typeof v==='number'?v.toLocaleString('th-TH',{maximumFractionDigits:3}):'—';
  return <section className="card" id="dispatch-history">
-  <div className="intro"><h2>รายการจัดส่งและตัดสต๊อก</h2><span className="pill">{total} ออเดอร์</span></div>
-  <p className="muted small">รายการที่ตัดแล้วแยกตามวันที่ตัดสต๊อกจริง พร้อมวันที่จัดส่งเดิม รายการรอตัดแสดงตามวันที่บันทึกประวัติ ส่วนรายการรอต้นทุนแสดงตามวันที่จัดส่งและยังไม่คิดต้นทุนเป็นศูนย์</p>
+  <div className="intro"><h2>รายการจัดส่งและตัดสต๊อก · รอบวันที่ {day}</h2><span className="pill">{total} ออเดอร์</span></div>
+  <form method="get" className="actions"><input type="hidden" name="day" value={historyDay}/><label>รอบออเดอร์<input type="date" name="round" defaultValue={day} required/></label><button className="secondary">ดูรอบนี้</button></form>
+  <p className="muted small">แยกตามรอบออเดอร์เดียวกับหน้ารายการออเดอร์ ตั้งแต่ {round.start.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})} ถึง {round.end.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})} พร้อมแสดงเวลาที่ตัดสต๊อกจริงของแต่ละรายการ</p>
   {rows.length?<div className="table-wrap"><table><thead><tr><th>วันที่ตัดสต๊อก / จัดส่ง</th><th>ออเดอร์ / พัสดุ</th><th>สถานะ</th><th>สินค้าและจำนวน (G)</th><th>คงเหลือก่อน → หลัง (G)</th><th>ต้นทุนที่บันทึก (บาท)</th></tr></thead><tbody>{rows.map(row=>{
    const items=Array.isArray(row.items)?row.items as Record<string,any>[]:[];
    const status:Record<string,string>={POSTED:'ตัดสต๊อกและบันทึกต้นทุนแล้ว',HISTORY_SAVED:'บันทึกประวัติแล้ว รอตัดสต๊อก',PENDING:'รอประมวลผล',WAITING_COST:'รอต้นทุน',NEEDS_REVIEW:'รอตรวจสอบ'};

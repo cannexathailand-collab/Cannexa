@@ -4,7 +4,7 @@ import type {StockOutSnapshot} from './stock-dispatch-plan';
 import {bangkokDay} from './sales-dates';
 const balanceHeaders=['ยอดตั้งต้นขณะเก็บประวัติ (G)','ยอดยกมาที่คำนวณ (G)','คงเหลือขณะเก็บประวัติ (G)','คงเหลือหลังตัดที่คำนวณ (G)'];
 export function shipmentArchive(snapshot:StockOutSnapshot,savedAt:Date){
- const title='จัดส่ง '+bangkokDay(savedAt),sheetId=parseInt(createHash('sha256').update(title).digest('hex').slice(0,7),16)+1;
+ const title=snapshot.orderRoundDay?'จัดส่ง รอบ '+snapshot.orderRoundDay:'จัดส่ง '+bangkokDay(savedAt),sheetId=parseInt(createHash('sha256').update(title).digest('hex').slice(0,7),16)+1;
  const time=(d:Date)=>d.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'});
  const columnCount=snapshot.items.some(i=>i.receivedBefore!==undefined||i.receivedAfter!==undefined)?14:10;
  // Legacy rows keep their exact shape and fingerprint for saved-marker retries.

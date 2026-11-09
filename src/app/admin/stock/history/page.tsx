@@ -14,7 +14,7 @@ import type {StockRow} from '@/lib/stock-import';
 
 const number=(v:number|null)=>v===null?'—':v.toLocaleString('th-TH',{maximumFractionDigits:3});
 const dateLabel=(day:string)=>dayStart(day).toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric',timeZone:'Asia/Bangkok'});
-export default async function StockHistory({searchParams}:{searchParams:Promise<{day?:string;q?:string;filter?:string;status?:string;dispatchPage?:string;returnPage?:string}>}){
+export default async function StockHistory({searchParams}:{searchParams:Promise<{day?:string;round?:string;q?:string;filter?:string;status?:string;dispatchPage?:string;returnPage?:string}>}){
  const actor=await requireAdminPage(approvers),params=await searchParams;
  const [config,recent,pending]=await Promise.all([
   db.stockHistoryConfig.findUnique({where:{id:'active'}}),
@@ -52,7 +52,7 @@ export default async function StockHistory({searchParams}:{searchParams:Promise<
    </>:<p className="muted">{config&&day<config.startDay?'ยังไม่ได้เปิดเก็บประวัติในวันที่เลือก จึงไม่มีข้อมูลย้อนหลังของวันนั้น':day>=today?'วันนี้ยังไม่ปิดวัน ประวัติจะพร้อมหลังสิ้นวัน':recent.length?'ไม่มีประวัติที่บันทึกไว้สำหรับวันนี้':'ยังไม่มีรอบปิดวัน ประวัติชุดแรกจะพร้อมหลังสิ้นวัน'}</p>}
   </section>
   {backup&&baseline?.status==='APPLIED'&&<p className="muted"><a href={STOCK_SHEET_URL+'#gid='+backup.sheetId} target="_blank" rel="noreferrer">ยอดก่อนเริ่มรอบจำนวนรอจ่าย</a> · เก็บข้อมูลเดิมก่อนเปลี่ยนระบบ</p>}
-  <StockDispatchHistory day={day} page={params.dispatchPage}/>
+  <StockDispatchHistory day={stockHistoryDate(params.round,day)} historyDay={day} page={params.dispatchPage}/>
   <StockReturnHistory day={day} page={params.returnPage}/>
   <section className="card"><h2>การเก็บประวัติ</h2>
    <p>เก็บอัตโนมัติหลังสิ้นวันตามเวลาไทย{config&&<> เริ่มวันที่ {dateLabel(config.startDay)}</>} และเก็บยอดก่อนรายการแก้ไขแรกของวันใหม่ เพื่อไม่ให้ยอดวันใหม่ทับวันก่อน</p>

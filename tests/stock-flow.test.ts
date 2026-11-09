@@ -59,6 +59,7 @@ async function harness(t:TestContext){
  replace(t,db.stockReturn,'findFirst',async({where}:any)=>[...returns.values()].find(r=>where.OR.some((key:any)=>key.orderId===r.orderId||key.tracking&&key.tracking===r.tracking))??null);
  replace(t,db.stockWorkflow,'upsert',async({create,update}:any)=>state.workflow=state.workflow?{...state.workflow,...update}:create);
  replace(t,db.stockIntegrationConfig,'findUnique',async()=>({enabled:true,activeFrom:new Date('2026-01-01')}));
+ replace(t,db.orderRoundSettings,'findUnique',async()=>({closeMinutes:720,version:null}));
  replace(t,db.orderIntake,'findUnique',async({where}:any)=>state.orders.get(where.id));
  replace(t,db.shipment,'findUnique',async({where}:any)=>state.shipments.get(where.orderId));
  replace(t,db.gmailImport,'findUnique',async()=>({kind:'SHIPMENT'}));

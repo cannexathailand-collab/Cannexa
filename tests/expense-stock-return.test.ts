@@ -8,9 +8,13 @@ import {expenseCsv} from '../src/lib/expense-csv';
 test('received returns reverse exactly the frozen cost in the receipt month and retain original dispatch expense',async t=>{
  const dispatchedAt=new Date('2026-11-06T03:00:00Z'),receivedAt=new Date('2026-12-01T03:00:00Z');
  const items=[{code:'A1',name:'Item',quantityMilliG:200001,unitCostSatang:150,costSatang:30000}];
+ const originalSettings=db.orderRoundSettings.findUnique,originalOrders=db.orderIntake.findMany;
+ t.after(()=>{db.orderRoundSettings.findUnique=originalSettings;db.orderIntake.findMany=originalOrders;});
+ db.orderRoundSettings.findUnique=(async()=>null) as any;
+ db.orderIntake.findMany=(async()=>[{id:'order1',eventAt:dispatchedAt,orderNumber:'ORDER-1'}]) as any;
  const models=[db.expense,db.commission,db.salesOrder,db.shipment,db.recurringExpenseEntry,db.stockDispatch,db.stockReturn,db.additionalCommission,db.specialCommission] as any[];
  for(const model of models){const old=model.findMany;t.after(()=>{model.findMany=old;});model.findMany=async()=>[];}
- db.stockDispatch.findMany=(async()=>[{id:'d1',orderNumber:'ORDER-1',tracking:'TRACK0001',status:'POSTED',dispatchedAt,items}]) as any;
+ db.stockDispatch.findMany=(async()=>[{id:'d1',orderId:'order1',orderNumber:'ORDER-1',tracking:'TRACK0001',status:'POSTED',dispatchedAt,items}]) as any;
  const returnRow={id:'r1',tracking:'TRACK0001',status:'POSTED',receivedAt,items,historySnapshot:{orderNumber:'ORDER-1'}};
  db.stockReturn.findMany=(async()=>[returnRow]) as any;
  const before=await expenseReport({from:'2026-11-01',to:'2026-11-30'}),after=await expenseReport({from:'2026-12-01',to:'2026-12-31'});

@@ -8,6 +8,8 @@ import {saveShipmentArchive} from './stock-shipment-archive';
 import type {OrderStockItem} from './order-stock-items';
 import type {StockOutSnapshot} from './stock-dispatch-plan';
 import {stockDispatchEligible} from './stock-dispatch-eligibility';
+import {loadOrderRoundSettings} from './order-round-settings';
+import {orderRoundClosingDay} from './order-round';
 
 export async function processFlowStockDispatch(orderId:string,actor:string){
  try{return await db.$transaction(async tx=>{
@@ -77,7 +79,8 @@ export async function processFlowStockDispatch(orderId:string,actor:string){
    });
    const totalCostSatang=costItems.reduce((n,i)=>n+i.costSatang,0);
    if(!Number.isSafeInteger(totalCostSatang)||totalCostSatang>2147483647)return issue(['ต้นทุนรวมมากเกินขอบเขตที่รองรับ']);
-   const snapshot:StockOutSnapshot={orderId,orderNumber:order!.orderNumber,tracking:shipment!.tracking,payment:order!.payment,dispatchedAt:shipment!.dispatchedAt!.toISOString(),processedAt:savedAt.toISOString(),sourceSheet:source.tab.title,items:costItems,totalCostSatang};
+   const roundSettings=await loadOrderRoundSettings();
+   const snapshot:StockOutSnapshot={orderId,orderNumber:order!.orderNumber,tracking:shipment!.tracking,payment:order!.payment,dispatchedAt:shipment!.dispatchedAt!.toISOString(),processedAt:savedAt.toISOString(),sourceSheet:source.tab.title,items:costItems,totalCostSatang,orderRoundDay:orderRoundClosingDay(order!.eventAt,roundSettings.closeMinutes)};
    // Commit dated history and claim the tracking number BEFORE changing stock.
    pending=await db.stockDispatch.update({where:{orderId},data:{status:'HISTORY_SAVED',historySnapshot:snapshot,historySavedAt:savedAt,tracking:snapshot.tracking,items:snapshot.items,sourceSheet:snapshot.sourceSheet,issues:[]}});
   }

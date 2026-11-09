@@ -5,6 +5,12 @@ import {shipmentArchive,saveShipmentArchive} from '../src/lib/stock-shipment-arc
 import type {StockOutSnapshot} from '../src/lib/stock-dispatch-plan';
 
 const savedAt=new Date('2026-11-06T07:00:00Z');
+test('new shipment archives group by order round while preserving actual processing time',()=>{
+ const data={...snapshot(),orderRoundDay:'2026-11-05'};
+ const archive=shipmentArchive(data,savedAt);
+ assert.equal(archive.title,'จัดส่ง รอบ 2026-11-05');
+ assert.equal(archive.rows[0][0],savedAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'}));
+});
 const snapshot=(orderId='legacy',balances=false):StockOutSnapshot=>({
  orderId,orderNumber:'ORD-'+orderId,tracking:'TRACK-'+orderId,payment:'โอน',dispatchedAt:'2026-11-06T06:00:00.000Z',sourceSheet:'6.11.69',processedAt:savedAt.toISOString(),totalCostSatang:75000,
  items:[{code:'CG2',name:'Example',quantityMilliG:500000,unitCostSatang:150,costSatang:75000,issuedBefore:500,issuedAfter:0,remainingBefore:446,remainingAfter:-54,...(balances?{receivedBefore:446,receivedAfter:-54,completedBefore:0,completedAfter:0}:{})}]
