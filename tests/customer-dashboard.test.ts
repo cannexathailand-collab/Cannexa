@@ -35,3 +35,26 @@ test('missing product names use a dash and retain the product code',()=>{
  const html=renderToStaticMarkup(createElement(CustomerDashboard,{data,productNames:new Map([['CG1','  ']])}));
  assert.match(html,/<strong>—<\/strong>/);assert.match(html,/CG1/);
 });
+
+test('comparison shows percentage changes alongside amounts and percentage points',()=>{
+ const data=buildCustomerDashboard([row('current','2026-11-01','โอน',true,15000,4500),row('previous','2026-09-20','โอน',true,10000,2000)],undefined,now);
+ const html=renderToStaticMarkup(createElement(CustomerDashboard,{data}));
+ assert.match(html,/\+50\.0%/);
+ assert.match(html,/\+125\.0%/);
+ assert.match(html,/10\.0 จุดเปอร์เซ็นต์/);
+ assert.match(html,/0\.0%/);
+});
+
+test('comparison handles falling values, negative profit, zero bases and missing costs',()=>{
+ const data=buildCustomerDashboard([row('current','2026-11-01','โอน',true,5000,-1000),row('previous','2026-09-20','โอน',true,10000,-2000)],undefined,now);
+ const html=renderToStaticMarkup(createElement(CustomerDashboard,{data}));
+ assert.match(html,/-50\.0%/);
+ assert.match(html,/\+50\.0%/);
+ const empty=renderToStaticMarkup(createElement(CustomerDashboard,{data:buildCustomerDashboard([],undefined,now)}));
+ assert.match(empty,/คำนวณเปอร์เซ็นต์ไม่ได้ \(ฐานเดิม 0\)/);
+ assert.doesNotMatch(empty,/NaN|Infinity/);
+ const missing=buildCustomerDashboard([row('missing','2026-11-01','โอน',true,10000,null)],undefined,now);
+ const missingHtml=renderToStaticMarkup(createElement(CustomerDashboard,{data:missing}));
+ assert.match(missingHtml,/รอข้อมูล/);
+ assert.doesNotMatch(missingHtml,/NaN|Infinity/);
+});
