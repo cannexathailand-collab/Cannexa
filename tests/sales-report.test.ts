@@ -4,7 +4,7 @@ import {summarizeSales,analyzeSales,salesSources,type SaleRow} from "../src/lib/
 import {bangkokDay,salesRange,shiftMonth,compareRevenue,parseDispatchTime} from "../src/lib/sales-dates";
 const sent=new Date("2026-11-05T17:05:00Z");
 const row=(id:string,values:Record<string,unknown>={}):SaleRow=>({id,orderId:id,affiliateId:"affiliate",paymentMethod:"TRANSFER",status:"PENDING",revenueSatang:10000,commissionSatang:200,paidAmountSatang:null,tracking:"TRACK-"+id,recognizedAt:sent,createdAt:new Date("2026-10-01"),order:{id,orderNumber:id,sellerUsername:"ink123",sellerCode:"Ink123",payment:"โอน",status:"TRANSFER_RECORDED"},affiliate:{id:"affiliate",name:"Affiliate",code:"11155"},shipment:{tracking:"TRACK-"+id,orderId:id,fulfillmentStatus:"DISPATCHED",dispatchedAt:sent,status:"MATCHED_TRANSFER",codSatang:10000,dispatchEvidence:"ใบรับฝากจริง"},receipt:null,...values}) as SaleRow;
-const cod=(id:string,values:Record<string,unknown>={})=>row(id,{paymentMethod:"COD",order:{...row(id).order,payment:"COD",status:"MATCHED_SHIPMENT"},receipt:{tracking:"TRACK-"+id,amountSatang:10000},...values});
+const cod=(id:string,values:Record<string,unknown>={})=>row(id,{paymentMethod:"COD",order:{...row(id).order,payment:"COD",status:"MATCHED_SHIPMENT"},receipt:{tracking:"TRACK-"+id,amountSatang:10000,reportAt:sent},...values});
 test('source totals reconcile and repeat buyers count once independently of selling staff',()=>{
  const old={code:'OLD',legacy:true,referrerId:'a',referrer:{name:'A',code:'A'},metaFbc:null};
  const fresh={...old,code:'NEW',legacy:false};
@@ -58,4 +58,31 @@ test('sales drilldowns show the selected category without changing summary filte
  for(const [detail,ids] of [['ALL',['transfer','paid','waiting']],['TRANSFER',['transfer']],['COD',['paid','waiting']],['COD_PAID',['paid']],['COD_WAITING',['waiting']],['RECOGNIZED',['transfer','paid']]] as const){const report=analyzeSales(rows,{...filters,detail});assert.deepEqual(report.detailRows.map(r=>r.id).sort(),[...ids].sort());assert.equal(report.orderTotals.count,3);}
  assert.equal(analyzeSales(rows,{...filters,detail:'invalid'}).detail,'ALL');
  assert.equal(analyzeSales(rows,{...filters,detail:'COD_WAITING',payment:'TRANSFER'}).detailRows.length,0);
+});
+
+ test('COD income follows receipt report date even when dispatch happened on another day',()=>{
+ const paid=cod('paid',{receipt:{tracking:'TRACK-paid',amountSatang:10000,reportAt:new Date('2026-11-07T17:30:00Z')}});
+ const sentDay=analyzeSales([row('transfer'),paid],{from:'2026-11-06',to:'2026-11-06'});
+ assert.equal(sentDay.summary.count,2);assert.equal(sentDay.income.codSatang,0);assert.equal(sentDay.income.amountSatang,10000);
+ const receivedDay=analyzeSales([row('transfer'),paid],{from:'2026-11-08',to:'2026-11-08',detail:'INCOME'});
+ assert.equal(receivedDay.summary.count,0);assert.equal(receivedDay.income.codSatang,10000);assert.equal(receivedDay.income.rows[0].orderId,'paid');
+ assert.equal(receivedDay.detail,'INCOME');
+ });
+ test('COD income includes unmatched email receipts once and applies seller filters',()=>{
+ const receipt={tracking:'UNMATCHED',importId:'email',amountSatang:25000,reportAt:new Date('2026-11-08T03:00:00Z'),order:null};
+ const filters={from:'2026-11-08',to:'2026-11-08'};
+ const result=analyzeSales([],filters,new Date(),[receipt,receipt]);
+ assert.equal(result.income.count,1);assert.equal(result.income.codSatang,25000);assert.equal(result.income.unmatchedCount,1);
+ assert.equal(analyzeSales([],{...filters,payment:'TRANSFER'},new Date(),[receipt]).income.count,0);
+ assert.equal(analyzeSales([],{...filters,seller:'ink123'},new Date(),[receipt]).income.count,0);
+ });
+test('a receipt waiting for an order keeps its original income date after matching',()=>{
+ const receipt={tracking:'LATER',importId:'email',amountSatang:25000,reportAt:new Date('2026-11-08T03:00:00Z'),order:null};
+ const filters={from:'2026-11-08',to:'2026-11-08'};
+ const before=analyzeSales([],filters,new Date(),[receipt]);
+ const linked={...receipt,order:{id:'later',orderNumber:'ORDER',sellerUsername:'ink123',affiliateId:'affiliate'}};
+ const after=analyzeSales([],filters,new Date(),[linked]);
+ assert.equal(before.income.amountSatang,after.income.amountSatang);assert.equal(before.income.unmatchedCount,1);assert.equal(after.income.unmatchedCount,0);
+ assert.equal(+before.income.rows[0].date,+after.income.rows[0].date);assert.equal(after.income.rows[0].orderId,'later');
+ assert.equal(analyzeSales([],{from:'2026-11-09',to:'2026-11-09'},new Date(),[linked]).income.codSatang,0);
 });
