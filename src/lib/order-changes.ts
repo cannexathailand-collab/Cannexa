@@ -18,7 +18,7 @@ export function orderEditVersion(order:Pick<OrderIntake,'rawText'|'status'>){ret
 const inputSchema=z.object({id:z.string().min(1).max(100),requestKey:z.uuid(),expectedVersion:z.string().length(64),action:z.enum(['EDIT','CANCEL']),text:z.string().max(12000).optional(),reason:z.string().trim().max(500).optional()});
 const sameItems=(a:OrderStockItem[],b:OrderStockItem[])=>JSON.stringify([...a].sort((x,y)=>x.code.localeCompare(y.code)))===JSON.stringify([...b].sort((x,y)=>x.code.localeCompare(y.code)));
 
-export async function changeOrder(actor:string,value:unknown,read:StockReader=readStockSheet){
+export async function changeOrder(actor:string,value:unknown,read:StockReader=readStockSheet,scope?:{sellerUsername:string}){
  const parsed=inputSchema.safeParse(value);if(!parsed.success)throw Error('กรุณาตรวจข้อมูลการแก้ไขออเดอร์');
  const input=parsed.data,fingerprint=sha(JSON.stringify(input)),auditId='order-change:'+input.requestKey;
  return transaction(async tx=>{
@@ -28,6 +28,7 @@ export async function changeOrder(actor:string,value:unknown,read:StockReader=re
   const order=await tx.orderIntake.findUniqueOrThrow({where:{id:input.id}});
   await userLock(tx,order.messageKey);await userLock(tx,'stock-sheet-add');
   const current=await tx.orderIntake.findUniqueOrThrow({where:{id:input.id}});
+  if(scope&&current.sellerUsername!==scope.sellerUsername)throw Error('ยกเลิกได้เฉพาะออเดอร์ที่คุณเป็นผู้ขาย');
   if(orderEditVersion(current)!==input.expectedVersion)throw Error('ออเดอร์ถูกเปลี่ยนแปลงแล้ว กรุณาโหลดหน้าใหม่');
   if(['CANCELLED','WITHDRAWN','RETURNED','EXPIRED'].includes(current.status))throw Error('ออเดอร์นี้ปิดแล้ว');
   const [shipment,dispatch,initialSale,reservation,config]=await Promise.all([

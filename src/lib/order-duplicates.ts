@@ -7,8 +7,8 @@ import {orderStockItems} from './order-stock-items';
 import {normalizeName,quotedTotal} from './shipment-matching';
 import {canonicalCustomerCode} from './customer-code';
 
-export type DuplicateOrderMatch={id:string;orderNumber:string;recipient:string|null;eventAt:Date;reasons:string[]};
-type Candidate={id:string;orderNumber:string;recipient:string|null;eventAt:Date;rawText:string|null;status:string;paymentSlip:{version:string}|null};
+export type DuplicateOrderMatch={id:string;orderNumber:string;recipient:string|null;eventAt:Date;createdAt?:Date;reasons:string[]};
+type Candidate={id:string;orderNumber:string;recipient:string|null;eventAt:Date;createdAt?:Date;rawText:string|null;status:string;paymentSlip:{version:string}|null};
 function orderFingerprint(rawText:string|null){
  const parsed=parseOrderText(rawText??''),stock=orderStockItems(rawText),amount=quotedTotal(rawText??'');
  if(parsed?.customerCode&&stock.items.length&&!stock.issues.length&&amount!==null){
@@ -33,7 +33,7 @@ export function findDuplicateOrders(orders:Candidate[],closeMinutes=720){
    const peers=matches.get(order.id)??new Map<string,DuplicateOrderMatch>();
    for(const peer of group.orders){
     if(peer.id===order.id)continue;
-    const match=peers.get(peer.id)??{id:peer.id,orderNumber:peer.orderNumber,recipient:peer.recipient,eventAt:peer.eventAt,reasons:[]};
+    const match=peers.get(peer.id)??{id:peer.id,orderNumber:peer.orderNumber,recipient:peer.recipient,eventAt:peer.eventAt,createdAt:peer.createdAt??peer.eventAt,reasons:[]};
     if(!match.reasons.includes(group.reason))match.reasons.push(group.reason);
     peers.set(peer.id,match);
    }
@@ -44,6 +44,6 @@ export function findDuplicateOrders(orders:Candidate[],closeMinutes=720){
 }
 export const loadDuplicateOrderReviews=cache(async(username?:string,affiliateId?:string|null)=>{
  const settings=await loadOrderRoundSettings();
- const orders=await db.orderIntake.findMany({where:{status:{notIn:['CANCELLED','WITHDRAWN','EXPIRED','RETURNED']},...(username?{sellerUsername:username,affiliateId}: {})},select:{id:true,orderNumber:true,recipient:true,eventAt:true,rawText:true,status:true,paymentSlip:{select:{version:true}}}});
+ const orders=await db.orderIntake.findMany({where:{status:{notIn:['CANCELLED','WITHDRAWN','EXPIRED','RETURNED']},...(username?{sellerUsername:username,affiliateId}: {})},select:{id:true,orderNumber:true,recipient:true,eventAt:true,createdAt:true,rawText:true,status:true,paymentSlip:{select:{version:true}}}});
  return findDuplicateOrders(orders,settings.closeMinutes);
 });

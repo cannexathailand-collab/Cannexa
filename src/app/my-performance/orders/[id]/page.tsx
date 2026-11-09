@@ -1,10 +1,59 @@
-import {notFound} from "next/navigation";
-import {requireEmployeePage} from "@/lib/employee-view";
-import {orderReview} from "@/lib/order-review";
-import {OrderReviewView} from "@/app/order-review-view";
+import {OrderReviewView} from '@/app/order-review-view';
+import {orderReview} from '@/lib/order-review';
+import {notFound} from 'next/navigation';
+import Link from 'next/link';
+import {requireEmployeePage} from '@/lib/employee-view';
+import {orderEditVersion} from '@/lib/order-changes';
+import {CancelOwnOrderButton} from '@/app/cancel-own-order-button';
+import {db} from '@/lib/db';
+import {quotedTotal} from '@/lib/shipment-matching';
+import {orderStockItems} from '@/lib/order-stock-items';
+import {loadDuplicateOrderReviews} from '@/lib/order-duplicates';
+import {DuplicateOrderNotice} from '@/app/duplicate-order-notice';
 import {EmployeeNav} from '../../employee-nav';
-export default async function Review({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{from?:string}>}){
- const a=await requireEmployeePage();const {id}=await params;const data=await orderReview(id,a.role==='owner'?{role:'owner'}:{role:"employee",username:a.username,affiliateId:a.affiliateId});if(!data)notFound();
- const fromTasks=(await searchParams).from==='tasks';
- return <main className="center-page"><section className="customer" style={{maxWidth:800}}><EmployeeNav active={fromTasks?'tasks':'orders'}/><OrderReviewView data={data} backHref={fromTasks?'/my-performance/tasks':'/my-performance/orders'} backLabel={fromTasks?'กลับงานค้าง':'กลับรายการออเดอร์'}/></section></main>;
+
+export default async function SharedOrder({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{from?:string}>}){
+ const actor=await requireEmployeePage();
+ const {id}=await params;
+ if((await searchParams).from==='tasks'){
+  const data=await orderReview(id,actor.role==='owner'?{role:'owner'}:{role:'employee',username:actor.username,affiliateId:actor.affiliateId});
+  if(!data)notFound();
+  return <main className="center-page"><section className="customer"><EmployeeNav active="orders"/><OrderReviewView data={data} backHref="/my-performance/tasks" backLabel="กลับงานค้าง"/></section></main>;
+ }
+ const order=await db.orderIntake.findUnique({
+  where:{id},
+  select:{id:true,orderNumber:true,recipient:true,phone:true,address:true,payment:true,rawText:true,sellerUsername:true,eventAt:true,createdAt:true,status:true},
+ });
+ if(!order)notFound();
+ const [shipment,duplicates]=await Promise.all([
+  db.shipment.findUnique({where:{orderId:id},select:{tracking:true,fulfillmentStatus:true,dispatchedAt:true}}),
+  loadDuplicateOrderReviews(),
+ ]);
+ const amount=quotedTotal(order.rawText??''),items=orderStockItems(order.rawText);
+ const closed=['CANCELLED','WITHDRAWN','EXPIRED'].includes(order.status);
+ const status=closed?'ยกเลิก / ปิดรายการ':order.status==='RETURNED'?'ตีกลับ':shipment?.tracking?'มีเลขพัสดุแล้ว':'รอจัดส่ง';
+ return <main className="center-page performance-page">
+  <section className="customer">
+   <h1>รายละเอียดออเดอร์</h1>
+   <EmployeeNav active="orders"/>
+   <Link href="/my-performance/orders">กลับรายการออเดอร์</Link>
+   <h2>{order.orderNumber}</h2>
+   <p>ผู้ขาย {order.sellerUsername??'ยังไม่ระบุ'}</p>
+   <p>สร้างออเดอร์ {order.createdAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
+   <p>รับออเดอร์ {order.eventAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
+   <p>{order.payment} · {amount===null?'รอยอดเงิน':(amount/100).toLocaleString('th-TH',{style:'currency',currency:'THB'})}</p>
+   <p>สถานะ {status}</p>
+   <p>เลขพัสดุ {shipment?.tracking??'ยังไม่มีเลขพัสดุ'}</p>
+   {!closed&&order.status!=='RETURNED'&&shipment?.fulfillmentStatus!=='DISPATCHED'&&!shipment?.dispatchedAt&&order.sellerUsername===actor.username&&<CancelOwnOrderButton id={id} version={orderEditVersion(order)} orderNumber={order.orderNumber}/>}
+   <h2>ข้อมูลผู้รับ</h2>
+   <p>{order.recipient}</p>
+   <p>{order.phone}</p>
+   <p>{order.address}</p>
+   <h2>สินค้า</h2>
+   {items.items.length?<ul>
+    {items.items.map(item=><li key={item.code}>{item.code} · {item.quantityMilliG/1000} กรัม</li>)}
+   </ul>:<p>อ่านรายการสินค้าไม่ครบ กรุณาตรวจข้อความต้นทาง</p>}
+   <DuplicateOrderNotice matches={duplicates.get(id)??[]} currentOrder={order} baseHref="/my-performance/orders/"/>
+  </section>
+ </main>;
 }

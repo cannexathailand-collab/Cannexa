@@ -3,7 +3,7 @@ import type {OrderIntake,Shipment,SalesOrder,Prisma} from '@prisma/client';
 import {db} from './db';
 import {dayStart,shiftDay} from './sales-dates';
 import {csvCell} from './policy';
-import {quotedTotal} from './shipment-matching';
+import {quotedTotal,normalizePhone} from './shipment-matching';
 import {canonicalCustomerCode} from './customer-code';
 import {needsTrackingReview,needsCodReceiptReview} from './order-tracking-review';
 import {loadOrderRoundSettings} from './order-round-settings';
@@ -30,7 +30,7 @@ export function orderRoundRange(input:{from?:string;to?:string;page?:string}={},
  if(from>to)throw Error('INVALID_DATE_RANGE');
  return {from,to,...orderRoundBounds(shiftDay(to,1),closeMinutes)};
 }
-export async function orderManagement(input:OrderFilters={}){
+export async function orderManagement(input:OrderFilters={},options:{searchAllRounds?:boolean}={}){
  const roundSettings=await loadOrderRoundSettings();
  const duplicateReviews=await loadDuplicateOrderReviews();
  const groups=await db.orderGroup.findMany({where:{purpose:'ORDER'},select:{id:true,name:true},orderBy:{name:'asc'}});
@@ -39,8 +39,9 @@ export async function orderManagement(input:OrderFilters={}){
  const teamNames=new Map(teams.map(option=>[option.id,option.name]));
  const q=(input.q??'').trim().slice(0,100),from=input.from??'',to=input.to??'',status=Object.hasOwn(orderStates,input.status??'')?input.status as keyof typeof orderStates:'ALL',payment=['โอน','COD','เคลม'].includes(input.payment??'')?input.payment!:'',sort=input.sort==='oldest'?'oldest':'newest',requestedPage=Math.max(1,Math.min(100000,Math.trunc(Number(input.page))||1));
  if(from)dayStart(from);if(to)dayStart(to);if(from&&to&&from>to)throw Error('INVALID_DATE_RANGE');
+ const phoneQuery=/^[+\d\s()-]+$/.test(q)?normalizePhone(q):'';
  const trackingIds=q?(await db.shipment.findMany({where:{tracking:{contains:q,mode:'insensitive'}},select:{orderId:true}})).flatMap(s=>s.orderId?[s.orderId]:[]):[];
- const where:Prisma.OrderIntakeWhereInput={...(payment?{payment}:{}),...((from||to)?{eventAt:{...(from?{gte:dayStart(from)}:{}),...(to?{lt:dayStart(shiftDay(to,1))}:{})}}:{}),...(q?{OR:[...['orderNumber','recipient','phone','sellerCode','sellerUsername','customerCode'].map(field=>({[field]:{contains:q,mode:'insensitive'}})),{customerCode:{contains:canonicalCustomerCode(q),mode:'insensitive'}},{id:{in:trackingIds}}]}:{})};
+ const where:Prisma.OrderIntakeWhereInput={...(payment?{payment}:{}),...((from||to)?{eventAt:{...(from?{gte:dayStart(from)}:{}),...(to?{lt:dayStart(shiftDay(to,1))}:{})}}:{}),...(q?{OR:[...['orderNumber','recipient','phone','sellerCode','sellerUsername','customerCode'].map(field=>({[field]:{contains:q,mode:'insensitive'}})),{customerCode:{contains:canonicalCustomerCode(q),mode:'insensitive'}},{id:{in:trackingIds}},...(phoneQuery?[{phone:{contains:phoneQuery}}]:[])]}:{})};
  const earliest=await db.orderIntake.findFirst({orderBy:{eventAt:'asc'},select:{eventAt:true}});
  const at=new Date(),latestRound=orderRoundRange({},at,roundSettings.closeMinutes);
  const firstRound=earliest?orderRoundRange({},earliest.eventAt,roundSettings.closeMinutes):latestRound;
@@ -50,7 +51,7 @@ export async function orderManagement(input:OrderFilters={}){
  const page=focusRound?Math.max(1,Math.round((+latestRound.start-+focusRound.start)/86400000)+1):requestedPage;
  const roundPage=Math.min(page,roundPages);
  const round=orderRoundRange({page:String(roundPage)},at,roundSettings.closeMinutes);
- where.eventAt={gte:round.start,lt:round.end};
+ if(!options.searchAllRounds||!q)where.eventAt={gte:round.start,lt:round.end};
  if(team)where.groupKey=team;
  const orders=await db.orderIntake.findMany({where,orderBy:[{eventAt:sort==='oldest'?'asc':'desc'},{id:'asc'}]});
  const ids=orders.map(o=>o.id),[shipments,sales]=await Promise.all([db.shipment.findMany({where:{orderId:{in:ids}}}),db.salesOrder.findMany({where:{orderId:{in:ids}}})]);

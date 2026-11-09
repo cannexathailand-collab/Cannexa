@@ -9,7 +9,7 @@ import {salesSources, type SaleCustomer, type SalesFilters} from './sales-report
 import {salesRange, shiftDay, shiftMonth, compareRevenue, bangkokDay, dayStart} from './sales-dates';
 import {demoSalesRows} from './sales-demo';
 
-type Order = Pick<OrderIntake,'id'|'orderNumber'|'eventAt'|'rawText'|'status'|'payment'|'sellerUsername'|'affiliateId'|'recipient'> & {customer:SaleCustomer|null};
+type Order = Pick<OrderIntake,'id'|'orderNumber'|'eventAt'|'rawText'|'status'|'payment'|'sellerUsername'|'affiliateId'|'recipient'> & {customer:SaleCustomer|null;createdAt?:Date};
 type Data = {
  unitCosts?:{code:string;costSatang:number|null}[];
  recordedCosts?:{orderId:string;costSatang:number}[];
@@ -21,7 +21,7 @@ type Data = {
  websiteOrders?:Pick<WebsiteOrder,'id'|'orderNumber'|'createdAt'|'totalSatang'|'recipient'|'customerCode'|'paymentMethod'|'status'|'intakeOrderId'>[];
 };
 export type BookedSale = {
- id:string;orderNumber:string;eventAt:Date;day:string;paymentMethod:'TRANSFER'|'COD';
+ id:string;orderNumber:string;eventAt:Date;createdAt:Date;day:string;paymentMethod:'TRANSFER'|'COD';
  costSatang:number|null;estimatedCost:boolean;revenueSatang:number|null;sellerUsername:string|null;affiliateId:string|null;
  affiliate:{id:string;name:string;code:string}|null;customer:SaleCustomer|null;
  recipient:string|null;tracking:string|null;hasTracking:boolean;codPaid:boolean;
@@ -56,7 +56,7 @@ export function analyzeBookedSales(data:Data,input:SalesFilters={},now=new Date(
   if(payment&&paymentMethod!==payment||input.seller&&order.sellerUsername!==input.seller||input.affiliateId&&order.affiliateId!==input.affiliateId)return [];
   const amount=quotedTotal(order.rawText??'')??sales.get(order.id)?.revenueSatang??null;
   const cost=orderProductCost(order.rawText,recordedCosts.get(order.id)??null,unitCosts);
-  return [{costSatang:cost.amountSatang,estimatedCost:cost.estimated,id:order.id,orderNumber:order.orderNumber,eventAt:order.eventAt,day:orderRoundClosingDay(order.eventAt,closeMinutes),
+  return [{costSatang:cost.amountSatang,estimatedCost:cost.estimated,id:order.id,orderNumber:order.orderNumber,eventAt:order.eventAt,createdAt:order.createdAt??order.eventAt,day:orderRoundClosingDay(order.eventAt,closeMinutes),
    paymentMethod,revenueSatang:amount,sellerUsername:order.sellerUsername,affiliateId:order.affiliateId,
    affiliate:affiliates.get(order.affiliateId??'')??null,customer:order.customer,recipient:order.recipient,
    tracking:shipment?.tracking??null,hasTracking:!!shipment?.tracking,
@@ -99,7 +99,7 @@ export async function bookedSalesReport(input:SalesFilters={},now=new Date()){
  const unitCosts=stock?.products.map(product=>({code:product.code,costSatang:product.costSatang}))??[];
  return db.$transaction(async tx=>{
  const [orders,sales,shipments,receipts,affiliates,websiteOrders,settings,dispatches]=await Promise.all([
-  tx.orderIntake.findMany({select:{id:true,orderNumber:true,eventAt:true,rawText:true,status:true,payment:true,sellerUsername:true,affiliateId:true,recipient:true,customer:{select:{code:true,legacy:true,referrerId:true,metaFbc:true,referrer:{select:{name:true,code:true}}}}}}),
+  tx.orderIntake.findMany({select:{id:true,orderNumber:true,eventAt:true,createdAt:true,rawText:true,status:true,payment:true,sellerUsername:true,affiliateId:true,recipient:true,customer:{select:{code:true,legacy:true,referrerId:true,metaFbc:true,referrer:{select:{name:true,code:true}}}}}}),
   tx.salesOrder.findMany({select:{orderId:true,revenueSatang:true}}),
   tx.shipment.findMany({where:{orderId:{not:null}},select:{orderId:true,tracking:true,fulfillmentStatus:true}}),
   tx.codReceipt.findMany({select:{tracking:true,amountSatang:true}}),
