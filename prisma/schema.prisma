@@ -598,6 +598,17 @@ model StockProduct {
  updatedAt DateTime @updatedAt
 }
 
+model StockWorkbook {
+ id String @id
+ state Json
+ version Int @default(0)
+ dirty Boolean @default(true)
+ syncLeaseUntil DateTime?
+ syncedAt DateTime?
+ syncError String?
+ updatedAt DateTime @updatedAt
+}
+
 model StockProductImage {
  code String @id
  imageData Bytes
@@ -631,6 +642,7 @@ model StockDeleteBatch {
 }
 model StockSheetsConnection {
  id String @id
+ systemPrimary Boolean @default(false)
  encryptedConfig String
  email String
  revision String

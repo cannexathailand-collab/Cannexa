@@ -8,8 +8,13 @@ export const receiptKey=(requestKey:string)=>'cannexa-stock-receipt-'+requestKey
 export const receiptFingerprint=(input:NewStockProduct)=>createHash('sha256').update(JSON.stringify(input)).digest('hex');
 export function stockReceiptPlan(input:NewStockProduct,source:{tab:{sheetId:number;title:string;gridProperties?:{columnCount?:number}};rows:unknown[][];products:StockRow[]},remainingFormula?:string){
  const existing=source.products.find(p=>p.code===input.code);const requests:Record<string,unknown>[]=[];const add=(a:number,b:number)=>Math.round((a+b)*1000)/1000;
- if(existing&&input.quantity>0&&(existing.receivedQuantity===null||existing.remainingQuantity===null))throw new Error('STOCK_QUANTITY_UNKNOWN');
- const receivedBefore=existing?existing.receivedQuantity:0,remainingBefore=existing?existing.remainingQuantity:0,receivedAfter=receivedBefore===null?null:add(receivedBefore,input.quantity),remainingAfter=remainingBefore===null?null:add(remainingBefore,input.quantity);
+ const initialize=!!existing&&input.quantity>0&&existing.receivedQuantity===null&&existing.remainingQuantity===null;
+ const deducted=existing?.completedQuantity===undefined?existing?.issuedQuantity:existing.completedQuantity;
+ if(initialize&&(deducted===null||deducted===undefined))throw new Error('STOCK_QUANTITY_UNKNOWN');
+ if(existing&&input.quantity>0&&!initialize&&(existing.receivedQuantity===null||existing.remainingQuantity===null))throw new Error('STOCK_QUANTITY_UNKNOWN');
+ const receivedBefore=existing?existing.receivedQuantity:0,remainingBefore=existing?existing.remainingQuantity:0;
+ const receivedBase=initialize?deducted!:receivedBefore,remainingBase=initialize?0:remainingBefore;
+ const receivedAfter=receivedBase===null?null:add(receivedBase,input.quantity),remainingAfter=remainingBase===null?null:add(remainingBase,input.quantity);
  if(Math.max(Math.abs(receivedAfter??0),Math.abs(remainingAfter??0))>=1e15)throw new Error('STOCK_QUANTITY_TOO_LARGE');
  const result:StockReceiptResult={code:input.code,mode:existing?'RECEIVED':'CREATED',quantity:input.quantity,receivedBefore,receivedAfter,remainingBefore,remainingAfter,sourceSheet:source.tab.title,fingerprint:receiptFingerprint(input),nameBefore:existing?.name??null,nameAfter:existing?.name||input.name||null,costBefore:existing?.costSatang??null,costAfter:existing?.costSatang??(input.cost===null?null:Math.round(input.cost*100))};
  const numberCell=(columnIndex:number,n:number)=>({updateCells:{start:{sheetId:source.tab.sheetId,rowIndex:existing!.sourceRow-1,columnIndex},rows:[{values:[{userEnteredValue:{numberValue:n}}]}],fields:'userEnteredValue'}});

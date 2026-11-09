@@ -17,6 +17,15 @@ test('receiving through update adds to stock while preserving remaining formulas
  empty.input.expectedFingerprint=stockDeleteFingerprint(empty.source.products[0],empty.source.tab.title);
  assert.throws(()=>stockProductUpdatePlan({...empty.input,quantity:1},empty.source),/QUANTITY_UNKNOWN/);
 });
+
+test('receiving initializes a blank opening balance at zero while preserving recorded deductions',()=>{
+ const rows=rowsForTest();rows[2][4]=null;rows[2][6]=null;
+ const {source,input}=setup(rows);input.quantity=25;
+ const plan=stockProductUpdatePlan(input,source,'=E3-F3');
+ assert.equal(plan.before.receivedQuantity,null);assert.equal(plan.before.remainingQuantity,null);
+ assert.equal(plan.after.receivedQuantity,35);assert.equal(plan.after.remainingQuantity,25);
+ assert.equal(source.products[0].issuedQuantity,10);
+});
 test('stale edits and changed package mappings are blocked, known costs cannot be cleared, missing cost may remain pending',()=>{const {source,input}=setup();assert.throws(()=>stockProductUpdatePlan({...input,expectedFingerprint:'0'.repeat(64)},source),/PRODUCT_CHANGED/);assert.throws(()=>stockProductUpdatePlan({...input,cost:null},source),/COST_REQUIRED/);assert.throws(()=>stockProductUpdatePlan({...input,prices:input.prices.map(p=>({...p,pack:'5G'}))},source),/PACKAGE_CHANGED/);const rows=rowsForTest();rows[2][3]='';const missing=setup(rows);assert.equal(stockProductUpdatePlan({...missing.input,cost:null},missing.source).after.costSatang,null);});
 
 test('retries created before quantity support keep the original request fingerprint',async t=>{

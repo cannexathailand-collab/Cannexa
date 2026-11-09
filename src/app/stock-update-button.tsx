@@ -3,13 +3,14 @@ import {useRef,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import type {StockPriceColumn} from '@/lib/stock-price-columns';
 
-type Details={code:string;name:string|null;costSatang:number|null;prices:StockPriceColumn[];fingerprint:string;receivedQuantity:number|null;remainingQuantity:number|null};
+type Details={code:string;name:string|null;costSatang:number|null;prices:StockPriceColumn[];fingerprint:string;receivedQuantity:number|null;remainingQuantity:number|null;deductedQuantity:number|null};
 const quantityText=(value:number|null)=>value===null?'ยังไม่ระบุ':value.toLocaleString('th-TH',{maximumFractionDigits:3})+' G';
 
 export function StockUpdateButton(props:Details&{enabled:boolean}){
  const dialog=useRef<HTMLDialogElement>(null),router=useRouter();
  const [draft,setDraft]=useState<Details>(props),[requestKey,setRequestKey]=useState(''),[quantity,setQuantity]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const added=Number(quantity)||0;
+ const initialize=added>0&&draft.receivedQuantity===null&&draft.remainingQuantity===null&&draft.deductedQuantity!==null;
  return <>
   <button type="button" className="secondary" disabled={!props.enabled} onClick={()=>{setDraft({...props,prices:props.prices.map(p=>({...p}))});setRequestKey(crypto.randomUUID());setQuantity('');setError('');dialog.current?.showModal();}}>อัพเดต</button>
   <dialog className="stock-modal" ref={dialog} onCancel={e=>{if(busy)e.preventDefault();}}>
@@ -30,8 +31,9 @@ export function StockUpdateButton(props:Details&{enabled:boolean}){
     <label>ต้นทุน (บาท/G)<input name="cost" type="number" min="0" max="21474836.47" step="0.01" required={draft.costSatang!==null} defaultValue={draft.costSatang===null?'':draft.costSatang/100} disabled={busy} placeholder="ต้นทุนว่าง"/></label>
     <label>จำนวนรับเพิ่ม (G)<input name="quantity" type="number" min="0" max="999999999" step="0.001" value={quantity} onChange={e=>setQuantity(e.target.value)} disabled={busy} placeholder="0"/></label>
     <div className="notice" style={{gridColumn:'1 / -1'}}>
-     จำนวนรับ {quantityText(draft.receivedQuantity)} → {quantityText(draft.receivedQuantity===null?null:draft.receivedQuantity+added)}
-     <br/>คงเหลือ {quantityText(draft.remainingQuantity)} → {quantityText(draft.remainingQuantity===null?null:draft.remainingQuantity+added)}
+     จำนวนรับ {quantityText(draft.receivedQuantity)} → {quantityText(initialize?draft.deductedQuantity!+added:draft.receivedQuantity===null?null:draft.receivedQuantity+added)}
+     <br/>คงเหลือ {quantityText(draft.remainingQuantity)} → {quantityText(initialize?added:draft.remainingQuantity===null?null:draft.remainingQuantity+added)}
+     {initialize&&<p>ยอดเดิมว่าง เริ่มคงเหลือจาก 0 G แล้วบวกจำนวนที่รับเพิ่ม</p>}
     </div>
     {draft.prices.map(p=><label key={p.columnIndex}>ราคาขาย {p.pack} (บาท)<input name={'price'+p.columnIndex} type="number" min="0" max="21474836.47" step="0.01" defaultValue={p.priceSatang===null?'':p.priceSatang/100} disabled={busy}/></label>)}
     <p className="small muted" style={{gridColumn:'1 / -1'}}>กรอกจำนวนที่รับเพิ่ม ยอดคงเหลือคำนวณอัตโนมัติ เว้นว่างหรือใส่ 0 เพื่อแก้เฉพาะข้อมูลสินค้า</p>
