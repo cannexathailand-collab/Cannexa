@@ -25,3 +25,11 @@ test('order pages represent separate noon-to-noon Bangkok rounds',()=>{
  assert.equal(page2.start.toISOString(),before.start.toISOString());
  assert.equal(page2.end.toISOString(),after.start.toISOString());
 });
+test('configurable cutoff changes the exact boundary and uses the closing date',()=>{
+ const before=orderRoundRange({},new Date('2026-11-07T08:29:59Z'),930);
+ const after=orderRoundRange({},new Date('2026-11-07T08:30:00Z'),930);
+ assert.equal(before.end.toISOString(),'2026-11-07T08:30:00.000Z');
+ assert.equal(after.start.toISOString(),before.end.toISOString());
+ assert.equal(after.end.toISOString(),'2026-11-08T08:30:00.000Z');
+ assert.equal(orderRoundRange({page:'2'},new Date('2026-11-07T08:30:00Z'),930).end.toISOString(),before.end.toISOString());
+});

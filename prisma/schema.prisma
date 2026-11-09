@@ -436,6 +436,13 @@ model OrderIntake {
  @@index([sellerUsername, createdAt])
 }
 
+model OrderRoundSettings {
+ id String @id
+ closeMinutes Int @default(720)
+ version String
+ updatedAt DateTime @updatedAt
+}
+
 model OrderPaymentSlip {
  orderId String @id
  order OrderIntake @relation(fields:[orderId],references:[id],onDelete:Cascade)
