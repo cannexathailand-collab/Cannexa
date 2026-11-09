@@ -63,7 +63,7 @@ export async function admitOrderText(tx:Prisma.TransactionClient,input:OrderText
  const sellers=await tx.affiliate.findMany({where:{archivedAt:null,active:true,code:{not:metaAdCode},OR:[{code:{equals:parsed.sellerCode,mode:"insensitive"}},{accounts:{some:{username:{equals:parsed.sellerCode,mode:"insensitive"},role:"employee",active:true}}}]},select:{id:true,salesCommissionBasis:true,salesCommissionBps:true,salesCommissionTransferBps:true,salesCommissionCodBps:true,accounts:{where:{role:"employee",active:true},select:{username:true}}},take:2});
  const issues=[...parsed.issues];if(sellers.length!==1)issues.push("ไม่พบรหัสผู้ขายที่ใช้งานอยู่เพียงรายเดียว");
  let customer=null;
- if(sellers.length===1&&parsed.recipient&&parsed.phone){try{customer=await resolveOrderCustomer(tx,{code:parsed.customerCode,name:parsed.recipient,phone:parsed.phone,sellerId:sellers[0].id});}catch(e){if(e instanceof Error&&e.message==='CUSTOMER_IDENTITY_CONFLICT')issues.push('รหัสลูกค้ากับชื่อหรือเบอร์โทรไม่ตรงกัน กรุณาตรวจสอบ');else throw e;}}
+ if(sellers.length===1&&parsed.recipient&&parsed.phone)customer=await resolveOrderCustomer(tx,{code:parsed.customerCode,name:parsed.recipient,phone:parsed.phone,sellerId:sellers[0].id});
  if(parsed.customerCode&&!customer)issues.push('ไม่พบรหัสลูกค้า กรุณาตรวจรหัสกับลูกค้าอีกครั้ง');
  const owner=customer?.referrerId&&customer.referrerId!==sellers[0]?.id?await tx.affiliate.findUnique({where:{id:customer.referrerId}}):sellers[0];
  if(!owner)issues.push('ไม่พบผู้แนะนำของลูกค้า');
