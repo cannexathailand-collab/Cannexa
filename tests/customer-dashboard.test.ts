@@ -23,3 +23,9 @@ test('missing costs stay unknown and empty charts remain valid',()=>{
  const empty=buildCustomerDashboard([],undefined,now);const html=renderToStaticMarkup(createElement(CustomerDashboard,{data:empty}));
  assert.equal(empty.totalOrders,0);assert.doesNotMatch(html,/NaN|Infinity/);assert.match(html,/เปรียบเทียบผลการซื้อ/);assert.match(html,/สถานะออเดอร์ทั้งหมด/);assert.match(html,/สินค้าที่ซื้อบ่อย/);
 });
+
+test('customer dashboard shows the product name with its code',()=>{
+ const data=buildCustomerDashboard([row('named','2026-11-01')],undefined,now);
+ const html=renderToStaticMarkup(createElement(CustomerDashboard,{data,productNames:new Map([['CG1','Product name']])}));
+ assert.match(html,/Product name/);assert.match(html,/CG1/);
+});
