@@ -1,3 +1,5 @@
+import {CustomerDashboard} from '@/app/customer-dashboard';
+import {buildCustomerDashboard} from '@/lib/customer-dashboard';
 import {customerOrderRecency,inactiveCustomerLabel} from '@/lib/crm-customer-recency';
 import {PopupDetails} from '@/app/popup-details';
 import Link from 'next/link';
@@ -19,6 +21,7 @@ export default async function CustomerProfile({params,searchParams}:{params:Prom
  if(!customer)notFound();
  const p=await searchParams,range=crmRange(p),view=['month','year'].includes(p.view??'')?p.view!:'day';
  const summary=(await loadCustomerCrm([code],{...range,view})).get(code)!,life=customerLifetimeStats(summary,customer.createdAt);
+ const dashboard=buildCustomerDashboard(summary.allHistory,p.from||p.to?range:undefined);
  const recency=customerOrderRecency(summary.allHistory);
  const historyRows=p.returns==='1'?summary.history.filter(h=>h.returned):summary.history;
  const historyQuery=new URLSearchParams({...range,view});
@@ -39,6 +42,7 @@ export default async function CustomerProfile({params,searchParams}:{params:Prom
  <p className="muted small">ใช้เฉพาะออเดอร์ที่รับรู้ยอดขายแล้วตามเกณฑ์ CRM และหักต้นทุนสินค้าและค่าส่ง</p>
  </PopupDetails>:<article className="card stat" key={label}><span>{label}</span><strong>{value}</strong></article>)}</section>
  <p className="muted">ค่าเฉลี่ยรายเดือนหารด้วยจำนวนเดือนปฏิทินตั้งแต่เป็นลูกค้าจนถึงเดือนปัจจุบัน รวมเดือนที่ไม่ได้ซื้อ กำไรเฉลี่ยใช้กำไรหลังต้นทุนสินค้าและค่าส่ง และแสดงรอต้นทุนครบเมื่อข้อมูลยังไม่ครบ ส่วนระยะห่างเฉลี่ยคำนวณจากวันที่สั่งซื้อสำเร็จแต่ละครั้ง</p>
+ <CustomerDashboard data={dashboard}/>
  <h2>ดูข้อมูลตามช่วงเวลา</h2><form className="filters">{p.returns==='1'&&<input type="hidden" name="returns" value="1"/>}<label>ตั้งแต่<input type="date" name="from" defaultValue={p.from??''}/></label><label>ถึง<input type="date" name="to" defaultValue={p.to??''}/></label><label>สรุปตาม<select name="view" defaultValue={view}><option value="day">รายวัน</option><option value="month">รายเดือน</option><option value="year">รายปี</option></select></label><button type="submit">แสดงข้อมูล</button></form>
  <section className="stats">{[['ยอดสั่งซื้อสะสม',crmMoney(summary.orderedSatang)],['ยอดซื้อสำเร็จ',crmMoney(summary.purchasedSatang)],['ซื้อสำเร็จ',summary.purchaseCount+' ครั้ง'],['ยอดรอดำเนินการ',crmMoney(summary.pendingSatang)],['ไม่รับสินค้าในช่วงที่เลือก',summary.returnedCount+' ออเดอร์'],['อัตราไม่รับสินค้าในช่วงที่เลือก',summary.returnPercent===null?'ยังไม่มีรายการจัดส่ง':summary.returnPercent.toFixed(1)+'%']].map(([label,value])=><article className="card stat" key={label}><span>{label}</span><strong>{value}</strong></article>)}</section>
  <p>สั่งซื้อทั้งหมด {summary.orderCount} ออเดอร์ · สั่งซื้อล่าสุด {crmDate(summary.lastOrderedAt)}{summary.unknownAmountCount>0&&' · ยังไม่ทราบยอด '+summary.unknownAmountCount+' รายการ'}</p>
