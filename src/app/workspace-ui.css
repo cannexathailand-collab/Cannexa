@@ -123,4 +123,5 @@ button.stock-delete-action:disabled{background:#f8d9d5;color:#85251f;border-colo
 .order-cancel .order-cancel-reference{padding:10px 12px;background:#fff3f1;border:1px solid #f4d7d1;border-radius:8px;font-weight:600;overflow-wrap:anywhere;}
 .order-cancel .order-cancel-confirm,.customer .order-cancel .order-cancel-confirm{width:auto;min-height:44px;padding:10px 18px;border:1px solid #b83027;border-radius:8px;background:#b83027;color:#fff;font-size:14px;}
 .order-cancel .order-cancel-confirm:disabled{opacity:.65;cursor:wait;}
-@media(max-width:600px){.employee-order-card .shipping-actions:has(.order-cancel){display:grid;grid-template-columns:minmax(0,1fr) auto;}.employee-order-card .shipping-actions:has(.order-cancel)>.order-shipping-copy{grid-column:1/-1;}.customer .employee-order-card .shipping-actions:has(.order-cancel)>.order-shipping-copy button{width:100%;}}
+
+.employee-order-reference{display:inline-flex;align-items:center;min-height:32px;color:#216346;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere;}
