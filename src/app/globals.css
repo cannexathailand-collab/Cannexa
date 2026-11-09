@@ -50,3 +50,45 @@ dialog.stock-modal{position:fixed;inset:0;margin:auto;width:min(560px,calc(100vw
 .expense-ledger th,.expense-ledger td{vertical-align:top}.expense-ledger th[scope="rowgroup"],.expense-ledger th[scope="row"]{font-weight:500;white-space:nowrap}.expense-ledger .numeric{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.expense-ledger tfoot{font-weight:700;border-top:2px solid var(--border)}.expense-ledger .expense-description{white-space:normal;min-width:220px}
 .income-day-picker{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px 20px;margin:0 0 20px;background:#fff;border:1px solid #dfe8e1;border-radius:14px}.income-day-picker label{margin:0;font-size:13px;font-weight:600;color:#294b37}.income-day-picker select{width:auto;min-width:220px;margin:0;border:1px solid #cbdcd1;border-radius:10px;padding:10px 36px 10px 12px;background:#f8fbf9;color:#244732}.income-day-picker>span{font-size:11px;color:#7b897f}@media(max-width:600px){.income-day-picker{gap:10px;padding:15px}.income-day-picker label{width:100%}.income-day-picker select{width:100%;min-width:0}}
 .source-customer-type{display:inline-block;padding:5px 9px;border-radius:7px;background:#f0f2ef;color:#657368;font-size:11px;white-space:nowrap}.source-customer-type.is-new{background:#e7f4ec;color:#26764c}
+
+.sales-summary-heading {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap}
+.sales-summary-heading h2 {
+  margin:0}
+.sales-summary .income-day-picker {
+  margin:14px 0 8px;
+  padding:0;
+  border:0;
+  background:transparent}
+.sales-summary .sales-round-note {
+  font-size:12px;
+  margin:8px 0 16px}
+.sales-summary .sales-today {
+  grid-template-columns:repeat(2,minmax(0,1fr))}
+.sales-summary .stats {
+  margin-bottom:12px;
+  gap:10px}
+.sales-summary .stats:last-child {
+  margin-bottom:0}
+.sales-summary .stat {
+  min-height:110px;
+  padding:16px}
+.sales-summary .stat strong {
+  margin:8px 0 4px}
+.sales-summary .stat small {
+  display:block;
+  margin-top:8px;
+  color:#41735a}
+@media(max-width:600px) {
+  .sales-summary .stat {
+  padding:12px}
+.sales-summary .stat strong {
+  font-size:22px}
+.sales-summary .income-day-picker select {
+  min-width:0;
+  width:100%}
+}
