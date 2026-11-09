@@ -3,7 +3,7 @@ import {useRef,useState} from 'react';
 import Link from 'next/link';
 
 type Candidate={id:string;orderNumber:string;recipient:string|null;phone:string|null;payment:string|null;eventAt:string;amountSatang:number|null;address:string|null;addressMatches:boolean};
-type Row={tracking:string;recipient:string;phone:string;address?:string;payment?:'COD'|'โอน';amountSatang?:number;candidates:Candidate[];existingOrderId:string|null;selectedOrderId:string|null};
+type Row={tracking:string;recipient:string;phone:string;address?:string;payment?:'COD'|'โอน';amountSatang?:number;candidates:Candidate[];existingOrderId:string|null;selectedOrderId:string|null;matchMessage?:string};
 const localNow=()=>new Date(Date.now()+7*3600000).toISOString().slice(0,16);
 export function ShipmentUpload(){
  const [rows,setRows]=useState<Row[]>([]),[selected,setSelected]=useState<Record<string,string>>({});
@@ -46,12 +46,12 @@ export function ShipmentUpload(){
    <div className="table-wrap"><table><thead><tr><th>เลขพัสดุ</th><th>ผู้รับในไฟล์</th><th>เบอร์โทร</th><th>ออเดอร์ที่จับคู่</th></tr></thead><tbody>{rows.map(row=><tr key={row.tracking}>
     <td>{row.tracking}</td><td>{row.recipient}<div className="muted small">{row.address}</div></td><td>{row.phone}<div>{row.payment} {row.amountSatang!==undefined?(row.amountSatang/100).toLocaleString('th-TH')+' บาท':''}</div></td><td>
      <select aria-label={'ออเดอร์สำหรับ '+row.tracking} value={selected[row.tracking]??''} disabled={busy||retrying} onChange={event=>setSelected({...selected,[row.tracking]:event.target.value})}>
-      <option value="">{row.candidates.length?'เลือกออเดอร์':'ไม่พบออเดอร์ที่เบอร์โทรและยอดขายตรงกัน'}</option>
+      <option value="">{row.candidates.length?'เลือกออเดอร์':row.matchMessage||'ไม่พบออเดอร์ที่เบอร์โทรและยอดขายตรงกัน'}</option>
       <option value="SKIP">ข้ามรายการนี้</option>
       {row.candidates.map(order=><option key={order.id} value={order.id}>{order.orderNumber} · {order.recipient} · {order.amountSatang===null?'':(order.amountSatang/100).toLocaleString('th-TH')+' บาท'} · {new Date(order.eventAt).toLocaleDateString('th-TH')}</option>)}
      </select>
      {selected[row.tracking]&&selected[row.tracking]!=='SKIP'&&<p className="muted small">{row.candidates.find(order=>order.id===selected[row.tracking])?.address}</p>}
-     {row.existingOrderId&&<p className="muted">เลขนี้มีการผูกออเดอร์แล้ว</p>}
+     {row.matchMessage&&<p className="muted">{row.matchMessage}</p>}
     </td>
    </tr>)}</tbody></table></div>
    <label>วันเวลาที่ส่งพัสดุจริง<input type="datetime-local" value={date} disabled={busy||retrying} onChange={event=>setDate(event.target.value)}/></label>

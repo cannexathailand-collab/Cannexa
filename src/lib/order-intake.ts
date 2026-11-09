@@ -49,7 +49,7 @@ export async function receiveOrderEvent(botId:string,e:OrderEvent,stockReader?:S
   // Recheck inside the write transaction so disabling a group takes effect before save.
   const currentGroup=await tx.orderGroup.findUnique({where:{id:groupKey}});if(!currentGroup?.enabled||(currentGroup.purpose&&currentGroup.purpose!=="ORDER"))return null;
   const admitted=await admitOrderText(tx,{text:e.message!.text!,eventKey,messageKey,groupKey,senderKey:e.source.userId?userKey("order-sender:"+botId+":"+e.source.userId):null,eventAt:new Date(e.timestamp),actor:'line-order'},stockReader);
-  if('reasons' in admitted){await tx.auditLog.create({data:{id:rejectionId,actor:'line-order',action:'ORDER_REJECTED',entityId:messageKey,details:{status:'READY',reasons:admitted.reasons}}});return null;}
+  if('reasons' in admitted){await tx.auditLog.create({data:{id:rejectionId,actor:'line-order',action:'ORDER_REJECTED',entityId:messageKey,details:{status:'READY',reasons:admitted.reasons,phone:parsed.phone,amountSatang:quotedTotal(e.message!.text!),eventAt:new Date(e.timestamp).toISOString()}}});return null;}
   return admitted.order;
  },55000);
 }

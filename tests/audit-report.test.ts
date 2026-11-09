@@ -3,6 +3,14 @@ import assert from 'node:assert/strict';
 import type {AuditLog} from '@prisma/client';
 import {presentAudit} from '../src/lib/audit-report';
 const log=(details:unknown,action='COMMISSION_PAID_BATCH'):AuditLog=>({id:'event',actor:'owner',action,entityId:'expense',details,createdAt:new Date('2026-11-05T17:52:15Z')}) as AuditLog;
+test('rejected order history shows reason, telephone and sale total including older records',()=>{
+ const event=presentAudit(log({reasons:['สินค้าไม่พอ'],phone:'0812345678',amountSatang:125000},'ORDER_REJECTED'));
+ assert.equal(event.title,'ปฏิเสธการรับออเดอร์');
+ assert.ok(event.summary.includes('สินค้าไม่พอ'));
+ assert.ok(event.summary.includes('เบอร์ผู้รับ: 0812345678'));
+ assert.ok(event.summary.some(line=>line.includes('1,250')));
+ assert.deepEqual(presentAudit(log({reasons:['ไม่มีรหัสลูกค้า']},'ORDER_REJECTED')).summary,['ไม่มีรหัสลูกค้า']);
+});
 test('payment history displays each paid item and the account used',()=>{
  const event=presentAudit(log({salesIds:['a','b'],amountSatang:13200}),new Map([['sale:a',[{label:'ออเดอร์แรก',amountSatang:6600}]],['sale:b',[{label:'ออเดอร์ที่สอง',amountSatang:6600}]]]));
  assert.equal(event.items.length,2);assert.deepEqual(event.items.map(i=>i.amountSatang),[6600,6600]);assert.equal(event.actor,'บัญชีเจ้าของ (owner)');assert.equal(event.title,'บันทึกว่าจ่ายค่าคอมแล้ว');
