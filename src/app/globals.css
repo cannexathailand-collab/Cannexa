@@ -124,11 +124,11 @@ dialog.stock-modal{position:fixed;inset:0;margin:auto;width:min(560px,calc(100vw
 .employee-order-dashboard {margin:20px 0 28px;}
 .employee-order-dashboard .employee-order-dashboard-grid {grid-template-columns:repeat(4,minmax(0,1fr));}
 @media(max-width:800px){.employee-order-dashboard .employee-order-dashboard-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
-@media(max-width:600px){.performance-page .employee-nav{grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;}.performance-page .employee-nav a{font-size:11px;}}
+@media(max-width:600px){.performance-page .employee-nav{grid-template-columns:repeat(6,minmax(0,1fr));gap:2px;}.performance-page .employee-nav a{font-size:11px;}}
 
 .employee-order-dashboard .commission-metric {padding:14px;}
 .employee-order-dashboard .commission-metric>strong {font-size:24px;white-space:nowrap;}
 @media(max-width:600px){
  .employee-order-dashboard .commission-metric>strong {font-size:clamp(16px,4.7vw,22px);}
- .performance-page .employee-nav[aria-label="เมนูผลงานพนักงาน"] {grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;}
+ .performance-page .employee-nav[aria-label="เมนูผลงานพนักงาน"] {grid-template-columns:repeat(6,minmax(0,1fr));gap:2px;}
 }
