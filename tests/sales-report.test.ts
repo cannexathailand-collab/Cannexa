@@ -38,3 +38,24 @@ test("daily totals and shifted comparisons reconcile including empty days",()=>{
 });
 test("shipping-date correction moves the sale between calendar ranges",()=>{const a=row("a"),date=new Date("2026-10-31T16:59:00Z"),changed={...a,recognizedAt:date,shipment:{...a.shipment!,dispatchedAt:date}};assert.equal(analyzeSales([changed],{month:"2026-11"}).summary.count,0);assert.equal(analyzeSales([changed],{month:"2026-10"}).summary.count,1);});
 test("Bangkok midnight, leap months and zero comparison base are explicit",()=>{assert.equal(bangkokDay(new Date("2026-11-05T17:00Z")),"2026-11-06");assert.equal(shiftMonth("2024-03-31",-1),"2024-02-29");assert.equal(shiftMonth("2026-03-31",-1),"2026-02-28");assert.equal(compareRevenue(100,0).percent,null);assert.equal(compareRevenue(150,100).percent,50);assert.throws(()=>salesRange({from:"2026-02-30",to:"2026-03-01"}));assert.throws(()=>salesRange({from:"2026-11-07",to:"2026-11-06"}));assert.equal(parseDispatchTime("2026-01-01T00:00").toISOString(),"2025-12-31T17:00:00.000Z");assert.throws(()=>parseDispatchTime("2026-02-30T12:00"));});
+
+ test('order totals include unpaid COD while recognized sales remain separate and filters apply',()=>{
+ const rows=[row('transfer'),cod('paid'),cod('waiting',{status:'WAITING_COD',recognizedAt:null,receipt:null})];
+ const input={from:'2026-11-06',to:'2026-11-06'};
+ const report=analyzeSales(rows,input);
+ assert.deepEqual(report.orderTotals,{count:3,amountSatang:30000,transferCount:1,codCount:2,codSatang:20000,paidCodCount:1});
+ assert.equal(report.orderRows.length,3);assert.equal(report.summary.count,2);assert.equal(report.summary.revenueSatang,20000);
+ const transfer=analyzeSales(rows,{...input,payment:'TRANSFER'});
+ assert.equal(transfer.orderTotals.count,1);assert.equal(transfer.orderTotals.codSatang,0);
+ const onlyCod=analyzeSales(rows,{...input,payment:'COD'});
+ assert.equal(onlyCod.orderTotals.count,2);assert.equal(onlyCod.orderTotals.amountSatang,20000);assert.equal(onlyCod.waitingCodSatang,10000);
+ assert.equal(analyzeSales(rows,{...input,seller:'missing'}).orderTotals.count,0);
+ assert.equal(analyzeSales(rows,{from:'2026-11-07',to:'2026-11-07'}).orderTotals.count,0);
+ });
+test('sales drilldowns show the selected category without changing summary filters',()=>{
+ const rows=[row('transfer'),cod('paid'),cod('waiting',{status:'WAITING_COD',recognizedAt:null,receipt:null})];
+ const filters={from:'2026-11-06',to:'2026-11-06'};
+ for(const [detail,ids] of [['ALL',['transfer','paid','waiting']],['TRANSFER',['transfer']],['COD',['paid','waiting']],['COD_PAID',['paid']],['COD_WAITING',['waiting']],['RECOGNIZED',['transfer','paid']]] as const){const report=analyzeSales(rows,{...filters,detail});assert.deepEqual(report.detailRows.map(r=>r.id).sort(),[...ids].sort());assert.equal(report.orderTotals.count,3);}
+ assert.equal(analyzeSales(rows,{...filters,detail:'invalid'}).detail,'ALL');
+ assert.equal(analyzeSales(rows,{...filters,detail:'COD_WAITING',payment:'TRANSFER'}).detailRows.length,0);
+});

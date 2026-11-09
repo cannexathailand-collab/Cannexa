@@ -11,7 +11,7 @@ export function salesSources(rows:SaleRow[]){
  const source=(s:SaleRow)=>!s.customer?{key:'unknown',name:'ยังไม่ระบุแหล่งที่มา'}:s.customer.legacy?{key:'legacy',name:'ลูกค้าเก่า'}:s.customer.metaFbc||s.customer.referrer?.code==='meta-ad'?{key:'meta',name:'Meta'}:s.customer.referrerId?{key:'affiliate:'+s.customer.referrerId,name:(s.customer.referrer?.name??'Affiliate')+' · '+(s.customer.referrer?.code??'')}:{key:'unknown',name:'ยังไม่ระบุแหล่งที่มา'};
  return [...Map.groupBy(rows,s=>source(s).key)].map(([key,items])=>({key,name:source(items[0]).name,customers:new Set(items.flatMap(s=>s.customer?[s.customer.code]:[])).size,unknownCustomerOrders:items.filter(s=>!s.customer).length,orders:items.length,revenueSatang:items.reduce((n,s)=>n+s.revenueSatang,0)})).sort((a,b)=>b.revenueSatang-a.revenueSatang);
 }
-export type SalesFilters={from?:string;to?:string;month?:string;payment?:string;seller?:string;affiliateId?:string;demo?:string};
+export type SalesFilters={from?:string;to?:string;month?:string;payment?:string;seller?:string;affiliateId?:string;demo?:string;detail?:string};
 export function isRecognizedSale(s:SaleRow){
  return !!s.order&&!!s.shipment&&hasActualDispatch(s.shipment)&&!!s.recognizedAt&&s.recognizedAt.getTime()===s.shipment.dispatchedAt!.getTime()&&s.shipment.orderId===s.orderId&&s.tracking===s.shipment.tracking&&s.revenueSatang>0&&["PENDING","PAID","WAITING_COST"].includes(s.status)&&s.order.payment!=="เคลม"&&!['RETURNED','CANCELLED','WITHDRAWN'].includes(s.order.status)&&(s.paymentMethod==="TRANSFER"&&s.order.payment==="โอน"||(s.paymentMethod==="COD"&&s.order.payment==="COD"&&s.receipt?.tracking===s.tracking&&s.receipt.amountSatang===s.revenueSatang&&s.shipment.codSatang===s.revenueSatang));
 }
@@ -28,7 +28,14 @@ export function analyzeSales(rows:SaleRow[],input:SalesFilters={},now=new Date()
  const daily=[];for(let day=range.from;day<=range.to;day=shiftDay(day,1)){const d=summarizeSales(inRange(day,day));daily.push({day,count:d.count,revenueSatang:d.revenueSatang,transferSatang:d.transferSatang,codSatang:d.codSatang});}
  const groups=[...Map.groupBy(summary.rows,s=>s.order!.sellerUsername??"affiliate:"+s.affiliateId)].map(([key,sales])=>({key,name:sales[0].order!.sellerUsername??sales[0].affiliate?.name??"บัญชีเดิม",code:sales[0].affiliate?.code??"",...summarizeSales(sales)})).sort((a,b)=>b.revenueSatang-a.revenueSatang);
  const waitingCod=filtered.filter(s=>s.order?.payment==="COD"&&!!s.shipment&&hasActualDispatch(s.shipment)&&s.shipment.dispatchedAt&&bangkokDay(s.shipment.dispatchedAt)>=range.from&&bangkokDay(s.shipment.dispatchedAt)<=range.to&&s.receipt?.amountSatang!==s.revenueSatang&&!['RETURNED','CANCELLED','WITHDRAWN'].includes(s.order.status));
- return {range,month:range.from.slice(0,7),summary,groups,sources:salesSources(summary.rows),daily,previous,payment:payment??"",seller:input.seller??"",waitingCodCount:waitingCod.length,waitingCodSatang:waitingCod.reduce((n,s)=>n+s.revenueSatang,0),sellerOptions:[...new Set(rows.flatMap(s=>s.order?.sellerUsername?[s.order.sellerUsername]:[]))].sort()};
+ const waitingCodSatang=waitingCod.reduce((n,s)=>n+s.revenueSatang,0);
+ const orderRows=[...summary.rows,...waitingCod].sort((a,b)=>+b.shipment!.dispatchedAt!-+a.shipment!.dispatchedAt!);
+ const transferCount=summary.rows.filter(s=>s.paymentMethod==='TRANSFER').length;
+ const paidCodCount=summary.rows.filter(s=>s.paymentMethod==='COD').length;
+ const orderTotals={count:orderRows.length,amountSatang:summary.revenueSatang+waitingCodSatang,transferCount,codCount:paidCodCount+waitingCod.length,codSatang:summary.codSatang+waitingCodSatang,paidCodCount};
+ const details={ALL:orderRows,TRANSFER:summary.rows.filter(s=>s.paymentMethod==='TRANSFER'),COD:orderRows.filter(s=>s.paymentMethod==='COD'),COD_PAID:summary.rows.filter(s=>s.paymentMethod==='COD'),COD_WAITING:waitingCod,RECOGNIZED:summary.rows};
+ const detail=Object.hasOwn(details,input.detail??'')?input.detail as keyof typeof details:'ALL';
+ return {range,month:range.from.slice(0,7),summary,groups,orderRows,orderTotals,detail,detailRows:details[detail],sources:salesSources(summary.rows),daily,previous,payment:payment??"",seller:input.seller??"",waitingCodCount:waitingCod.length,waitingCodSatang,sellerOptions:[...new Set(rows.flatMap(s=>s.order?.sellerUsername?[s.order.sellerUsername]:[]))].sort()};
 }
 export async function loadSalesRows(){
  const sales=await db.salesOrder.findMany({where:{status:{in:["PENDING","PAID","WAITING_COST","WAITING_COD"]}},orderBy:[{recognizedAt:{sort:"desc",nulls:"last"}},{createdAt:"desc"}]});
