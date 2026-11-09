@@ -23,3 +23,8 @@ test('closing duplicate records clears the remaining active order alert',()=>{
 test('empty text without a payment slip does not create duplicate alerts',()=>{
  assert.equal(findDuplicateOrders([order('one',{rawText:null}),order('two',{rawText:''})]).size,0);
 });
+test('same customer and goods are flagged across sellers in the same closing round',()=>{
+ const text=(seller:string)=>`รหัสผู้ขาย: ${seller}\nรหัสลูกค้า: C0001\nผู้รับ: Buyer\nโทร: 0812345678\nที่อยู่: 1 Bangkok 10200\nสินค้า\nAF8 x 10 G\nยอดรวม: 490\nชำระเงิน: โอน`;
+ const result=findDuplicateOrders([order('one',{rawText:text('seller-a'),eventAt:new Date('2026-11-09T23:00:00+07:00')}),order('two',{rawText:text('seller-b'),eventAt:new Date('2026-11-10T09:00:00+07:00')})]);
+ assert.equal(result.size,2);assert.equal(result.get('one')?.[0].id,'two');
+});

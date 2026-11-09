@@ -4,7 +4,7 @@ export function employeeSalesWeekStart(roundDay:string){
  const weekday=new Date(roundDay+'T00:00:00Z').getUTCDay();
  return shiftDay(roundDay,-((weekday+6)%7));
 }
-export async function employeeOrderDashboard(username:string,affiliateId:string,now=new Date()){
+export async function employeeOrderDashboard(username?:string,affiliateId?:string,now=new Date()){
  const day=bangkokDay(now);
  const report=await bookedSalesReport({seller:username,affiliateId,from:shiftDay(day.slice(0,7)+'-01',-7),to:shiftDay(day,1)},now);
  const weekStart=employeeSalesWeekStart(report.currentRound);
