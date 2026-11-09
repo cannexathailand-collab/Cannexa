@@ -14,9 +14,17 @@ const messages:Record<string,string>={
  REQUEST_CONFLICT:'คำขอเดิมมีรายการแตกต่างกัน กรุณาตรวจประวัติออเดอร์ก่อนส่งใหม่',
  CUSTOMER_PENDING:'กำลังรอร้านอนุมัติสมาชิก',
  CUSTOMER_NOT_FOUND:'กรุณาเข้าสู่ระบบลูกค้า',
+ PAYMENT_REQUIRED:'กรุณาเลือกวิธีชำระเงิน',
+ INVALID_PAYMENT:'ข้อมูลวิธีชำระเงินไม่ถูกต้อง กรุณาเลือกใหม่',
+ SHIPPING_CHANGED:'ค่าจัดส่งมีการเปลี่ยนแปลง กรุณาตรวจยอดรวมอีกครั้ง',
+ BANK_UNAVAILABLE:'ร้านยังไม่ได้ตั้งค่าบัญชีรับโอน กรุณาเลือกวิธีชำระเงินอื่น',
+ BANK_CHANGED:'บัญชีรับโอนมีการเปลี่ยนแปลง กรุณาตรวจรายละเอียดใหม่ก่อนส่งออเดอร์',
+ SLIP_REQUIRED:'กรุณาแนบสลิปโอนเงิน',
+ INVALID_SLIP:'กรุณาแนบสลิปเป็นรูป JPG, PNG หรือ WebP ที่เปิดอ่านได้',
+ SLIP_TOO_LARGE:'รูปสลิปต้องมีขนาดไม่เกิน 2 MB',
 };
-const conflicts=new Set(['PRICE_CHANGED','STOCK_CHANGED','PRODUCT_UNAVAILABLE','TOTAL_CHANGED','REQUEST_CONFLICT']);
-const invalid=new Set(['INVALID_WEBSITE_ORDER','INVALID_DELIVERY','ORDER_TOO_LARGE']);
+const conflicts=new Set(['PRICE_CHANGED','STOCK_CHANGED','PRODUCT_UNAVAILABLE','TOTAL_CHANGED','REQUEST_CONFLICT','SHIPPING_CHANGED','BANK_CHANGED']);
+const invalid=new Set(['INVALID_WEBSITE_ORDER','INVALID_DELIVERY','ORDER_TOO_LARGE','PAYMENT_REQUIRED','INVALID_PAYMENT','BANK_UNAVAILABLE','SLIP_REQUIRED','INVALID_SLIP','SLIP_TOO_LARGE']);
 
 export async function POST(request:Request){
  try{await sameOrigin();}catch{return NextResponse.json({error:'ไม่อนุญาต',code:'FORBIDDEN'},{status:403});}
@@ -28,7 +36,7 @@ export async function POST(request:Request){
   if(customer?.portalRegistrationPending||customer?.portalProfileIncomplete)return NextResponse.json({error:messages.CUSTOMER_PENDING,code:'CUSTOMER_PENDING'},{status:403});
   if(!customer||!await hasPortalAccess(key,customer.code))return NextResponse.json({error:messages.CUSTOMER_NOT_FOUND,code:'UNAUTHORIZED'},{status:401});
   const text=await request.text();
-  if(text.length>50000)return NextResponse.json({error:messages.INVALID_WEBSITE_ORDER,code:'INVALID_WEBSITE_ORDER'},{status:400});
+  if(Buffer.byteLength(text,'utf8')>3*1024*1024)return NextResponse.json({error:messages.SLIP_TOO_LARGE,code:'SLIP_TOO_LARGE'},{status:400});
   let input:unknown;
   try{input=JSON.parse(text);}catch{return NextResponse.json({error:messages.INVALID_WEBSITE_ORDER,code:'INVALID_WEBSITE_ORDER'},{status:400});}
   const saved=await createWebsiteOrder(customer.code,input);

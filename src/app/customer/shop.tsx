@@ -5,6 +5,7 @@ import {useRouter} from 'next/navigation';
 import type {CustomerCatalog, CustomerCatalogProduct} from '@/lib/customer-catalog';
 import {cartItemKey, cartQuantityError, readCustomerCart, type CustomerCartItem} from '@/lib/customer-cart';
 import {checkoutCartItems, createCustomerCheckout, isDefiniteCheckoutFailure, readCheckoutOrder, readCustomerCheckout, type CustomerCheckoutOrder, type CustomerCheckoutPayload} from '@/lib/customer-checkout';
+import {websitePaymentReady, websiteShippingFees, type WebsitePaymentDetails, type WebsitePaymentMethod} from '@/lib/website-payment';
 
 const money = (satang: number) => (satang / 100).toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const imageUrl = (product: CustomerCatalogProduct) => '/api/stock/' + encodeURIComponent(product.code) + '/image?v=' + product.imageVersion;
@@ -13,11 +14,23 @@ const orderStatus: Record<string, string> = {PENDING_REVIEW: 'รอเจ้า
 function ShopProduct({product, disabled, onAdd}: {
   product: CustomerCatalogProduct;
   disabled: boolean;
-  onAdd: (product: CustomerCatalogProduct, pack: string) => void;
+  onAdd: (product: CustomerCatalogProduct, pack: string) => boolean;
 }) {
   const [pack, setPack] = useState(product.prices.find(price => price.priceSatang > 0)?.pack ?? '');
+  const [added, setAdded] = useState<{
+    sequence: number;
+    name: string;
+    pack: string;
+    priceSatang: number;
+  } | null>(null);
   const selected = product.prices.find(price => price.pack === pack) ?? product.prices.find(price => price.priceSatang > 0);
   const available = selected && selected.priceSatang > 0 && product.available !== null && product.available >= selected.grams;
+
+  useEffect(() => {
+    if (!added) return;
+    const timer = window.setTimeout(() => setAdded(null), 2000);
+    return () => window.clearTimeout(timer);
+  }, [added]);
 
   return <article className="shop-product">
     <div className="shop-product-picture">
@@ -39,9 +52,25 @@ function ShopProduct({product, disabled, onAdd}: {
       <span className={'shop-availability' + (available ? ' available' : '')}>
         {available ? 'พร้อมขาย' : product.available === null ? 'รอข้อมูลสต๊อก' : 'ขนาดนี้ยังไม่พร้อมขาย'}
       </span>
-      <button type="button" aria-label={'เพิ่มลงตะกร้า ' + product.code} disabled={disabled || !available} onClick={() => selected && onAdd(product, selected.pack)}>
-        เพิ่มลงตะกร้า
-      </button>
+      <div className="shop-add-action">
+        {added && <div key={added.sequence} className="shop-add-feedback" role="status">
+          <strong><span aria-hidden="true">✓</span> เพิ่มลงตะกร้าแล้ว</strong>
+          <span>{added.name}</span>
+          <span>จำนวน 1 · {added.pack} · {money(added.priceSatang)} บาท</span>
+        </div>}
+        <button type="button" aria-label={'เพิ่มลงตะกร้า ' + product.code} disabled={disabled || !available} onClick={() => {
+          if (selected && onAdd(product, selected.pack)) {
+            setAdded(previous => ({
+              sequence: (previous?.sequence ?? 0) + 1,
+              name: product.name || product.code,
+              pack: selected.pack,
+              priceSatang: selected.priceSatang,
+            }));
+          } else setAdded(null);
+        }}>
+          เพิ่มลงตะกร้า
+        </button>
+      </div>
     </div>
   </article>;
 }
@@ -60,6 +89,16 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
   const [checkout, setCheckout] = useState<{key: string | null; payload: CustomerCheckoutPayload | null}>({key: null, payload: null});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<{key: string; order: CustomerCheckoutOrder} | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<WebsitePaymentMethod | ''>('');
+  const [paymentDetails, setPaymentDetails] = useState<WebsitePaymentDetails | null>(null);
+  const [paymentLoading, setPaymentLoading] = useState(true);
+  const [paymentError, setPaymentError] = useState('');
+  const [paymentRefresh, setPaymentRefresh] = useState(0);
+  const [slip, setSlip] = useState<string | null>(null);
+  const [slipName, setSlipName] = useState('');
+  const [readingSlip, setReadingSlip] = useState(false);
+  const slipReader = useRef<FileReader | null>(null);
+  const bankVersion = useRef<string | null>(null);
   const sending = useRef(false);
   const cartDialog = useRef<HTMLDialogElement>(null);
   const storageKey = readOnly ? null : 'cannexa:shop-cart:v1:' + customerCode;
@@ -76,6 +115,10 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
 
   useEffect(() => setCatalog(initialCatalog), [initialCatalog]);
   useEffect(() => {
+    slipReader.current?.abort();
+    slipReader.current = null;
+    setReadingSlip(false);
+    bankVersion.current = null;
     let saved: CustomerCartItem[] = [];
     let payload: CustomerCheckoutPayload | null = null;
     if (storageKey) {
@@ -89,26 +132,100 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
     setCheckout({key: checkoutKey, payload});
     setSubmitted(null);
     setError('');
+    setPaymentMethod(payload?.paymentMethod ?? '');
+    setSlip(payload?.slip ?? null);
+    setSlipName(payload?.slip ? 'สลิปจากคำขอเดิม' : '');
   }, [storageKey, checkoutKey]);
   useEffect(() => {
     if (!storageKey || cart.key !== storageKey) return;
     try { localStorage.setItem(storageKey, JSON.stringify(cart.items)); } catch {}
   }, [cart, storageKey]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    setPaymentLoading(true);
+    setPaymentDetails(null);
+    setPaymentError('');
+    fetch('/api/customer/payment-settings', {cache: 'no-store', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)])})
+      .then(async response => {
+        const result = await response.json();
+        if (!response.ok) throw Error(result.error || 'โหลดข้อมูลบัญชีรับโอนไม่สำเร็จ');
+        if (!result.details || ['bankName', 'accountName', 'accountNumber'].some(field => typeof result.details[field] !== 'string')) {
+          throw Error('ข้อมูลบัญชีรับโอนไม่สมบูรณ์');
+        }
+        if (!controller.signal.aborted) {
+          if (bankVersion.current && bankVersion.current !== result.details.version) {
+            slipReader.current?.abort();
+            slipReader.current = null;
+            setReadingSlip(false);
+            setSlip(null);
+            setSlipName('');
+          }
+          bankVersion.current = result.details.version;
+          setPaymentDetails(result.details);
+        }
+      })
+      .catch(failure => {
+        if (!controller.signal.aborted) setPaymentError(failure instanceof Error ? failure.message : 'โหลดข้อมูลบัญชีรับโอนไม่สำเร็จ');
+      })
+      .finally(() => { if (!controller.signal.aborted) setPaymentLoading(false); });
+    return () => controller.abort();
+  }, [customerCode, paymentRefresh]);
+  useEffect(() => () => slipReader.current?.abort(), []);
+
+  function selectSlip(file?: File) {
+    slipReader.current?.abort();
+    slipReader.current = null;
+    setSlip(null);
+    setSlipName('');
+    setReadingSlip(false);
+    setPaymentError('');
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || !file.size || file.size > 2 * 1024 * 1024) {
+      setPaymentError('เลือกสลิป JPG, PNG หรือ WebP ขนาดไม่เกิน 2 MB');
+      return;
+    }
+    const reader = new FileReader();
+    slipReader.current = reader;
+    setReadingSlip(true);
+    reader.onload = async () => {
+      try {
+        if (typeof reader.result !== 'string') throw Error();
+        const image = new Image();
+        image.src = reader.result;
+        await image.decode();
+        if (slipReader.current !== reader) return;
+        setSlip(reader.result);
+        setSlipName(file.name);
+      } catch {
+        if (slipReader.current === reader) setPaymentError('เปิดรูปสลิปไม่ได้ กรุณาเลือกไฟล์ใหม่');
+      } finally {
+        if (slipReader.current === reader) setReadingSlip(false);
+      }
+    };
+    reader.onerror = () => {
+      if (slipReader.current !== reader) return;
+      setPaymentError('อ่านสลิปไม่ได้ กรุณาเลือกไฟล์ใหม่');
+      setReadingSlip(false);
+    };
+    reader.readAsDataURL(file);
+  }
+
   function add(product: CustomerCatalogProduct, pack: string) {
     const price = product.prices.find(candidate => candidate.pack === pack);
-    if (!price || locked || sending.current) return;
+    if (!price || locked || sending.current) return false;
     const key = cartItemKey({code: product.code, pack});
     const existing = items.find(item => cartItemKey(item) === key);
     const quantity = (existing?.quantity ?? 0) + 1;
     const problem = cartQuantityError(items, product, price, quantity);
-    if (problem) { setError(problem); return; }
-    if (!existing && items.length >= 100) { setError('ตะกร้ารองรับได้ไม่เกิน 100 รายการ'); return; }
+    if (problem) { setError(problem); return false; }
+    if (!existing && items.length >= 100) { setError('ตะกร้ารองรับได้ไม่เกิน 100 รายการ'); return false; }
     setCart({key: storageKey, items: existing
       ? items.map(item => cartItemKey(item) === key ? {...item, quantity} : item)
       : [...items, {code: product.code, pack, quantity}]});
     setError('');
     setSubmitted(null);
+    return true;
   }
 
   function setQuantity(item: CustomerCartItem, quantity: number) {
@@ -130,8 +247,16 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
     let payload: CustomerCheckoutPayload;
     try {
       // Reuse the stored request even if another tab prepared it or catalog prices changed.
-      payload = pending ?? readCustomerCheckout(localStorage.getItem(checkoutKey)) ??
-        createCustomerCheckout(items, catalog.products, crypto.randomUUID());
+      const previous = pending ?? readCustomerCheckout(localStorage.getItem(checkoutKey));
+      if (previous) payload = previous;
+      else {
+        if (!paymentMethod) throw Error('กรุณาเลือกวิธีชำระเงิน');
+        payload = createCustomerCheckout(items, catalog.products, crypto.randomUUID(), {
+          paymentMethod,
+          bankVersion: paymentMethod === 'TRANSFER' ? paymentDetails?.version ?? null : null,
+          ...(paymentMethod === 'TRANSFER' && slip ? {slip} : {}),
+        });
+      }
       localStorage.setItem(checkoutKey, JSON.stringify(payload));
       setCheckout({key: checkoutKey, payload});
       setCart({key: storageKey, items: checkoutCartItems(payload)});
@@ -166,6 +291,9 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
         if (activeKey.current === checkoutKey) {
           setCart({key: storageKey, items: []});
           setCheckout({key: checkoutKey, payload: null});
+          setPaymentMethod('');
+          setSlip(null);
+          setSlipName('');
           router.refresh();
         }
         return;
@@ -204,10 +332,17 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
 
   const search = query.trim().normalize('NFKC').toLocaleLowerCase();
   const visibleProducts = catalog.products.filter(product => (product.code + ' ' + (product.name ?? '')).normalize('NFKC').toLocaleLowerCase().includes(search));
-  const total = pending?.expectedTotalSatang ?? items.reduce((sum, item) => {
+  const subtotal = items.reduce((sum, item) => {
+    const original = pending?.items.find(candidate => cartItemKey(candidate) === cartItemKey(item));
     const price = products.get(item.code)?.prices.find(candidate => candidate.pack === item.pack);
-    return sum + (price?.priceSatang ?? 0) * item.quantity;
+    return sum + (original?.expectedUnitPriceSatang ?? price?.priceSatang ?? 0) * item.quantity;
   }, 0);
+  const selectedPayment = pending ? pending.paymentMethod ?? '' : paymentMethod;
+  const shipping = pending ? pending.expectedShippingSatang ?? 0 : selectedPayment ? websiteShippingFees[selectedPayment] : 0;
+  const total = pending?.expectedTotalSatang ?? subtotal + shipping;
+  const bankReady = !!paymentDetails?.version && websitePaymentReady(paymentDetails);
+  const paymentReady = selectedPayment === 'COD' || selectedPayment === 'TRANSFER' && bankReady && !paymentLoading && !!slip;
+  const shownSlip = pending?.slip ?? slip;
 
   return <section className="portal-section customer-shop">
     <div className="shop-heading">
@@ -260,14 +395,51 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
           {problem && <p className="shop-cart-warning">{problem}</p>}
         </article>;
       })}</div> : <p className="portal-empty">ยังไม่มีสินค้าในตะกร้า</p>}
-      <div className="shop-cart-total"><span>ยอดรวมสินค้า</span><strong>{Number.isSafeInteger(total) ? money(total) + ' บาท' : 'กรุณาตรวจสอบยอดรวม'}</strong></div>
+      {items.length > 0 && <section className="shop-payment" aria-label="การชำระเงิน">
+        <h3>การชำระเงิน</h3>
+        <label>วิธีชำระเงิน<select aria-label="วิธีชำระเงิน" value={selectedPayment} disabled={locked} onChange={event => {
+          setPaymentMethod(event.target.value as WebsitePaymentMethod | '');
+          setPaymentError('');
+        }}>
+          <option value="">เลือกวิธีชำระเงิน</option>
+          <option value="TRANSFER">โอนเงิน · ค่าส่ง {money(websiteShippingFees.TRANSFER)} บาท</option>
+          <option value="COD">เก็บเงินปลายทาง (COD) · ค่าส่ง {money(websiteShippingFees.COD)} บาท</option>
+        </select></label>
+        {selectedPayment === 'TRANSFER' && <>
+          {pending && pending.bankVersion !== paymentDetails?.version
+            ? <p className="portal-muted">คำขอนี้ใช้บัญชีรับโอนที่ยืนยันไว้ตอนส่งครั้งแรก</p>
+            : paymentLoading ? <p className="portal-muted">กำลังโหลดข้อมูลบัญชีรับโอน…</p>
+            : bankReady ? <dl className="shop-bank-details">
+              <div><dt>ธนาคาร</dt><dd>{paymentDetails!.bankName}</dd></div>
+              <div><dt>ชื่อบัญชี</dt><dd>{paymentDetails!.accountName}</dd></div>
+              <div><dt>เลขบัญชี</dt><dd>{paymentDetails!.accountNumber}</dd></div>
+            </dl> : <p className="portal-alert">รอร้านตั้งค่าบัญชีรับโอน</p>}
+          {!pending && <button type="button" className="secondary" disabled={paymentLoading} onClick={() => setPaymentRefresh(value => value + 1)}>อัปเดตข้อมูลบัญชี</button>}
+          <p className="portal-muted">ยอดโอนรวมค่าส่ง {money(total)} บาท</p>
+          {!pending && <label>แนบสลิปการโอนเงิน<input type="file" accept="image/jpeg,image/png,image/webp" disabled={locked || readingSlip || paymentLoading || !bankReady} onChange={event => {
+            selectSlip(event.target.files?.[0]);
+            event.target.value = '';
+          }}/><span className="portal-muted">JPG, PNG หรือ WebP ขนาดไม่เกิน 2 MB</span></label>}
+          {readingSlip && <p role="status">กำลังอ่านสลิป…</p>}
+          {shownSlip && <div className="shop-slip-preview"><img src={shownSlip} alt="สลิปการโอนเงิน"/><span>{slipName || 'สลิปการโอนเงิน'}</span></div>}
+        </>}
+        {selectedPayment === 'COD' && <p className="portal-muted">ชำระเงินปลายทางรวมค่าส่ง {money(total)} บาท</p>}
+        {paymentError && <p role="alert" className="portal-alert">{paymentError}</p>}
+      </section>}
+      <div className="shop-price-summary"><span>ยอดสินค้า</span><strong>{money(subtotal)} บาท</strong></div>
+      <div className="shop-price-summary"><span>ค่าจัดส่ง</span><strong>{selectedPayment || pending ? money(shipping) + ' บาท' : 'เลือกวิธีชำระเงิน'}</strong></div>
+      <div className="shop-cart-total"><span>ยอดรวม</span><strong>{Number.isSafeInteger(total) ? money(total) + ' บาท' : 'กรุณาตรวจสอบยอดรวม'}</strong></div>
       <p className="portal-muted">{readOnly ? 'ตะกร้าทดลองสำหรับเจ้าของระบบ' : 'ออเดอร์ที่ส่งจะรอเจ้าหน้าที่ตรวจสอบ'}</p>
       {pending && <p className="portal-muted">กำลังใช้รายการและราคาของคำขอเดิม กรุณายืนยันผลก่อนแก้ไขตะกร้า</p>}
       {items.length > 0 && <div className="actions">
-        {!readOnly && <button type="button" disabled={!ready || submitting} onClick={sendOrder}>{submitting ? 'กำลังส่งออเดอร์…' : pending ? 'ลองส่งอีกครั้ง' : 'ส่งออเดอร์ให้ตรวจสอบ'}</button>}
+        {!readOnly && <button type="button" disabled={!ready || submitting || readingSlip || !pending && !paymentReady} onClick={sendOrder}>{submitting ? 'กำลังส่งออเดอร์…' : pending ? 'ลองส่งอีกครั้ง' : 'ส่งออเดอร์ให้ตรวจสอบ'}</button>}
         <button type="button" className="secondary" disabled={locked} onClick={() => {
           if (locked || sending.current) return;
+          slipReader.current?.abort();
+          slipReader.current = null;
+          setReadingSlip(false);
           setCart({key: storageKey, items: []}); setError('');
+          setPaymentMethod(''); setSlip(null); setSlipName('');
         }}>ล้างตะกร้า</button>
       </div>}
     </dialog>

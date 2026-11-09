@@ -2,25 +2,27 @@ import {test,type TestContext} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {db} from '../src/lib/db';
+import {sha} from '../src/lib/crypto';
 import {createWebsiteOrder,reviewWebsiteOrder,loadWebsiteOrdersForCustomer,listWebsiteOrders} from '../src/lib/website-orders';
 
 function fixture(t:TestContext){
  const original=db.$transaction,originalFindMany=db.websiteOrder.findMany;
  t.after(()=>{db.$transaction=original;db.websiteOrder.findMany=originalFindMany;});
  const customer:any={code:'C100',title:'คุณ',name:'Example Customer',phone:'0812345678',address:'10 Example Road Bangkok 10200',portalRegistrationPending:false,portalProfileIncomplete:false};
- const state={customer,rows:[{code:'A1',name:'General product',available:100,prices:[{pack:'10G',priceSatang:1000},{pack:'20G',priceSatang:1800}]}] as any[],orders:new Map<string,any>(),audits:[] as any[],snapshotReads:0,locks:[] as string[]};
+ const state={customer,bank:{bankName:'Example Bank',accountName:'Example Account',accountNumber:'1234567890',version:'12345678-1234-4234-8234-123456789abc'},rows:[{code:'A1',name:'General product',available:100,prices:[{pack:'10G',priceSatang:1000},{pack:'20G',priceSatang:1800}]}] as any[],orders:new Map<string,any>(),audits:[] as any[],snapshotReads:0,locks:[] as string[]};
  const tx={
   $queryRawUnsafe:async(_sql:string,key:string)=>{state.locks.push(key);return [{locked:true}];},
   customer:{findUnique:async({where}:any)=>where.code===customer.code?structuredClone(customer):null},
   employeeStockSnapshot:{findUnique:async()=>{state.snapshotReads++;return {rows:state.rows,fetchedAt:new Date('2026-11-07T02:00:00Z')};}},
   stockProductImage:{findMany:async()=>[]},
+  websitePaymentSettings:{findUnique:async()=>structuredClone(state.bank)},
   websiteOrder:{
    findUnique:async({where}:any)=>{
     const match=where.id?state.orders.get(where.id):[...state.orders.values()].find(order=>order.customerCode===where.customerCode_requestKey.customerCode&&order.requestKey===where.customerCode_requestKey.requestKey);
     return match?structuredClone(match):null;
    },
    create:async({data}:any)=>{
-    const order={...structuredClone(data),id:randomUUID(),status:'PENDING_REVIEW',reviewNote:'',reviewedBy:null,reviewedAt:null,createdAt:new Date(),updatedAt:new Date()};
+    const order={paymentMethod:null,subtotalSatang:null,shippingSatang:0,bankDetails:null,slipVersion:null,...structuredClone(data),id:randomUUID(),status:'PENDING_REVIEW',reviewNote:'',reviewedBy:null,reviewedAt:null,createdAt:new Date(),updatedAt:new Date()};
     state.orders.set(order.id,order);
     return structuredClone(order);
    },
@@ -38,7 +40,7 @@ function fixture(t:TestContext){
  (db.websiteOrder as any).findMany=async({where,take}:any)=>[...state.orders.values()].filter(order=>(!where.customerCode||where.customerCode===order.customerCode)&&(!where.status||where.status===order.status)).slice(0,take).map(order=>structuredClone(order));
  return state;
 }
-const request=(change:Record<string,unknown>={})=>({requestKey:randomUUID(),items:[{code:'A1',pack:'10G',quantity:2,expectedUnitPriceSatang:1000}],expectedTotalSatang:2000,...change});
+const request=(change:Record<string,unknown>={})=>({requestKey:randomUUID(),items:[{code:'A1',pack:'10G',quantity:2,expectedUnitPriceSatang:1000}],expectedTotalSatang:12000,paymentMethod:'COD',expectedShippingSatang:10000,bankVersion:null,...change});
 
 test('website requests snapshot current catalog and delivery without creating operational orders',async t=>{
  const state=fixture(t);
@@ -49,7 +51,7 @@ test('website requests snapshot current catalog and delivery without creating op
  assert.equal(order.recipient,'คุณ Example Customer');
  assert.equal(order.phone,'0812345678');
  assert.equal(order.address,state.customer.address);
- assert.equal(order.totalSatang,2000);
+ assert.equal(order.totalSatang,12000);assert.equal(order.subtotalSatang,2000);assert.equal(order.shippingSatang,10000);assert.equal(order.paymentMethod,'COD');
  assert.deepEqual(order.items,[{code:'A1',name:'General product',pack:'10G',grams:10,quantity:2,unitPriceSatang:1000,lineTotalSatang:2000}]);
  assert.equal(state.audits.length,1);
  assert.equal(state.audits[0].action,'WEBSITE_ORDER_SUBMITTED');
@@ -59,6 +61,42 @@ test('website requests snapshot current catalog and delivery without creating op
  assert.equal((await listWebsiteOrders('PENDING_REVIEW')).length,1);
  assert.equal((await listWebsiteOrders('APPROVED')).length,0);
  await assert.rejects(listWebsiteOrders('other'),/INVALID_WEBSITE_ORDER_STATUS/);
+});
+
+test('transfer requires current configured bank and a valid slip, preserves private snapshots on retries',async t=>{
+ const state=fixture(t),slip='data:image/png;base64,iVBORw0KGgo=';
+ const transfer=request({paymentMethod:'TRANSFER',bankVersion:state.bank.version,expectedShippingSatang:5000,expectedTotalSatang:7000,slip});
+ await assert.rejects(createWebsiteOrder('C100',{...transfer,slip:undefined}),/SLIP_REQUIRED/);
+ await assert.rejects(createWebsiteOrder('C100',{...transfer,slip:'data:image/png;base64,YmFk'}),/INVALID_SLIP/);
+ await assert.rejects(createWebsiteOrder('C100',{...transfer,slip:'data:image/png;base64,'+'A'.repeat(3*1024*1024)}),/SLIP_TOO_LARGE/);
+ await assert.rejects(createWebsiteOrder('C100',{...transfer,bankVersion:'old'}),/BANK_CHANGED/);
+ await assert.rejects(createWebsiteOrder('C100',{...transfer,expectedShippingSatang:1}),/SHIPPING_CHANGED/);
+ await assert.rejects(createWebsiteOrder('C100',{...request(),slip}),/INVALID_PAYMENT/);
+ state.bank.bankName='';
+ await assert.rejects(createWebsiteOrder('C100',transfer),/BANK_UNAVAILABLE/);
+ state.bank.bankName='Example Bank';
+ const saved=await createWebsiteOrder('C100',transfer);
+ assert.equal(saved.totalSatang,7000);assert.equal(saved.subtotalSatang,2000);assert.equal(saved.shippingSatang,5000);
+ assert.deepEqual(saved.bankDetails,state.bank);assert.match(saved.slipVersion!,/^[a-f0-9]{64}$/);
+ const json=JSON.stringify(saved);
+ assert.ok(!json.includes('slipData'));assert.ok(!json.includes('iVBORw0KGgo='));
+ assert.ok(!JSON.stringify(state.audits).includes('iVBORw0KGgo='));
+ state.bank.accountNumber='9876543210';state.bank.version=randomUUID();state.rows=[];
+ assert.deepEqual(await createWebsiteOrder('C100',transfer),saved);
+ await assert.rejects(createWebsiteOrder('C100',{...transfer,bankVersion:state.bank.version}),/REQUEST_CONFLICT/);
+ await assert.rejects(createWebsiteOrder('C100',{...transfer,slip:'data:image/png;base64,iVBORw0KGgoA'}),/REQUEST_CONFLICT/);
+});
+
+test('legacy existing requests retain their original fingerprint while new requests require payment',async t=>{
+ const state=fixture(t),modern=request();
+ const legacy={requestKey:modern.requestKey,items:modern.items,expectedTotalSatang:2000};
+ await assert.rejects(createWebsiteOrder('C100',legacy),/PAYMENT_REQUIRED/);
+ const old={id:'legacy',orderNumber:'WEB-OLD',customerCode:'C100',requestKey:legacy.requestKey,requestFingerprint:sha(JSON.stringify({items:legacy.items,expectedTotalSatang:2000})),status:'PENDING_REVIEW',items:[],totalSatang:2000,paymentMethod:null,subtotalSatang:null,shippingSatang:0,bankDetails:null,slipVersion:null,recipient:'Existing',phone:'0812345678',address:'Legacy 10200',reviewNote:'',reviewedBy:null,reviewedAt:null,createdAt:new Date(),updatedAt:new Date()};
+ state.orders.set(old.id,old);
+ const replay=await createWebsiteOrder('C100',legacy);
+ assert.equal(replay.id,'legacy');assert.equal(replay.subtotalSatang,2000);assert.equal(replay.paymentMethod,null);
+ assert.equal(state.snapshotReads,0);assert.equal(state.audits.length,0);
+ await assert.rejects(createWebsiteOrder('C100',modern),/REQUEST_CONFLICT/);
 });
 
 test('identical retries return original before catalog or delivery revalidation, while changed payload conflicts',async t=>{

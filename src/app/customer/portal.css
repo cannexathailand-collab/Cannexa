@@ -290,6 +290,44 @@
   margin-top:auto;
   background:#235c3d
 }
+.shop-add-action {
+  position:relative;
+  margin-top:auto
+}
+.shop-add-feedback {
+  position:absolute;
+  bottom:calc(100% + 8px);
+  left:0;
+  right:0;
+  z-index:1;
+  padding:8px 6px;
+  border:1px solid #b9d7c0;
+  border-radius:9px;
+  background:#edf7ed;
+  color:#215c36;
+  box-shadow:0 4px 12px #183d2520;
+  font-size:11px;
+  line-height:1.5;
+  text-align:center;
+  overflow-wrap:anywhere;
+  pointer-events:none
+}
+.shop-add-feedback>strong,
+.shop-add-feedback>span {
+  display:block
+}
+.shop-add-feedback::after {
+  content:"";
+  position:absolute;
+  bottom:-5px;
+  left:calc(50% - 4px);
+  width:8px;
+  height:8px;
+  background:#edf7ed;
+  border-right:1px solid #b9d7c0;
+  border-bottom:1px solid #b9d7c0;
+  transform:rotate(45deg)
+}
 .shop-unavailable {
   font-size:13px;
   color:#8e8065
@@ -350,6 +388,71 @@
   font-size:20px;
   color:#234f33;
   overflow-wrap:anywhere
+}
+.shop-payment {
+  display:grid;
+  gap:12px;
+  margin-top:20px;
+  padding:16px;
+  border:1px solid #dce6d9;
+  border-radius:12px;
+  background:#f8fbf5
+}
+.shop-payment h3,
+.shop-payment p {
+  margin:0
+}
+.shop-payment label {
+  display:grid;
+  gap:8px
+}
+.shop-payment select,
+.shop-payment input {
+  width:100%;
+  min-width:0;
+  font-size:16px
+}
+.shop-bank-details {
+  display:grid;
+  gap:8px;
+  margin:0;
+  padding:12px;
+  border-radius:10px;
+  background:#fff
+}
+.shop-bank-details div {
+  display:grid;
+  grid-template-columns:80px minmax(0,1fr);
+  gap:8px
+}
+.shop-bank-details dt {
+  color:#6c826f
+}
+.shop-bank-details dd {
+  margin:0;
+  font-weight:600;
+  overflow-wrap:anywhere
+}
+.shop-slip-preview {
+  display:grid;
+  gap:6px;
+  font-size:12px;
+  overflow-wrap:anywhere
+}
+.shop-slip-preview img {
+  width:100%;
+  max-width:220px;
+  max-height:300px;
+  object-fit:contain;
+  border:1px solid #dce6d9;
+  border-radius:8px
+}
+.shop-price-summary {
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:12px;
+  color:#4d6653
 }
 @media(max-width:700px) {
   .shop-product-grid {

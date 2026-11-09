@@ -1,23 +1,29 @@
 import type {CustomerCatalogProduct} from './customer-catalog';
 import {cartItemKey, cartQuantityError, type CustomerCartItem} from './customer-cart';
+import {websiteShippingFees,type WebsitePaymentMethod} from './website-payment';
 
 export type CustomerCheckoutItem = CustomerCartItem & {expectedUnitPriceSatang: number};
 export type CustomerCheckoutPayload = {
   requestKey: string;
   items: CustomerCheckoutItem[];
   expectedTotalSatang: number;
+  paymentMethod?: WebsitePaymentMethod;
+  expectedShippingSatang?: number;
+  bankVersion?: string|null;
+  slip?: string;
 };
+export type CustomerCheckoutPayment={paymentMethod:WebsitePaymentMethod;bankVersion:string|null;slip?:string};
 export type CustomerCheckoutOrder = {id: string; orderNumber: string; status: string; totalSatang: number};
 
 const requestKeyPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const definiteFailureCodes = new Set(['PRICE_CHANGED', 'STOCK_CHANGED', 'PRODUCT_UNAVAILABLE', 'TOTAL_CHANGED', 'INVALID_DELIVERY', 'INVALID_WEBSITE_ORDER', 'ORDER_TOO_LARGE']);
+const definiteFailureCodes = new Set(['PRICE_CHANGED', 'STOCK_CHANGED', 'PRODUCT_UNAVAILABLE', 'TOTAL_CHANGED', 'INVALID_DELIVERY', 'INVALID_WEBSITE_ORDER', 'ORDER_TOO_LARGE','PAYMENT_REQUIRED','INVALID_PAYMENT','SHIPPING_CHANGED','BANK_UNAVAILABLE','BANK_CHANGED','SLIP_REQUIRED','INVALID_SLIP','SLIP_TOO_LARGE']);
 
 export function isDefiniteCheckoutFailure(status: number, code: unknown) {
   return (status === 400 || status === 409) && typeof code === 'string' && definiteFailureCodes.has(code);
 }
 
 export function readCustomerCheckout(value: string | null): CustomerCheckoutPayload | null {
-  if (!value || value.length > 50000) return null;
+  if (!value || value.length > 3*1024*1024) return null;
   try {
     const parsed = JSON.parse(value);
     if (!parsed || typeof parsed.requestKey !== 'string' || !requestKeyPattern.test(parsed.requestKey) ||
@@ -38,14 +44,21 @@ export function readCustomerCheckout(value: string | null): CustomerCheckoutPayl
       total += item.expectedUnitPriceSatang * item.quantity;
       if (!Number.isSafeInteger(total)) return null;
     }
-    if (total !== parsed.expectedTotalSatang) return null;
-    return {requestKey: parsed.requestKey, items, expectedTotalSatang: total};
+    const legacy=parsed.paymentMethod===undefined&&parsed.expectedShippingSatang===undefined&&parsed.bankVersion===undefined&&parsed.slip===undefined;
+    if(legacy)return total===parsed.expectedTotalSatang?{requestKey:parsed.requestKey,items,expectedTotalSatang:total}:null;
+    if(!['TRANSFER','COD'].includes(parsed.paymentMethod)||!Number.isSafeInteger(parsed.expectedShippingSatang)||parsed.expectedShippingSatang<0||
+       total+parsed.expectedShippingSatang!==parsed.expectedTotalSatang)return null;
+    if(parsed.paymentMethod==='TRANSFER'){
+      if(typeof parsed.bankVersion!=='string'||!parsed.bankVersion||parsed.bankVersion.length>100||typeof parsed.slip!=='string'||!/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(parsed.slip))return null;
+    }else if(parsed.bankVersion!==null||parsed.slip!==undefined)return null;
+    return {requestKey:parsed.requestKey,items,expectedTotalSatang:parsed.expectedTotalSatang,paymentMethod:parsed.paymentMethod,expectedShippingSatang:parsed.expectedShippingSatang,bankVersion:parsed.bankVersion,...(parsed.slip!==undefined?{slip:parsed.slip}:{})};
   } catch {
     return null;
   }
 }
 
-export function createCustomerCheckout(items: CustomerCartItem[], products: CustomerCatalogProduct[], requestKey: string): CustomerCheckoutPayload {
+export function createCustomerCheckout(items: CustomerCartItem[], products: CustomerCatalogProduct[], requestKey: string,payment:CustomerCheckoutPayment): CustomerCheckoutPayload {
+  if(!payment||!['TRANSFER','COD'].includes(payment.paymentMethod))throw Error('กรุณาเลือกวิธีชำระเงิน');
   if (!items.length || items.length > 100) throw Error('กรุณาเลือกสินค้าในตะกร้าให้ครบก่อนส่งออเดอร์');
   const payloadItems = items.map(item => {
     const product = products.find(candidate => candidate.code === item.code);
@@ -55,8 +68,11 @@ export function createCustomerCheckout(items: CustomerCartItem[], products: Cust
     if (problem) throw Error(item.code + ' · ' + problem);
     return {...item, expectedUnitPriceSatang: price.priceSatang};
   });
-  const expectedTotalSatang = payloadItems.reduce((total, item) => total + item.expectedUnitPriceSatang * item.quantity, 0);
-  const payload = readCustomerCheckout(JSON.stringify({requestKey, items: payloadItems, expectedTotalSatang}));
+  const expectedShippingSatang=websiteShippingFees[payment.paymentMethod];
+  const expectedTotalSatang = payloadItems.reduce((total, item) => total + item.expectedUnitPriceSatang * item.quantity, expectedShippingSatang);
+  if(expectedTotalSatang>2147483647)throw Error('ยอดรวมออเดอร์เกินขอบเขตที่ระบบรองรับ');
+  if(payment.paymentMethod==='TRANSFER'&&!payment.slip)throw Error('กรุณาแนบสลิปโอนเงิน');
+  const payload = readCustomerCheckout(JSON.stringify({requestKey, items: payloadItems, expectedTotalSatang,...payment,expectedShippingSatang}));
   if (!payload) throw Error('ข้อมูลตะกร้าไม่ถูกต้อง กรุณาตรวจสอบรายการสินค้าอีกครั้ง');
   return payload;
 }

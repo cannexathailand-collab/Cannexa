@@ -210,6 +210,13 @@ model WebsiteOrder {
  status String @default("PENDING_REVIEW")
  items Json
  totalSatang Int
+ paymentMethod String?
+ subtotalSatang Int?
+ shippingSatang Int @default(0)
+ bankDetails Json?
+ slipData Bytes?
+ slipMime String?
+ slipVersion String?
  recipient String
  phone String
  address String
@@ -221,6 +228,15 @@ model WebsiteOrder {
  @@unique([customerCode,requestKey])
  @@index([status,createdAt])
  @@index([customerCode,createdAt])
+}
+
+model WebsitePaymentSettings {
+ id String @id @default("active")
+ bankName String @default("")
+ accountName String @default("")
+ accountNumber String @default("")
+ version String @default(uuid())
+ updatedAt DateTime @updatedAt
 }
 model CustomerCodeDelivery {
  userKey String @id

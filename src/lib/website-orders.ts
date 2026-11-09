@@ -1,5 +1,5 @@
 import {randomUUID} from 'node:crypto';
-import type {WebsiteOrder} from '@prisma/client';
+import {Prisma,type WebsiteOrder} from '@prisma/client';
 import {z} from 'zod';
 import {db,transaction,userLock} from './db';
 import {sha} from './crypto';
@@ -8,6 +8,9 @@ import {stockCode} from './stock-code';
 import {normalizeStockPackage} from './stock-product-input';
 import {loadCustomerCatalog} from './customer-catalog';
 import {portalProfile} from './customer-portal';
+import {parseRewardImage} from './crm-reward-image';
+import {websiteShippingFees,websitePaymentReady,type WebsitePaymentDetails,type WebsitePaymentMethod} from './website-payment';
+import {loadWebsitePaymentSettings} from './website-payment-settings';
 
 export type WebsiteOrderLine={
  code:string;
@@ -25,6 +28,11 @@ export type WebsiteOrderSummary={
  status:'PENDING_REVIEW'|'APPROVED'|'REJECTED';
  items:WebsiteOrderLine[];
  totalSatang:number;
+ paymentMethod:WebsitePaymentMethod|null;
+ subtotalSatang:number;
+ shippingSatang:number;
+ bankDetails:WebsitePaymentDetails|null;
+ slipVersion:string|null;
  recipient:string;
  phone:string;
  address:string;
@@ -44,6 +52,10 @@ const requestInput=z.object({
   expectedUnitPriceSatang:positiveSatang,
  })).min(1).max(100),
  expectedTotalSatang:positiveSatang,
+ paymentMethod:z.enum(['TRANSFER','COD']).optional(),
+ expectedShippingSatang:z.number().int().nonnegative().max(2147483647).optional(),
+ bankVersion:z.string().min(1).max(100).nullable().optional(),
+ slip:z.string().optional(),
 });
 const reviewInput=z.object({
  id:z.string().min(1).max(100),
@@ -52,7 +64,14 @@ const reviewInput=z.object({
  expectedStatus:z.literal('PENDING_REVIEW'),
 });
 
-export function websiteOrderSummary(order:WebsiteOrder):WebsiteOrderSummary{
+const orderSelect={
+ id:true,orderNumber:true,customerCode:true,requestKey:true,requestFingerprint:true,status:true,
+ items:true,totalSatang:true,paymentMethod:true,subtotalSatang:true,shippingSatang:true,bankDetails:true,slipVersion:true,
+ recipient:true,phone:true,address:true,reviewNote:true,reviewedBy:true,reviewedAt:true,createdAt:true,updatedAt:true,
+} satisfies Prisma.WebsiteOrderSelect;
+type WebsiteOrderRecord=Omit<WebsiteOrder,'slipData'|'slipMime'>;
+
+export function websiteOrderSummary(order:WebsiteOrderRecord):WebsiteOrderSummary{
  return {
   id:order.id,
   orderNumber:order.orderNumber,
@@ -60,6 +79,11 @@ export function websiteOrderSummary(order:WebsiteOrder):WebsiteOrderSummary{
   status:order.status as WebsiteOrderSummary['status'],
   items:order.items as WebsiteOrderLine[],
   totalSatang:order.totalSatang,
+  paymentMethod:order.paymentMethod as WebsitePaymentMethod|null,
+  subtotalSatang:order.subtotalSatang??order.totalSatang,
+  shippingSatang:order.shippingSatang,
+  bankDetails:order.bankDetails as WebsitePaymentDetails|null,
+  slipVersion:order.slipVersion,
   recipient:order.recipient,
   phone:order.phone,
   address:order.address,
@@ -82,19 +106,38 @@ export async function createWebsiteOrder(customerCode:string,value:unknown){
  if(new Set(keys).size!==keys.length)throw Error('INVALID_WEBSITE_ORDER');
  const input={...parsed.data,items};
  const code=canonicalCustomerCode(customerCode);
- const fingerprint=sha(JSON.stringify({items:input.items,expectedTotalSatang:input.expectedTotalSatang}));
+ let slip:ReturnType<typeof parseRewardImage>|null=null;
+ if(input.slip!==undefined){
+  try{slip=parseRewardImage(input.slip);}
+  catch(error){throw Error(error instanceof Error&&error.message==='REWARD_IMAGE_TOO_LARGE'?'SLIP_TOO_LARGE':'INVALID_SLIP');}
+ }
+ const legacy=input.paymentMethod===undefined&&input.expectedShippingSatang===undefined&&input.bankVersion===undefined&&input.slip===undefined;
+ const fingerprint=sha(JSON.stringify({
+  items:input.items,expectedTotalSatang:input.expectedTotalSatang,
+  ...(!legacy?{paymentMethod:input.paymentMethod??null,expectedShippingSatang:input.expectedShippingSatang??null,bankVersion:input.bankVersion??null,slipVersion:slip?.imageVersion??null}:{}),
+ }));
  return transaction(async tx=>{
   await userLock(tx,'website-order:'+code);
   const customer=await tx.customer.findUnique({where:{code}});
   if(!customer)throw Error('CUSTOMER_NOT_FOUND');
   if(customer.portalRegistrationPending||customer.portalProfileIncomplete)throw Error('CUSTOMER_PENDING');
   const previous=await tx.websiteOrder.findUnique({
-   where:{customerCode_requestKey:{customerCode:code,requestKey:input.requestKey}},
+   where:{customerCode_requestKey:{customerCode:code,requestKey:input.requestKey}},select:orderSelect,
   });
   if(previous){
    if(previous.requestFingerprint!==fingerprint)throw Error('REQUEST_CONFLICT');
    return websiteOrderSummary(previous);
   }
+  if(!input.paymentMethod||input.expectedShippingSatang===undefined||input.bankVersion===undefined)throw Error('PAYMENT_REQUIRED');
+  const shipping=websiteShippingFees[input.paymentMethod];
+  if(input.expectedShippingSatang!==shipping)throw Error('SHIPPING_CHANGED');
+  let bank:WebsitePaymentDetails|null=null;
+  if(input.paymentMethod==='TRANSFER'){
+   if(!slip)throw Error('SLIP_REQUIRED');
+   bank=await loadWebsitePaymentSettings(tx);
+   if(!websitePaymentReady(bank))throw Error('BANK_UNAVAILABLE');
+   if(input.bankVersion!==bank.version)throw Error('BANK_CHANGED');
+  }else if(slip||input.bankVersion!==null)throw Error('INVALID_PAYMENT');
   let delivery;
   try{
    delivery=portalProfile({name:customer.name,phone:customer.phone,address:customer.address});
@@ -126,21 +169,30 @@ export async function createWebsiteOrder(customerCode:string,value:unknown){
     lineTotalSatang:lineTotal,
    };
   });
-  if(total!==input.expectedTotalSatang)throw Error('TOTAL_CHANGED');
+  const grandTotal=total+shipping;
+  if(grandTotal>2147483647)throw Error('ORDER_TOO_LARGE');
+  if(grandTotal!==input.expectedTotalSatang)throw Error('TOTAL_CHANGED');
   const saved=await tx.websiteOrder.create({data:{
    orderNumber:'WEB-'+randomUUID().replaceAll('-','').slice(0,20).toUpperCase(),
    customerCode:code,
    requestKey:input.requestKey,
    requestFingerprint:fingerprint,
    items:snapshots,
-   totalSatang:total,
+   totalSatang:grandTotal,
+   paymentMethod:input.paymentMethod,
+   subtotalSatang:total,
+   shippingSatang:shipping,
+   bankDetails:bank??Prisma.DbNull,
+   slipData:slip?.imageData,
+   slipMime:slip?.imageMime,
+   slipVersion:slip?.imageVersion,
    recipient:[customer.title,delivery.name].filter(Boolean).join(' '),
    phone:delivery.phone,
    address:delivery.address,
-  }});
+  },select:orderSelect});
   await tx.auditLog.create({data:{
    actor:'customer',action:'WEBSITE_ORDER_SUBMITTED',entityId:saved.id,
-   details:{orderNumber:saved.orderNumber,customerCode:code,totalSatang:total},
+   details:{orderNumber:saved.orderNumber,customerCode:code,paymentMethod:input.paymentMethod,subtotalSatang:total,shippingSatang:shipping,totalSatang:grandTotal},
   }});
   return websiteOrderSummary(saved);
  });
@@ -152,7 +204,7 @@ export async function reviewWebsiteOrder(actor:string,value:unknown){
  const input=parsed.data;
  return transaction(async tx=>{
   await userLock(tx,'website-order-review:'+input.id);
-  const current=await tx.websiteOrder.findUnique({where:{id:input.id}});
+  const current=await tx.websiteOrder.findUnique({where:{id:input.id},select:orderSelect});
   if(!current)throw Error('WEBSITE_ORDER_NOT_FOUND');
   if(current.status===input.status)return websiteOrderSummary(current);
   if(current.status!==input.expectedStatus)throw Error('REVIEW_CONFLICT');
@@ -161,7 +213,7 @@ export async function reviewWebsiteOrder(actor:string,value:unknown){
    data:{status:input.status,reviewNote:input.note,reviewedBy:actor,reviewedAt:new Date()},
   });
   if(updated.count!==1)throw Error('REVIEW_CONFLICT');
-  const saved=await tx.websiteOrder.findUniqueOrThrow({where:{id:current.id}});
+  const saved=await tx.websiteOrder.findUniqueOrThrow({where:{id:current.id},select:orderSelect});
   await tx.auditLog.create({data:{
    actor,action:'WEBSITE_ORDER_REVIEWED',entityId:saved.id,
    details:{orderNumber:saved.orderNumber,status:saved.status,note:input.note},
@@ -172,12 +224,12 @@ export async function reviewWebsiteOrder(actor:string,value:unknown){
 
 export async function loadWebsiteOrdersForCustomer(customerCode:string){
  const orders=await db.websiteOrder.findMany({
-  where:{customerCode:canonicalCustomerCode(customerCode)},orderBy:{createdAt:'desc'},take:100,
+  where:{customerCode:canonicalCustomerCode(customerCode)},orderBy:{createdAt:'desc'},take:100,select:orderSelect,
  });
  return orders.map(websiteOrderSummary);
 }
 export async function listWebsiteOrders(status?:string){
  if(status!==undefined&&!['PENDING_REVIEW','APPROVED','REJECTED'].includes(status))throw Error('INVALID_WEBSITE_ORDER_STATUS');
- const orders=await db.websiteOrder.findMany({where:status?{status}:{},orderBy:{createdAt:'desc'},take:200});
+ const orders=await db.websiteOrder.findMany({where:status?{status}:{},orderBy:{createdAt:'desc'},take:200,select:orderSelect});
  return orders.map(websiteOrderSummary);
 }

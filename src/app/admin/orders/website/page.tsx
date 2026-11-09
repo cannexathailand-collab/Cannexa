@@ -34,6 +34,12 @@ export default async function WebsiteOrdersPage({searchParams}: {searchParams: P
           <div><strong>{order.recipient}</strong><p>{displayCustomerCode(order.customerCode)} · {order.phone}</p><p>{order.address}</p></div>
           <strong className="website-order-total">{money(order.totalSatang)} บาท</strong>
         </div>
+        {order.paymentMethod && <div className="website-order-customer">
+          <p>วิธีชำระเงิน {order.paymentMethod==='TRANSFER'?'โอนเงิน':'เก็บเงินปลายทาง (COD)'}</p>
+          <p>ค่าสินค้า {money(order.subtotalSatang)} บาท · ค่าจัดส่ง {money(order.shippingSatang)} บาท · รวมทั้งสิ้น {money(order.totalSatang)} บาท</p>
+        </div>}
+        {order.bankDetails && <p>บัญชีรับโอน {order.bankDetails.bankName} · {order.bankDetails.accountName} · {order.bankDetails.accountNumber}</p>}
+        {order.slipVersion && <p><a className="button secondary" href={'/api/customer/website-orders/'+encodeURIComponent(order.id)+'/slip?v='+order.slipVersion} target="_blank" rel="noopener noreferrer">ดูสลิปโอนเงิน</a></p>}
         <div className="table-wrap"><table><thead><tr><th>สินค้า</th><th>ขนาด</th><th>จำนวน</th><th>ราคาต่อชิ้น</th><th>รวม</th></tr></thead>
           <tbody>{order.items.map(item => <tr key={item.code + '|' + item.pack}>
             <td><strong>{item.code}</strong><div>{item.name}</div></td><td>{item.pack}</td><td>{item.quantity}</td><td>{money(item.unitPriceSatang)}</td><td>{money(item.lineTotalSatang)}</td>
