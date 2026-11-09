@@ -19,6 +19,15 @@ test('shipment queues include dispatched COD and waiting orders needing review',
  assert.equal(orderMatchesState({state:'COD',shipped:true,awaitingShipment:false,awaitingConfirmation:true},'VERIFY'),true);
  assert.equal(orderMatchesState({state:'COD',shipped:true,awaitingShipment:false,shipmentVerified:true},'CONFIRMED'),true);
 });
+
+test('all orders excludes cancelled records while cancellation history remains accessible',()=>{
+ const cancelled={state:'CANCELLED',shipped:false,awaitingShipment:false};
+ assert.equal(orderMatchesState(cancelled,'ALL'),false);
+ assert.equal(orderMatchesState(cancelled,'CANCELLED'),true);
+ for(const state of ['WAITING','REVIEW','COD','SHIPPED','RETURNED']){
+  assert.equal(orderMatchesState({...cancelled,state},'ALL'),true);
+ }
+});
 test('order export uses all filtered rows and quotes formula-like names',()=>{
  const csv=orderListCsv({all:[{order:{orderNumber:'O1',eventAt:new Date('2026-11-07T02:00Z'),recipient:'=SUM(A1)',phone:'081',sellerCode:'A',payment:'COD'},teamName:'Happy Farm',state:'WAITING',amountSatang:12345,shipment:null}]} as any);
  assert.ok(csv.includes('123.45'));assert.ok(csv.includes("'=SUM(A1)"));assert.equal(csv.trim().split('\r\n').length,2);

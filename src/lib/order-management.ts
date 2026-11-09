@@ -10,7 +10,7 @@ import {hasActualDispatch} from './sales-recognition';
 export const orderStates={ALL:'ทั้งหมด',REVIEW:'ต้องตรวจสอบ',WAITING:'รอจัดส่ง',COD:'รอรับเงิน COD',SHIPPED:'จัดส่งแล้ว',VERIFY:'รอยืนยันการจัดส่ง',CONFIRMED:'ยืนยันการจัดส่งแล้ว',RETURNED:'ตีกลับ',CANCELLED:'ยกเลิก / ปิดรายการ'} as const;
 export type OrderFilters={q?:string;from?:string;to?:string;payment?:string;status?:string;sort?:string;page?:string;team?:string;focus?:string};
 export function orderMatchesState(row:{state:string;shipped:boolean;awaitingShipment:boolean;awaitingConfirmation?:boolean;shipmentVerified?:boolean},state:string){
- return state==='ALL'||(state==='CONFIRMED'?!!row.shipmentVerified:state==='VERIFY'?!!row.awaitingConfirmation:state==='SHIPPED'?row.shipped:state==='WAITING'?row.awaitingShipment:row.state===state);
+ return state==='ALL'?row.state!=='CANCELLED':(state==='CONFIRMED'?!!row.shipmentVerified:state==='VERIFY'?!!row.awaitingConfirmation:state==='SHIPPED'?row.shipped:state==='WAITING'?row.awaitingShipment:row.state===state);
 }
 export function orderState(order:Pick<OrderIntake,'status'|'payment'|'issues'>&{createdAt?:Date},shipment?:Pick<Shipment,'fulfillmentStatus'|'dispatchedAt'>&{tracking?:string;codSatang?:number},sale?:Pick<SalesOrder,'status'>,now=new Date(),receipt?:{tracking:string;amountSatang:number}):Exclude<keyof typeof orderStates,'ALL'>{
  if(order.status==='RETURNED'||shipment?.fulfillmentStatus==='RETURNED')return 'RETURNED';
