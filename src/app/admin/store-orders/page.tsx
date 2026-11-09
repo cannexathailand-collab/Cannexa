@@ -25,8 +25,8 @@ export default async function StoreOrders({searchParams}:{searchParams:Promise<{
   const items=details.items;
   return <article className={'employee-order-card'+(duplicates.has(order.id)?' duplicate-order-row':'')} key={order.id}>
    <header><strong>{order.orderNumber}</strong><span>{order.state==='RETURNED'?'ตีกลับ':order.hasTracking?'จัดส่งแล้ว':'เตรียมจัดส่ง'}</span></header>
-   <p>ผู้ขาย {order.sellerUsername??'ยังไม่ระบุ'} · สร้าง {order.createdAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
-   <OrderShippingDetails data={{recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:order.revenueSatang,items}} tracking={order.tracking}><Link href={'/admin/store-orders/'+encodeURIComponent(order.id)}>เปิดรายละเอียดออเดอร์</Link></OrderShippingDetails>
+   <p>สร้าง {order.createdAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
+   <OrderShippingDetails sellerName={order.sellerUsername} teamName={order.teamName} data={{recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:order.revenueSatang,items}} tracking={order.tracking}><Link href={'/admin/store-orders/'+encodeURIComponent(order.id)}>เปิดรายละเอียดออเดอร์</Link></OrderShippingDetails>
    {details.issues.map(issue=><p className="notice" key={issue}>{issue}</p>)}{details.issues.length>0&&<pre>{order.rawText}</pre>}
    <DuplicateOrderNotice matches={duplicates.get(order.id)??[]} currentOrder={order} baseHref="/admin/store-orders/"/>
   </article>;

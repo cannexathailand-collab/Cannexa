@@ -17,3 +17,8 @@ test('shared detail keeps copy and explicit unknown values on every surface',()=
  assert.ok(html.includes('คัดลอกข้อมูลจัดส่ง'));
  assert.ok(html.includes('ยังไม่ทราบยอด'));
 });
+
+test('order team is displayed directly after the seller',()=>{
+ const html=renderToStaticMarkup(createElement(OrderShippingDetails,{teamName:'Greenhub',sellerName:'Seller',data:{recipient:'Customer',phone:null,address:null,payment:null,amountSatang:null,items:[]}}));
+ assert.ok(html.indexOf('Seller')<html.indexOf('Greenhub'));assert.ok(html.indexOf('Greenhub')<html.indexOf('Customer'));
+});

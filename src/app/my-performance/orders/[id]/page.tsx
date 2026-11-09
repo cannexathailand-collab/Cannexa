@@ -1,3 +1,4 @@
+import {loadOrderTeamNames} from '@/lib/order-team';
 import {OrderShippingDetails} from '@/app/order-shipping-details';
 import {loadOrderShippingItems} from '@/lib/order-shipping-items';
 import {employeeCommissions} from '@/lib/employee-commissions';
@@ -26,9 +27,10 @@ export default async function SharedOrder({params,searchParams}:{params:Promise<
  }
  const order=await db.orderIntake.findUnique({
   where:{id},
-  select:{id:true,orderNumber:true,recipient:true,phone:true,address:true,payment:true,rawText:true,sellerUsername:true,eventAt:true,createdAt:true,status:true},
+  select:{id:true,orderNumber:true,groupKey:true,recipient:true,phone:true,address:true,payment:true,rawText:true,sellerUsername:true,eventAt:true,createdAt:true,status:true},
  });
  if(!order)notFound();
+ const teamName=(await loadOrderTeamNames([order.groupKey])).get(order.groupKey);
  const [shipment,duplicates,commissions]=await Promise.all([
   db.shipment.findUnique({where:{orderId:id},select:{tracking:true,fulfillmentStatus:true,dispatchedAt:true,codSatang:true}}),
   loadDuplicateOrderReviews(),
@@ -44,13 +46,12 @@ export default async function SharedOrder({params,searchParams}:{params:Promise<
    <EmployeeNav active="orders"/>
    <Link href={filters.scope==='mine'?'/my-performance/orders?scope=mine':'/my-performance/orders'}>กลับรายการออเดอร์</Link>
    <h2>{order.orderNumber}</h2>
-   <p>ผู้ขาย {order.sellerUsername??'ยังไม่ระบุ'}</p>
    <p>สร้างออเดอร์ {order.createdAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
    <p>รับออเดอร์ {order.eventAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
    <p>สถานะ {status}</p>
    {!closed&&order.status!=='RETURNED'&&shipment?.fulfillmentStatus!=='DISPATCHED'&&!shipment?.dispatchedAt&&(actor.role==='owner'||order.sellerUsername===actor.username)&&<CancelOwnOrderButton id={id} version={orderEditVersion(order)} orderNumber={order.orderNumber}/>}
    <OrderCommissionStatus visible={order.sellerUsername===actor.username} payment={order.payment} codReceived={!!receipt&&receipt.amountSatang===shipment?.codSatang} rows={commissions.rows.filter(row=>row.reference===order.orderNumber)}/>
-   <OrderShippingDetails copyDetails={{orderNumber:order.orderNumber,seller:order.sellerUsername,createdAt:order.createdAt,status,extraLines:orderCommissionCopyLines({visible:order.sellerUsername===actor.username,payment:order.payment,codReceived:!!receipt&&receipt.amountSatang===shipment?.codSatang,rows:commissions.rows.filter(row=>row.reference===order.orderNumber)})}} data={{recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:amount,items:items.items}} tracking={shipment?.tracking}/>
+   <OrderShippingDetails teamName={teamName} copyDetails={{orderNumber:order.orderNumber,seller:order.sellerUsername,createdAt:order.createdAt,status,extraLines:orderCommissionCopyLines({visible:order.sellerUsername===actor.username,payment:order.payment,codReceived:!!receipt&&receipt.amountSatang===shipment?.codSatang,rows:commissions.rows.filter(row=>row.reference===order.orderNumber)})}} data={{recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:amount,items:items.items}} tracking={shipment?.tracking}/>
    <DuplicateOrderNotice matches={duplicates.get(id)??[]} currentOrder={order} baseHref="/my-performance/orders/"/>
   </section>
  </main>;

@@ -12,8 +12,8 @@ test('missing totals stay unknown and zero totals remain zero',()=>{
 
 test('non-store order copy includes its reference, seller, status, tracking and scoped details',()=>{
  const data={recipient:'Receiver',phone:'0812345678',address:'Full address',payment:'COD',amountSatang:49000,items:[{code:'CG1',quantityMilliG:20000}]};
- const text=orderSummaryText(data,{orderNumber:'ORDER-123',seller:'seller-a',status:'จัดส่งแล้ว',tracking:'TRACK-123',extraLines:['จ่ายค่าคอมแล้ว']});
- for(const value of ['ORDER-123','seller-a','จัดส่งแล้ว','TRACK-123','จ่ายค่าคอมแล้ว','Receiver','490.00 บาท'])assert.ok(text.includes(value));
+ const text=orderSummaryText(data,{orderNumber:'ORDER-123',seller:'seller-a',teamName:'Happy Farm',status:'จัดส่งแล้ว',tracking:'TRACK-123',extraLines:['จ่ายค่าคอมแล้ว']});
+ for(const value of ['ORDER-123','seller-a','Happy Farm','จัดส่งแล้ว','TRACK-123','จ่ายค่าคอมแล้ว','Receiver','490.00 บาท'])assert.ok(text.includes(value));
  const customer=orderSummaryText(data,{orderNumber:'ORDER-123'});assert.ok(!customer.includes('ผู้ขาย'));
  const shipping=shippingSummaryText(data);for(const value of ['ORDER-123','seller-a','TRACK-123','ผู้ขาย'])assert.ok(!shipping.includes(value));
 });

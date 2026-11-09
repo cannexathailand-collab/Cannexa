@@ -16,6 +16,7 @@ test('website order card renders full shipping details and compact review contro
   'react/jsx-runtime':runtime,
   'next/link':{default:({children,href,...props}:any)=>React.createElement('a',{href,...props},children)},
   '@/app/popup-details':{PopupDetails},'@/app/order-shipping-details':{OrderShippingDetails},
+  '@/lib/order-team':{loadOrderTeamNames:async()=>new Map()},
   '@/lib/auth':{requireAdminPage:async()=>{authenticated=true;}},
   '@/lib/customer-code':{displayCustomerCode:(value:string)=>value},
   '@/lib/db':{db:{customer:{findMany:async()=>[]}}},

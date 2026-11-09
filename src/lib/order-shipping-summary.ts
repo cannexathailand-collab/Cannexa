@@ -13,11 +13,12 @@ export function shippingSummaryText(data:ShippingSummary){
  ].join('\n');
 }
 
-export type OrderCopyDetails={orderNumber:string;seller?:string|null;createdAt?:Date;status?:string;tracking?:string|null;extraLines?:string[]};
+export type OrderCopyDetails={orderNumber:string;seller?:string|null;teamName?:string|null;createdAt?:Date;status?:string;tracking?:string|null;extraLines?:string[]};
 export function orderSummaryText(data:ShippingSummary,details:OrderCopyDetails){
  return [
   'เลขออเดอร์ '+details.orderNumber,
   ...(details.seller!==undefined?['ผู้ขาย '+(details.seller||'ยังไม่ระบุ')]:[]),
+  ...(details.teamName!==undefined?['ทีมจัดส่ง '+(details.teamName||'ยังไม่ระบุทีม')]:[]),
   ...(details.createdAt?['สร้างออเดอร์ '+details.createdAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})]:[]),
   ...(details.status?['สถานะ '+details.status]:[]),
   shippingSummaryText(data),

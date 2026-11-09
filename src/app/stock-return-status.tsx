@@ -1,3 +1,4 @@
+import {loadOrderTeamNames} from '@/lib/order-team';
 import {hasManualStockReceipt} from '@/lib/stock-return-receipt';
 import Link from 'next/link';
 import {db} from '@/lib/db';
@@ -23,7 +24,8 @@ export async function StockReturnStatus({page:input,reviewPage=1,result,returnPa
   db.stockDispatch.findMany({where:{OR:[{tracking:{in:tracking}},{candidateTracking:{in:tracking}}]},select:{orderId:true,orderNumber:true,tracking:true,candidateTracking:true,items:true}})
  ]):[[],[]];
  const ids=[...new Set([...rows.flatMap(row=>row.orderId?[row.orderId]:[]),...shipments.flatMap(row=>row.orderId?[row.orderId]:[]),...dispatches.map(row=>row.orderId)])];
- const orders=ids.length?await db.orderIntake.findMany({where:{id:{in:ids}},select:{id:true,orderNumber:true,recipient:true,sellerUsername:true,sellerCode:true,affiliateId:true,rawText:true}}):[];
+ const orders=ids.length?await db.orderIntake.findMany({where:{id:{in:ids}},select:{id:true,orderNumber:true,groupKey:true,recipient:true,sellerUsername:true,sellerCode:true,affiliateId:true,rawText:true}}):[];
+ const teams=await loadOrderTeamNames(orders.map(order=>order.groupKey));
  const affiliateIds=[...new Set(orders.flatMap(order=>order.affiliateId?[order.affiliateId]:[]))];
  const sellers=affiliateIds.length?await db.userAccount.findMany({where:{affiliateId:{in:affiliateIds},active:true},select:{affiliateId:true,username:true}}):[];
  const notices:Record<string,string>={posted:'รับสินค้าคืนและปรับลดต้นทุนเดิมแล้ว',unchanged:'ตรวจแล้วไม่มีสต๊อกที่ต้องเพิ่มคืน รายการอยู่ในประวัติ',pending:'บันทึกคำสั่งแล้ว ตรวจสถานะและสาเหตุของรายการด้านล่าง',failed:'ยังยืนยันผลรับคืนไม่ได้ ตรวจสถานะล่าสุดแล้วลองอีกครั้ง'};
@@ -41,7 +43,7 @@ export async function StockReturnStatus({page:input,reviewPage=1,result,returnPa
    const issues=Array.isArray(row.issues)?row.issues.filter((issue):issue is string=>typeof issue==='string'):[];
    return <article key={row.id} style={{borderTop:'1px solid var(--border)',paddingTop:18,marginTop:18,minWidth:0}}>
     <div className="intro" style={{alignItems:'flex-start',marginBottom:8,flexWrap:'wrap'}}><div style={{minWidth:0}}><strong>{orderId?<Link href={orderBaseHref+encodeURIComponent(orderId)+orderSuffix}>{order?.orderNumber??dispatch?.orderNumber??'เปิดออเดอร์เดิม'}</Link>:'ยังไม่พบออเดอร์ที่ตรงกัน'}</strong><p style={{margin:'4px 0'}}>เลขพัสดุ {row.tracking}</p><span className="muted small">รายงาน {when(row.reportedAt)}</span></div><span className="pill warn">{received?'รับสินค้าคืนครบแล้ว · รอประมวลผล':'รอพนักงานยืนยันรับสินค้าคืนครบ'}</span></div>
-    <div className="form-grid"><div style={{minWidth:0}}><p>ผู้รับเดิม: {order?.recipient??shipment?.recipient??'ยังไม่ทราบผู้รับ'}<br/>ผู้ขาย: {seller}</p><div>{items.length?items.map((item,index)=><p key={index} style={{margin:'4px 0'}}>{item.code}{item.name?' · '+item.name:''} · {item.grams===null?'ยังไม่ทราบจำนวน':item.grams.toLocaleString('th-TH',{maximumFractionDigits:3})+' G'}</p>):<p className="muted">ยังไม่มีรายการสินค้าที่ตรวจสอบกับออเดอร์เดิมได้</p>}</div></div>
+    <div className="form-grid"><div style={{minWidth:0}}><p>ผู้รับเดิม: {order?.recipient??shipment?.recipient??'ยังไม่ทราบผู้รับ'}<br/>ผู้ขาย: {seller}<br/>ทีมจัดส่ง: {teams.get(order?.groupKey??'')??'ยังไม่ระบุทีม'}</p><div>{items.length?items.map((item,index)=><p key={index} style={{margin:'4px 0'}}>{item.code}{item.name?' · '+item.name:''} · {item.grams===null?'ยังไม่ทราบจำนวน':item.grams.toLocaleString('th-TH',{maximumFractionDigits:3})+' G'}</p>):<p className="muted">ยังไม่มีรายการสินค้าที่ตรวจสอบกับออเดอร์เดิมได้</p>}</div></div>
      <div style={{minWidth:0}}>{!orderId&&<p className="notice">{linkedIds.length>1?'ข้อมูลออเดอร์กับเลขพัสดุไม่ตรงกัน':'ยังจับคู่เลขพัสดุนี้กับออเดอร์เดิมไม่ได้'} ระบบจะยังไม่เพิ่มสต๊อก</p>}{issues.map((issue,index)=><p className="muted small" key={index}>{issue}</p>)}
       {!received?<form method="post" action="/api/admin/stock/returns"><input type="hidden" name="returnTo" value={returnPath}/><input type="hidden" name="tracking" value={row.tracking}/><input type="hidden" name="action" value="confirm"/><label style={{lineHeight:1.7}}><input type="checkbox" name="receivedAll" value="yes" required/> ได้รับพัสดุนี้และสินค้าคืนครบทุกชิ้นแล้ว</label><button>ยืนยันรับคืนครบ</button></form>:row.stage==='RECEIVED'?<form method="post" action="/api/admin/stock/returns"><input type="hidden" name="returnTo" value={returnPath}/><input type="hidden" name="tracking" value={row.tracking}/><button name="action" value="retry" className="secondary">ลองรับคืนอีกครั้ง</button></form>:<p className="notice">สถานะรับคืนยังไม่ชัดเจน ต้องตรวจสอบก่อน</p>}
      </div>

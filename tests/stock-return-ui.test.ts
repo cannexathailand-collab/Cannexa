@@ -108,6 +108,7 @@ test('return history uses terminal receipt dates and frozen credits, with no cre
  ];
  replace(t,db.stockReturn,'count',async({where}:any)=>{assert.deepEqual(where.status.in,['POSTED','NO_STOCK_CHANGE']);assert.equal(where.OR[0].receivedAt.gte.toISOString(),'2026-11-05T17:00:00.000Z');assert.equal(where.OR[1].reportedAt.lt.toISOString(),'2026-11-06T17:00:00.000Z');return rows.length;});
  replace(t,db.stockReturn,'findMany',async()=>rows);replace(t,db.stockDispatch,'findMany',async()=>[]);
+ replace(t,db.orderIntake,'findMany',async()=>[{id:'order1',groupKey:'website'}]);
  const {StockReturnHistory}=await import('../src/app/stock-return-history');
  const html=renderToStaticMarkup(await StockReturnHistory({day:'2026-11-06'}));
  assert.match(html,/ORDER-1/);assert.match(html,/CG2.*500.*G/);assert.match(html,/-54.*446/);assert.match(html,/-฿750\.00/);
