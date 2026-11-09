@@ -70,3 +70,18 @@ test('not-accepted count includes only returned orders, once each, and supports 
  assert.equal(half.shippedCount,2);assert.equal(half.returnPercent,50);
  assert.equal(summarizeCustomerOrders([{...base,payment:'เคลม'}],[]).returnedCount,0);
 });
+
+
+test('monthly average profit uses lifetime calendar months, retains losses and waits for complete costs',()=>{
+ const sale=demoSalesRows(new Date('2026-11-07T12:00:00+07:00'))[0];
+ const order={...sale.order,eventAt:sale.createdAt,withdrawnAt:null} as OrderIntake;
+ const shipment={...sale.shipment!,freightSatang:5000,freightReportAt:new Date()};
+ const now=new Date('2026-11-10T12:00:00+07:00'),since=new Date('2026-09-01T00:00:00+07:00');
+ const summary=summarizeCustomerOrders([order],[sale],[shipment],[{orderId:order.id,status:'POSTED',totalCostSatang:65000}]);
+ const life=customerLifetimeStats(summary,since,now);
+ assert.equal(life.months,3);assert.equal(life.profitSatang,30000);assert.equal(life.monthlyProfitAverageSatang,10000);
+ const loss=summarizeCustomerOrders([order],[sale],[shipment],[{orderId:order.id,status:'POSTED',totalCostSatang:110000}]);
+ assert.equal(customerLifetimeStats(loss,since,now).monthlyProfitAverageSatang,-5000);
+ assert.equal(customerLifetimeStats(summarizeCustomerOrders([order],[sale],[shipment]),since,now).monthlyProfitAverageSatang,null);
+ assert.equal(customerLifetimeStats(summarizeCustomerOrders([],[]),since,now).monthlyProfitAverageSatang,0);
+});
