@@ -132,3 +132,15 @@ button.stock-delete-action:disabled{background:#f8d9d5;color:#85251f;border-colo
 .website-order-list.store-preparing-list .website-order-card>header{flex-direction:row;}
 .website-order-list.store-preparing-list .website-order-card>header small{display:block;font-size:11px;color:#748477;margin-top:5px;}
 .admin-order-list .employee-order-card>.notice{margin:8px 0;padding:8px 10px;}
+.crm-customer-profile>.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+.crm-customer-profile>.stats>.stat{margin:0;padding:14px;border-radius:12px;min-width:0;min-height:96px;}
+.crm-customer-profile>.stats>.stat>span,.crm-customer-profile .crm-monthly-profit .popup-details-trigger span{font-size:12px;line-height:1.5;}
+.crm-customer-profile>.stats>.stat>strong,.crm-customer-profile .crm-monthly-profit .popup-details-trigger strong{display:block;font-size:21px;line-height:1.4;margin:8px 0 0;overflow-wrap:anywhere;}
+.crm-customer-profile>.stats>.crm-monthly-profit{padding:0;border-color:#98c6ac;background:#f1f8f4;}
+.crm-customer-profile .crm-monthly-profit>.popup-details-trigger{height:100%;padding:14px;border-radius:12px;background:#f1f8f4;gap:8px;align-items:center;}
+.crm-customer-profile .crm-monthly-profit .popup-details-trigger small{font-size:10px;margin-top:7px;}
+.crm-customer-profile>.card{padding:18px;margin:14px 0;}
+.crm-customer-profile>h2{font-size:19px;margin:24px 0 12px;}
+.crm-customer-profile .crm-monthly-profit .popup-details-dialog{width:min(540px,calc(100vw - 24px));}
+@media(max-width:1000px){.crm-customer-profile>.stats{grid-template-columns:repeat(3,minmax(0,1fr));}}
+@media(max-width:600px){.crm-customer-profile>.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}.crm-customer-profile>.stats>.stat{padding:12px;min-height:90px;}.crm-customer-profile>.stats>.crm-monthly-profit{padding:0;}.crm-customer-profile .crm-monthly-profit>.popup-details-trigger{padding:12px;}.crm-customer-profile>.stats>.stat>strong,.crm-customer-profile .crm-monthly-profit .popup-details-trigger strong{font-size:19px;}.crm-customer-profile>.card{padding:14px;}}
