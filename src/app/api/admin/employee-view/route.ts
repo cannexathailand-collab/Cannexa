@@ -16,7 +16,9 @@ export async function POST(request:NextRequest){
   if(username.length>64)return new Response('Invalid employee',{status:400});
   const employee=username?await db.userAccount.findFirst({where:{username,role:{in:employeeRoles},active:true},select:{username:true}}):null;
   if(username&&!employee)return new Response('Invalid employee',{status:400});
-  const response=NextResponse.redirect(baseUrl()+'/my-performance',303);
+  const target=new URL(String(form.get('returnTo')??'/my-performance'),baseUrl());
+  const returnTo=target.origin===new URL(baseUrl()).origin&&(target.pathname==='/my-performance'||target.pathname.startsWith('/my-performance/'))?target.pathname+target.search:'/my-performance';
+  const response=NextResponse.redirect(baseUrl()+returnTo,303);
   if(employee)response.cookies.set(ownerEmployeeCookie,signToken({purpose:'OWNER_EMPLOYEE_VIEW',owner:actor.username,version:actor.version,username:employee.username,exp:Date.now()+86400000}),{...cookieOptions,maxAge:86400});
   else response.cookies.delete(ownerEmployeeCookie);
   return response;
