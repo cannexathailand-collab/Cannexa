@@ -1,8 +1,10 @@
+import {loadDuplicateOrderReviews} from './order-duplicates';
 import {db} from './db';
 import {orderState} from './order-management';
 import {needsTrackingReview,needsCodReceiptReview} from './order-tracking-review';
 export const employeeTaskTypes={TRACKING:'รอเลขพัสดุเกินกำหนด',COD:'รอเงิน COD เกินกำหนด',COST:'รอต้นทุน / ค่าขนส่ง',DATA:'ตรวจสอบข้อมูลออเดอร์'} as const;
 export async function employeeReviewOrders(affiliateId:string,username:string,now=new Date()){
+ const duplicateReviews=await loadDuplicateOrderReviews(username,affiliateId);
  const orders=await db.orderIntake.findMany({where:{affiliateId,sellerUsername:username,status:{notIn:['RETURNED','CANCELLED','WITHDRAWN','EXPIRED']}},orderBy:{createdAt:'asc'}});
  const ids=orders.map(r=>r.id);
  const [shipments,sales]=await Promise.all([db.shipment.findMany({where:{orderId:{in:ids}}}),db.salesOrder.findMany({where:{orderId:{in:ids}}})]);
@@ -10,8 +12,9 @@ export async function employeeReviewOrders(affiliateId:string,username:string,no
  const shipping=new Map(shipments.map(r=>[r.orderId,r])),money=new Map(sales.map(r=>[r.orderId,r])),received=new Map(receipts.map(r=>[r.tracking,r]));
  return orders.flatMap(order=>{
   const shipment=shipping.get(order.id),sale=money.get(order.id),receipt=shipment?received.get(shipment.tracking):undefined;
-  if(orderState(order,shipment,sale,now,receipt)!=='REVIEW')return [];
+  if(!duplicateReviews.has(order.id)&&orderState(order,shipment,sale,now,receipt)!=='REVIEW')return [];
   const reasons=Array.isArray(order.issues)?order.issues.map(String):[];
+  if(duplicateReviews.has(order.id))reasons.push("เข้าข่ายออเดอร์ซ้ำ กรุณาเทียบรายการและหลักฐานการชำระ");
   if(needsTrackingReview(order,shipment?.tracking,now))reasons.push('ไม่มีเลขพัสดุเกิน 3 วัน');
   if(needsCodReceiptReview(order,shipment,receipt,now))reasons.push('จัดส่ง COD ครบ 10 วัน ยังจับคู่เงินไม่ได้');
   if(order.status==='COD_AMOUNT_MISMATCH')reasons.push('ยอดรับเงิน COD ไม่ตรง');

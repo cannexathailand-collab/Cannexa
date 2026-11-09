@@ -92,3 +92,31 @@ dialog.stock-modal{position:fixed;inset:0;margin:auto;width:min(560px,calc(100vw
   min-width:0;
   width:100%}
 }
+
+.duplicate-order-notice {
+  padding:12px 14px;
+  margin:10px 0;
+  border:1px solid #edc899;
+  border-left:4px solid #c77a27;
+  border-radius:10px;
+  background:#fff0d9;
+  color:#7b4818;
+  white-space:normal;
+}
+.duplicate-order-notice strong {display:block;font-size:14px;}
+.duplicate-order-notice p {margin:7px 0;}
+.duplicate-order-notice ul {margin:8px 0;padding-left:20px;}
+.duplicate-order-notice a {text-decoration:underline;color:#784214;}
+.duplicate-order-notice small {display:block;}
+.duplicate-order-row,
+.admin-content tbody tr.duplicate-order-row>td {background:#fff6e9;}
+.admin-content tbody tr.duplicate-order-row:hover>td {background:#ffecd0;}
+
+.duplicate-order-row .duplicate-order-notice {min-width:240px;max-width:320px;}
+.duplicate-order-notice .popup-details>button {white-space:normal;text-align:left;font-size:12px;}
+.admin-content .duplicate-order-notice[role=alert] {
+  border-color:#edc899;
+  border-left:4px solid #c77a27;
+  background:#fff0d9;
+  color:#7b4818;
+}

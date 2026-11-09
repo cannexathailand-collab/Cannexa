@@ -1,3 +1,4 @@
+import {DuplicateOrderNotice} from '@/app/duplicate-order-notice';
 import Link from 'next/link';
 import {requireEmployeePage} from '@/lib/employee-view';
 import {employeeOrderList,type EmployeeOrderFilters} from '@/lib/employee-order-list';
@@ -22,10 +23,10 @@ export default async function EmployeeOrdersPage({searchParams}:{searchParams:Pr
    <div className="employee-order-filter-actions"><button>ค้นหา / แสดงรายการ</button><Link href={'/my-performance/orders?month='+data.month}>ล้างตัวกรอง</Link></div>
   </form>
   <div className="employee-order-list-heading"><h2>รายการออเดอร์</h2><span>{data.count.toLocaleString('th-TH')} รายการ</span></div>
-  <div className="employee-order-list">{data.rows.length?data.rows.map(r=><article className={'employee-order-card state-'+r.state.toLowerCase()} key={r.order.id}>
+  <div className="employee-order-list">{data.rows.length?data.rows.map(r=><article className={'employee-order-card state-'+r.state.toLowerCase()+(r.duplicateMatches.length?' duplicate-order-row':'')} key={r.order.id}>
    <header><div><strong>{r.order.orderNumber}</strong><small>{r.order.createdAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'})}</small></div><span className="employee-order-status">{orderStates[r.state]}</span></header>
    <div className="employee-order-card-body"><div><h3>{r.order.recipient??'ยังไม่ระบุผู้รับ'}</h3><p>{r.order.phone??'ยังไม่ระบุเบอร์โทร'}{r.order.customerCode?' · '+displayCustomerCode(r.order.customerCode):''}</p><p className="order-tracking">{r.shipment?.tracking?'เลขพัสดุ '+r.shipment.tracking:'ยังไม่มีเลขพัสดุ'}</p></div><div className="employee-order-money"><small>ยอดออเดอร์ · {r.order.payment??'ไม่ระบุ'}</small><strong>{r.amount===null?'รอข้อมูล':money(r.amount)}</strong><small>ค่าคอม {r.commissionStatus==='CANCELLED'?'ยกเลิก':r.commission===null?'รอคำนวณ':money(r.commission)+(r.commissionStatus==='PAID'?' · จ่ายแล้ว':' · รอจ่าย')}</small></div></div>
-   {!['CANCELLED','WITHDRAWN'].includes(r.order.status)&&<footer><Link href={'/my-performance/orders/'+encodeURIComponent(r.order.id)}>{r.state==='REVIEW'?'ตรวจสอบออเดอร์':'ดูรายละเอียด'} →</Link></footer>}
+   <DuplicateOrderNotice matches={r.duplicateMatches} employee/>{!['CANCELLED','WITHDRAWN'].includes(r.order.status)&&<footer><Link href={'/my-performance/orders/'+encodeURIComponent(r.order.id)}>{r.state==='REVIEW'?'ตรวจสอบออเดอร์':'ดูรายละเอียด'} →</Link></footer>}
   </article>):<p className="commission-empty">ไม่พบออเดอร์ตามเงื่อนไขที่เลือก</p>}</div>
   {data.pages>1&&<nav className="commission-pagination" aria-label="หน้ารายการออเดอร์">{data.page>1&&<Link href={href({page:String(data.page-1)})}>← ก่อนหน้า</Link>}<span>หน้า {data.page} / {data.pages}</span>{data.page<data.pages&&<Link href={href({page:String(data.page+1)})}>ถัดไป →</Link>}</nav>}
  </section></main>;

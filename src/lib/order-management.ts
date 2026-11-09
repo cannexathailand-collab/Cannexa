@@ -1,3 +1,4 @@
+import {loadDuplicateOrderReviews} from './order-duplicates';
 import type {OrderIntake,Shipment,SalesOrder,Prisma} from '@prisma/client';
 import {db} from './db';
 import {dayStart,shiftDay} from './sales-dates';
@@ -31,6 +32,7 @@ export function orderRoundRange(input:{from?:string;to?:string;page?:string}={},
 }
 export async function orderManagement(input:OrderFilters={}){
  const roundSettings=await loadOrderRoundSettings();
+ const duplicateReviews=await loadDuplicateOrderReviews();
  const groups=await db.orderGroup.findMany({where:{purpose:'ORDER'},select:{id:true,name:true},orderBy:{name:'asc'}});
  const teams=[...groups.map(group=>({id:group.id,name:group.name||'กลุ่มยังไม่ตั้งชื่อ'})),{id:'website',name:'เว็บไซต์'}];
  const team=teams.some(option=>option.id===input.team)?input.team!:'';
@@ -56,7 +58,7 @@ export async function orderManagement(input:OrderFilters={}){
  const [receipts,reports]=await Promise.all([db.codReceipt.findMany({where:{tracking:{in:shipments.map(s=>s.tracking)}}}),db.gmailImport.findMany({where:{id:{in:shipments.map(s=>s.importId)},kind:'SHIPMENT'},select:{id:true}})]),verifiedReports=new Set(reports.map(report=>report.id)),receiptMap=new Map(receipts.map(r=>[r.tracking,r])),now=new Date();
  const stockReviews=await db.stockDispatch.findMany({where:{orderId:{in:ids},status:{in:['NEEDS_REVIEW','WAITING_COST','HISTORY_SAVED']}},select:{orderId:true,issues:true,status:true}});
  const stockReviewMap=new Map(stockReviews.map(review=>[review.orderId,review]));
- const all=orders.map(order=>{const shipment=shipping.get(order.id),sale=saleMap.get(order.id),receipt=shipment?receiptMap.get(shipment.tracking):undefined,closed=['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(order.status),shipped=!closed&&!!shipment&&hasActualDispatch(shipment);const stockReview=!closed&&shipment?.tracking?stockReviewMap.get(order.id):undefined;return {order,stockReview,teamName:teamNames.get(order.groupKey)??'ยังไม่ระบุทีม',shipment,sale,receipt,shipped,shipmentVerified:shipped&&!!shipment&&verifiedReports.has(shipment.importId),awaitingConfirmation:shipped&&!!shipment&&!verifiedReports.has(shipment.importId),awaitingShipment:!closed&&!shipped,state:stockReview?'REVIEW' as const:orderState(order,shipment,sale,now,receipt),amountSatang:quotedTotal(order.rawText??'')??sale?.revenueSatang??null};});
+ const all=orders.map(order=>{const shipment=shipping.get(order.id),sale=saleMap.get(order.id),receipt=shipment?receiptMap.get(shipment.tracking):undefined,closed=['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(order.status),shipped=!closed&&!!shipment&&hasActualDispatch(shipment);const stockReview=!closed&&shipment?.tracking?stockReviewMap.get(order.id):undefined;const duplicateMatches=duplicateReviews.get(order.id)??[];return {order,stockReview,duplicateMatches,teamName:teamNames.get(order.groupKey)??'ยังไม่ระบุทีม',shipment,sale,receipt,shipped,shipmentVerified:shipped&&!!shipment&&verifiedReports.has(shipment.importId),awaitingConfirmation:shipped&&!!shipment&&!verifiedReports.has(shipment.importId),awaitingShipment:!closed&&!shipped,state:stockReview||duplicateMatches.length?'REVIEW' as const:orderState(order,shipment,sale,now,receipt),amountSatang:quotedTotal(order.rawText??'')??sale?.revenueSatang??null};});
  const counts=Object.fromEntries(Object.keys(orderStates).map(key=>[key,all.filter(row=>orderMatchesState(row,key)).length])) as Record<keyof typeof orderStates,number>;
  const filtered=all.filter(row=>orderMatchesState(row,status));
  const active=all.filter(row=>row.state!=='CANCELLED');
