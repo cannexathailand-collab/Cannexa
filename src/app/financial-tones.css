@@ -4,9 +4,9 @@
 .tone-income :is(a,strong,b),.tone-expense :is(a,strong,b) {color:inherit}
 .financial-heading-income {color:var(--income-ink)}
 .financial-heading-expense {color:var(--expense-ink)}
-.financial-income-table thead {background:var(--income-pastel);color:var(--income-ink)}
+.financial-income-table thead th {background:var(--income-pastel);color:var(--income-ink)}
 .financial-income-table td:not(:first-child),.financial-income-table tfoot {color:var(--income-ink)}
-.financial-expense-table thead {background:var(--expense-pastel);color:var(--expense-ink)}
+.financial-expense-table thead th {background:var(--expense-pastel);color:var(--expense-ink)}
 .financial-expense-table tfoot {background:var(--expense-pastel);color:var(--expense-ink)}
 .expense-group>.popup-details-trigger,.group-expense>.popup-details-trigger {color:var(--expense-ink);background:var(--expense-pastel)}
 .group-income>.popup-details-trigger {color:var(--income-ink);background:var(--income-pastel)}
@@ -32,3 +32,4 @@
  .expense-ledger th[scope="rowgroup"]{white-space:normal}
  .expense-ledger .numeric{font-size:10px}
 }
+.expense-donut>div{justify-content:center}.expense-donut table thead th{background:var(--expense-pastel);color:var(--expense-ink)}.expense-donut table td:nth-child(n+2){text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.expense-donut table th:nth-child(n+2){text-align:right}@media(max-width:600px){.expense-donut table th,.expense-donut table td{padding:10px 5px;font-size:11px}.expense-donut>div{gap:16px!important}}

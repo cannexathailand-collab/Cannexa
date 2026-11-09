@@ -5,3 +5,10 @@ test('chart groups commissions and excludes credits from percent denominator whi
  const empty=expenseBreakdown([]);assert.equal(empty.grossSatang,0);assert.deepEqual(empty.slices,[]);
  const html=renderToStaticMarkup(createElement(ExpenseBreakdownChart,{entries:[],from:'2026-11-01',to:'2026-11-07'}));assert.ok(html.includes('<svg'));assert.ok(html.includes('กราฟวงแหวน'));assert.ok(!html.includes('NaN'));
 });
+
+test('special commissions are included in the commission slice and reconcile with the full ring',()=>{
+ const data=expenseBreakdown([{kind:'SPECIAL',amountSatang:2500},{kind:'FRIEND',amountSatang:500},{kind:'SALE',amountSatang:2000},{kind:'LINE',amountSatang:5000}]);
+ assert.equal(data.slices.find(slice=>slice.key==='COMMISSION')?.amountSatang,5000);
+ assert.equal(data.slices.reduce((sum,slice)=>sum+slice.amountSatang,0),data.grossSatang);
+ assert.equal(data.slices.reduce((sum,slice)=>sum+slice.percent,0),100);
+});
