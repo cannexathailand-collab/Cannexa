@@ -22,10 +22,10 @@ export default async function StoreOrders({searchParams}:{searchParams:Promise<{
  const link=(change:Record<string,string>)=>'/admin/store-orders?'+new URLSearchParams({q:data.query,page:String(data.page),status,...change});
  const labels={ALL:'ออเดอร์ทั้งหมด',WAITING:'เตรียมจัดส่ง',SHIPPED:'จัดส่งแล้ว',REVIEW:'ต้องตรวจสอบ',RETURNED:'ตีกลับ'};
  return <><header className="intro"><div><h1>ออเดอร์เตรียมจัดส่ง</h1><p>ออเดอร์ของผู้ขายทุกคน · รอบวันที่ {data.currentRound} · เวลาตัดรอบ {data.closeTime} น.</p></div><Link className="button" href="/admin/orders/upload">อัปโหลดรายการจัดส่ง</Link></header>
- <form className="form-grid" method="get"><label>ค้นหาออเดอร์<input name="q" defaultValue={data.query} placeholder="รหัสลูกค้า เบอร์โทร หรือเลขพัสดุ"/></label><button>ค้นหา</button></form>
+ <form className="form-grid store-order-search" method="get"><label>ค้นหาออเดอร์<input name="q" defaultValue={data.query} placeholder="รหัสลูกค้า เบอร์โทร หรือเลขพัสดุ"/></label><button>ค้นหา</button></form>
  <nav className="actions" aria-label="สถานะออเดอร์สโตร์">{Object.entries(labels).map(([key,label])=><Link key={key} className="button secondary" aria-current={status===key?'page':undefined} href={link({status:key})}>{label} {data.counts[key as keyof typeof data.counts]}</Link>)}</nav>
  <h2>{labels[status as keyof typeof labels]} · {rows.length} รายการ</h2>
- <div className="employee-order-list">{rows.map(order=>{
+ <div className="employee-order-list store-preparing-list">{rows.map(order=>{
   const details=parsed.get(order.id)!;
   const items=details.items.map(item=>({...item,name:names.get(item.code)??null}));
   const text=shippingSummaryText({orderNumber:order.orderNumber,recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:order.revenueSatang,tracking:order.tracking,seller:order.sellerUsername,items});
@@ -36,11 +36,13 @@ export default async function StoreOrders({searchParams}:{searchParams:Promise<{
     <div><dt>ชื่อผู้รับ</dt><dd>{order.recipient||'ยังไม่ระบุ'}</dd></div>
     <div><dt>เบอร์โทร</dt><dd>{order.phone||'ยังไม่ระบุ'}</dd></div>
     <div className="shipping-address"><dt>ที่อยู่จัดส่ง</dt><dd>{order.address||'ยังไม่ระบุ'}</dd></div>
+   </dl>
+   <h3>สินค้าที่ต้องจัด</h3><ul>{items.map(item=><li key={item.code}><strong>{item.code}</strong>{item.name?' · '+item.name:''} · {(item.quantityMilliG/1000).toLocaleString('th-TH',{maximumFractionDigits:3})} G</li>)}</ul>
+   <dl className="store-shipping-facts shipping-payment-facts">
     <div><dt>การชำระเงิน</dt><dd>{shippingPaymentLabel(order.payment)}</dd></div>
     <div><dt>ยอดรวม</dt><dd>{shippingAmountLabel(order.revenueSatang)}</dd></div>
     <div><dt>เลขพัสดุ</dt><dd>{order.tracking??'ยังไม่มีเลขพัสดุ'}</dd></div>
    </dl>
-   <h3>สินค้าที่ต้องจัด</h3><ul>{items.map(item=><li key={item.code}><strong>{item.code}</strong>{item.name?' · '+item.name:''} · {(item.quantityMilliG/1000).toLocaleString('th-TH',{maximumFractionDigits:3})} G</li>)}</ul>
    {details.issues.map(issue=><p className="notice" key={issue}>{issue}</p>)}{details.issues.length>0&&<pre>{order.rawText}</pre>}
    <DuplicateOrderNotice matches={duplicates.get(order.id)??[]} currentOrder={order} baseHref="/admin/store-orders/"/>
    <div className="actions"><CopyOrderShipping text={details.issues.length?text+'\n\nข้อความออเดอร์ต้นฉบับ\n'+(order.rawText??''):text}/><Link href={'/admin/store-orders/'+encodeURIComponent(order.id)}>เปิดรายละเอียดออเดอร์</Link></div>
