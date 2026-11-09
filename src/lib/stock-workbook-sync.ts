@@ -70,14 +70,17 @@ export async function syncStockWorkbook(){
  const initial=await db.stockWorkbook.findUnique({where:{id:'active'}});if(!initial)return {active:false};
  const now=new Date(),lease=await db.stockWorkbook.updateMany({where:{id:'active',OR:[{syncLeaseUntil:null},{syncLeaseUntil:{lte:now}}]},data:{syncLeaseUntil:new Date(+now+120000)}});
  if(!lease.count)return {active:true,busy:true};
+ let phase='CONNECT';
  try{
   const client=await remoteStockGoogleClient();
   const saved=await db.stockWorkbook.findUniqueOrThrow({where:{id:'active'}});
   const state=saved.state as unknown as StockWorkbookState;
   const primary=workbookSheet(state,state.activeSheetId);
+  phase='READ_COPY';
   const remoteResult=await client('/values/'+encodeURIComponent(range(primary))+'?valueRenderOption=UNFORMATTED_VALUE');
   const remoteRows:WorkbookCell[][]=remoteResult.values??[];
   const sentVersion=saved.version,main=workbookSheet(state,state.activeSheetId),processed:string[]=[],syncKeys:string[]=[];
+  phase='ARCHIVES';
   for(const batch of state.pending.slice(0,15)){
    const requests=archiveRequests(batch.requests,state.activeSheetId);
    if(requests.length){
@@ -88,15 +91,18 @@ export async function syncStockWorkbook(){
    }
    processed.push(batch.id);
   }
+  phase='COPY';
   {
    const width=Math.max(16,main.properties.gridProperties.columnCount),height=Math.max(main.rows.length,remoteRows.length,1);
    const requests:Record<string,unknown>[]=[{updateSheetProperties:{properties:{sheetId:state.activeSheetId,gridProperties:{rowCount:Math.max(height,main.properties.gridProperties.rowCount),columnCount:width}},fields:'gridProperties.rowCount,gridProperties.columnCount'}},{updateCells:{range:{sheetId:state.activeSheetId,startRowIndex:0,endRowIndex:height,startColumnIndex:0,endColumnIndex:width},rows:main.rows.map(row=>({values:row.map((value,column)=>({userEnteredValue:value===null?undefined:typeof value==='number'?{numberValue:value}:typeof value==='boolean'?{boolValue:value}:[6,13].includes(column)&&value.startsWith('=')?{formulaValue:value}:{stringValue:value}}))})),fields:'userEnteredValue'}}];
    await client(':batchUpdate',{method:'POST',body:JSON.stringify({requests})});
   }
+  phase='PROTECT';
   const connection=await db.stockSheetsConnection.findUniqueOrThrow({where:{id:'active'},select:{email:true}});
   const metadata=await client('?fields=sheets(properties,protectedRanges)');
   const protections=stockReadOnlyProtectionRequests(metadata.sheets??[],(metadata.sheets??[]).map((sheet:any)=>sheet.properties.sheetId),connection.email);
   if(protections.length)await client(':batchUpdate',{method:'POST',body:JSON.stringify({requests:protections})});
+  phase='VERIFY';
   const verified=await client('?fields=sheets(properties(sheetId),protectedRanges)');
   if(verified.sheets.some((sheet:any)=>!sheet.protectedRanges?.some((protection:any)=>protection.description==='Cannexa: managed by system'&&protection.warningOnly!==true&&protection.editors?.users?.includes(connection.email))))throw Error('STOCK_SHEET_PROTECTION_NOT_CONFIRMED');
   const copied=await client('/values/'+encodeURIComponent(range(primary))+'?valueRenderOption=UNFORMATTED_VALUE');
@@ -116,7 +122,8 @@ export async function syncStockWorkbook(){
  }catch(error){
   const message=error instanceof Error?error.message:'';
   const code=/^[A-Z_]+$/.test(message)?message:'STOCK_SYNC_FAILED';
-  await db.stockWorkbook.update({where:{id:'active'},data:{syncError:code}});
-  return {active:true,synced:false,error:code};
+  const detail=(error as {detail?:string})?.detail??'';
+  await db.stockWorkbook.update({where:{id:'active'},data:{syncError:phase+' '+code+(detail?' '+detail:'')}});
+  return {active:true,synced:false,error:code,phase};
  }finally{await db.stockWorkbook.update({where:{id:'active'},data:{syncLeaseUntil:null}});}
 }
