@@ -2,6 +2,7 @@ import type {OrderIntake, SalesOrder, Shipment, CodReceipt, WebsiteOrder} from '
 import {db} from './db';
 import {loadOrderRoundSettings} from './order-round-settings';
 import {orderRoundClosingDay,orderRoundBounds} from './order-round';
+import {readStockSheet} from './stock-google';
 import {orderProductCost} from './order-product-cost';
 import {quotedTotal} from './shipment-matching';
 import {salesSources, type SaleCustomer, type SalesFilters} from './sales-report';
@@ -94,8 +95,10 @@ export async function bookedSalesReport(input:SalesFilters={}){
   const offset=+dayStart(orderRoundClosingDay(now,720))-+dayStart(bangkokDay(now))-3600000;
   return analyzeBookedSales({orders:sample.map(row=>({id:row.orderId,orderNumber:row.order!.orderNumber,eventAt:new Date(+row.createdAt+offset),rawText:null,status:row.order!.status,payment:row.order!.payment,sellerUsername:row.order!.sellerUsername,affiliateId:row.affiliateId,recipient:null,customer:row.customer??null})),sales:sample,shipments:sample.flatMap(row=>row.shipment?[row.shipment]:[]),receipts:sample.flatMap(row=>row.receipt?[row.receipt]:[]),affiliates:sample.flatMap(row=>row.affiliate?[row.affiliate]:[])},input);
  }
+ const stock=await readStockSheet().catch(()=>null);
+ const unitCosts=stock?.products.map(product=>({code:product.code,costSatang:product.costSatang}))??[];
  return db.$transaction(async tx=>{
- const [orders,sales,shipments,receipts,affiliates,websiteOrders,settings,unitCosts,dispatches]=await Promise.all([
+ const [orders,sales,shipments,receipts,affiliates,websiteOrders,settings,dispatches]=await Promise.all([
   tx.orderIntake.findMany({select:{id:true,orderNumber:true,eventAt:true,rawText:true,status:true,payment:true,sellerUsername:true,affiliateId:true,recipient:true,customer:{select:{code:true,legacy:true,referrerId:true,metaFbc:true,referrer:{select:{name:true,code:true}}}}}}),
   tx.salesOrder.findMany({select:{orderId:true,revenueSatang:true}}),
   tx.shipment.findMany({where:{orderId:{not:null}},select:{orderId:true,tracking:true,fulfillmentStatus:true}}),
@@ -103,7 +106,6 @@ export async function bookedSalesReport(input:SalesFilters={}){
   tx.affiliate.findMany({select:{id:true,name:true,code:true}}),
   tx.websiteOrder.findMany({where:{status:'PENDING_REVIEW',intakeOrderId:null},select:{id:true,orderNumber:true,createdAt:true,totalSatang:true,recipient:true,customerCode:true,paymentMethod:true,status:true,intakeOrderId:true}}),
   loadOrderRoundSettings(tx),
-  tx.stockProduct.findMany({select:{code:true,costSatang:true}}),
   tx.stockDispatch.findMany({where:{status:"POSTED"},select:{orderId:true,items:true}}),
  ]);
  const recordedCosts=dispatches.flatMap(row=>{
