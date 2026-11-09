@@ -7,7 +7,7 @@ import {receiveOrderEvent,type OrderEvent} from '../src/lib/order-intake';
 import {importGmailReports,matchShipments} from '../src/lib/gmail-reports';
 import {confirmReportedShipments} from '../src/lib/shipment-report-confirmation';
 import {salesReport} from '../src/lib/sales-report';
-import {processStockReturn} from '../src/lib/stock-return';
+import {processStockReturn,confirmStockReturnReceived} from '../src/lib/stock-return';
 import {STOCK_RETURN_SENDER} from '../src/lib/stock-return-email';
 
 function replace(t:TestContext,target:any,key:string,value:any){const old=target[key];target[key]=value;t.after(()=>{target[key]=old;});}
@@ -127,7 +127,7 @@ test('LINE and Gmail flow persists sales once, rereads exact revenue, and preser
  // no original stock deduction: it must not invent a stock or cost credit.
  await db.salesOrder.update({where:{orderId:codOrder.id},data:{status:'PAID',paidAt:receiptAt,paidAmountSatang:25600}});
  const originalImports=clone(await db.gmailImport.findMany()),originalCodReceipt=clone(await db.codReceipt.findUnique({where:{tracking:cod.tracking}}));
- assert.equal((await importGmailReports('test',['return'])).imported,1);assert.equal((await processStockReturn(cod.tracking,'test')).status,'NO_STOCK_CHANGE');
+ assert.equal((await importGmailReports('test',['return'])).imported,1);assert.equal((await processStockReturn(cod.tracking,'test')).status,'IN_TRANSIT');assert.equal((await salesReport(range)).summary.revenueSatang,356000);await confirmStockReturnReceived(cod.tracking,'store-user');assert.equal((await processStockReturn(cod.tracking,'store-user')).status,'NO_STOCK_CHANGE');
  report=await salesReport(range);assert.equal(report.summary.count,1);assert.equal(report.summary.revenueSatang,100000);
  const returned=await db.salesOrder.findUnique({where:{orderId:codOrder.id}});assert.ok(returned);assert.equal(returned.id,persistedCod.id);assert.equal(returned.revenueSatang,256000);assert.equal(returned.recognizedAt,null);assert.equal(returned.status,'PAID');assert.equal(returned.paidAmountSatang,25600);
  assert.deepEqual(await db.gmailImport.findMany(),originalImports);assert.deepEqual(await db.codReceipt.findUnique({where:{tracking:cod.tracking}}),originalCodReceipt);assert.deepEqual((await db.salesOrder.findMany()).map(s=>s.id).sort(),persistedIds);
