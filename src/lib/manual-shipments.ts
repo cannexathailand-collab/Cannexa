@@ -1,25 +1,38 @@
 import {z} from 'zod';
 import {db,transaction,userLock} from './db';
 import {sha} from './crypto';
-import {phonesMatch,quotedTotal,normalizeName} from './shipment-matching';
+import {phonesMatch,quotedTotal,compatibleAddress} from './shipment-matching';
 import {parseDispatchTime} from './sales-dates';
 import {reconcileSalesRecognition} from './sales-recognition';
 import type {ManualShipmentRow} from './manual-shipment-file';
 import {parseOrderAddress} from './order-parser';
 
 const eligible=['WAITING_SHIPMENT','TRANSFER_RECORDED','CLAIM_WAITING_COST','MATCHED_SHIPMENT_WAITING_COD','COD_AMOUNT_MISMATCH'];
-export async function previewManualShipments(rows:ManualShipmentRow[]){
- const [orders,shipments]=await Promise.all([
-  db.orderIntake.findMany({where:{status:{in:eligible},affiliateId:{not:null}},orderBy:{eventAt:'asc'},select:{id:true,orderNumber:true,recipient:true,phone:true,payment:true,eventAt:true}}),
-  db.shipment.findMany({select:{tracking:true,orderId:true}}),
- ]);
+export function manualShipmentMatches(row:Pick<ManualShipmentRow,'phone'|'amountSatang'>,order:{phone:string|null;rawText:string|null}){
+ return row.amountSatang!==undefined&&!!order.phone&&phonesMatch(order.phone,row.phone)&&quotedTotal(order.rawText??'')===row.amountSatang;
+}
+export function assignManualShipmentOrders<T extends {existingOrderId:string|null;candidates:{id:string;addressMatches?:boolean}[]}>(rows:T[]){
+ const used=new Set<string>();
  return rows.map(row=>{
-  const existing=shipments.find(shipment=>shipment.tracking===row.tracking);
-  const candidates=orders.filter(order=>order.phone&&phonesMatch(order.phone,row.phone)&&!shipments.some(shipment=>shipment.orderId===order.id&&shipment.tracking!==row.tracking)).map(order=>({...order,eventAt:order.eventAt.toISOString(),nameMatches:normalizeName(order.recipient??'')===normalizeName(row.recipient)}));
-  return {...row,candidates,existingOrderId:existing?.orderId??null};
+  const matching=row.candidates.length>1?row.candidates.filter(order=>order.addressMatches):row.candidates;
+  const selected=row.existingOrderId?null:matching.find(order=>!used.has(order.id));
+  if(selected)used.add(selected.id);
+  return {...row,selectedOrderId:selected?.id??null};
  });
 }
-const input=z.object({requestKey:z.uuid(),filename:z.string().min(1).max(250),dispatchedAt:z.string(),confirmed:z.literal(true),rows:z.array(z.object({tracking:z.string().regex(/^[A-Z0-9-]{8,50}$/),recipient:z.string().min(1).max(200),phone:z.string().min(1).max(100),orderId:z.string().min(1).max(100),payment:z.enum(['COD','โอน']).optional(),amountSatang:z.number().int().nonnegative().max(2147483647).optional()})).min(1).max(500)});
+export async function previewManualShipments(rows:ManualShipmentRow[]){
+ if(rows.some(row=>row.amountSatang===undefined))throw Error('ไฟล์ต้องมีคอลัมน์ยอดเงิน เพื่อจับคู่ด้วยเบอร์โทรและยอดขาย');
+ const [orders,shipments]=await Promise.all([
+  db.orderIntake.findMany({where:{status:{in:eligible},affiliateId:{not:null}},orderBy:[{eventAt:'asc'},{id:'asc'}],select:{id:true,orderNumber:true,recipient:true,phone:true,payment:true,eventAt:true,rawText:true,address:true}}),
+  db.shipment.findMany({select:{tracking:true,orderId:true}}),
+ ]);
+ return assignManualShipmentOrders(rows.map(row=>{
+  const existing=shipments.find(shipment=>shipment.tracking===row.tracking);
+  const candidates=orders.filter(order=>manualShipmentMatches(row,order)&&!shipments.some(shipment=>shipment.orderId===order.id&&shipment.tracking!==row.tracking)).map(({rawText,...order})=>({...order,eventAt:order.eventAt.toISOString(),amountSatang:quotedTotal(rawText??''),addressMatches:!!row.address&&compatibleAddress(parseOrderAddress(rawText??'')??order.address??'',row.address)}));
+  return {...row,candidates,existingOrderId:existing?.orderId??null};
+ }));
+}
+const input=z.object({requestKey:z.uuid(),filename:z.string().min(1).max(250),dispatchedAt:z.string(),confirmed:z.literal(true),rows:z.array(z.object({tracking:z.string().regex(/^[A-Z0-9-]{8,50}$/),recipient:z.string().max(200),phone:z.string().min(1).max(100),orderId:z.string().min(1).max(100),payment:z.enum(['COD','โอน']).optional(),amountSatang:z.number().int().nonnegative().max(2147483647).optional()})).min(1).max(500)});
 export async function importManualShipments(actor:string,value:unknown){
  const parsed=input.safeParse(value);if(!parsed.success)throw Error('กรุณาตรวจรายการและยืนยันว่าได้ส่งพัสดุแล้ว');
  const data=parsed.data,dispatchedAt=parseDispatchTime(data.dispatchedAt);
@@ -31,7 +44,7 @@ export async function importManualShipments(actor:string,value:unknown){
   if(previous){if(previous.fingerprint!==fingerprint)throw Error('คำขอเดิมมีข้อมูลเปลี่ยนแปลง กรุณาโหลดหน้าใหม่');return {count:data.rows.length,orderIds:data.rows.map(row=>row.orderId)};}
   for(const row of data.rows){
    const order=await tx.orderIntake.findUnique({where:{id:row.orderId}});
-   if(!order||!order.affiliateId||!order.phone||!phonesMatch(order.phone,row.phone))throw Error('ออเดอร์ของ '+row.tracking+' เปลี่ยนแปลงหรือเบอร์ไม่ตรง กรุณาตรวจใหม่');
+   if(!order||!order.affiliateId||!manualShipmentMatches(row,order))throw Error('เบอร์โทรหรือยอดขายของ '+row.tracking+' ไม่ตรงกับออเดอร์ กรุณาตรวจใหม่');
    if(row.payment&&row.payment!==order.payment||row.amountSatang!==undefined&&row.amountSatang!==quotedTotal(order.rawText??''))throw Error('วิธีชำระเงินหรือยอดเงินในไฟล์ไม่ตรงกับ '+order.orderNumber);
    if(order.eventAt>dispatchedAt)throw Error('วันเวลาส่งต้องอยู่หลังรับออเดอร์ '+order.orderNumber);
    await userLock(tx,order.messageKey);
@@ -45,7 +58,7 @@ export async function importManualShipments(actor:string,value:unknown){
    if(existing&&(existing.codSatang!==cod||!phonesMatch(existing.phone,row.phone)))throw Error('ข้อมูลรายงานของ '+row.tracking+' ขัดกับออเดอร์');
    const status=order.payment==='COD'?'MATCHED_WAITING_COD':order.payment==='เคลม'?'MATCHED_CLAIM':'MATCHED_TRANSFER';
    const evidence='นำเข้าไฟล์เลขพัสดุ '+data.filename+' และยืนยันส่งโดย '+actor;
-   const shipment=existing?await tx.shipment.update({where:{tracking:row.tracking},data:{orderId:order.id,status,fulfillmentStatus:'DISPATCHED',dispatchedAt,dispatchConfirmedBy:actor,dispatchEvidence:evidence}}):await tx.shipment.create({data:{tracking:row.tracking,recipient:row.recipient,phone:row.phone,address:parseOrderAddress(order.rawText??'')??order.address??'',codSatang:cod,orderId:order.id,status,importId:data.requestKey,manualImportId:data.requestKey,reportAt:dispatchedAt,fulfillmentStatus:'DISPATCHED',dispatchedAt,dispatchConfirmedBy:actor,dispatchEvidence:evidence}});
+   const shipment=existing?await tx.shipment.update({where:{tracking:row.tracking},data:{orderId:order.id,status,fulfillmentStatus:'DISPATCHED',dispatchedAt,dispatchConfirmedBy:actor,dispatchEvidence:evidence}}):await tx.shipment.create({data:{tracking:row.tracking,recipient:row.recipient||order.recipient||'',phone:row.phone,address:parseOrderAddress(order.rawText??'')??order.address??'',codSatang:cod,orderId:order.id,status,importId:data.requestKey,manualImportId:data.requestKey,reportAt:dispatchedAt,fulfillmentStatus:'DISPATCHED',dispatchedAt,dispatchConfirmedBy:actor,dispatchEvidence:evidence}});
    if(order.payment==='COD')await tx.orderIntake.update({where:{id:order.id},data:{status:'MATCHED_SHIPMENT_WAITING_COD'}});
    await reconcileSalesRecognition(tx,order,shipment,actor);
    await tx.auditLog.create({data:{actor,action:'MANUAL_SHIPMENT_LINKED',entityId:order.id,details:{tracking:row.tracking,importId:data.requestKey,dispatchedAt:dispatchedAt.toISOString()}}});

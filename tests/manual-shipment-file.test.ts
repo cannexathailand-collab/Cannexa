@@ -8,7 +8,7 @@ test('reads the original export columns and strips only the carrier suffix',asyn
  const book=new ExcelJS.Workbook(),sheet=book.addWorksheet('Employee Data');
  sheet.addRow(['No.','Order No.','ช่องทาง/เพจ','วันที่สั่งซื้อ','ชื่อลูกค้า','เบอร์โทร','ที่อยู่','หมายเหตุ','รหัสสินค้า','สินค้า','จำนวนชิ้น','น้ำหนัก (กก.)','TRACKING NO.']);
  sheet.addRow([1,'external123','LINE','09/11/2026','Example','081-234-5678','12 Test','','A1','Product',1,1,'WA258770816TH (THAI_POST)']);
- assert.deepEqual(await parseManualShipmentFile(Buffer.from(await book.xlsx.writeBuffer()),'export.xlsx'),[{tracking:'WA258770816TH',recipient:'Example',phone:'0812345678'}]);
+ assert.deepEqual(await parseManualShipmentFile(Buffer.from(await book.xlsx.writeBuffer()),'export.xlsx'),[{tracking:'WA258770816TH',recipient:'Example',phone:'0812345678',address:'12 Test'}]);
 });
 test('CSV supports quoted names, UTF8 BOM and a phone stored without its leading zero',async()=>{
  const rows=await parseManualShipmentFile(Buffer.from('\uFEFFชื่อลูกค้า,เบอร์โทร,TRACKING NO.\r\n"Example, Customer",812345678,WA258770816TH (THAI_POST)'),'export.csv');
