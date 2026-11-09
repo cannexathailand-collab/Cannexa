@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import {approvers, managers, office} from "../src/lib/accounts";
+import {approvers, managers, office, roles, home, isEmployeeRole} from "../src/lib/accounts";
 import {db} from "../src/lib/db";
 import {report} from "../src/lib/report";
 
@@ -8,6 +8,13 @@ test("employee is excluded from every back-office permission group",()=>{
  for(const group of [office, managers, approvers])assert.equal(group.includes("employee"),false);
  assert.equal(approvers.includes("admin"),true);
  assert.equal(approvers.includes("manager"),false);
+});
+
+test("sales is a distinct staff role with its own-work home and no back-office privileges",()=>{
+ assert.ok(roles.includes("sales"));
+ for(const group of [office, managers, approvers])assert.equal(group.includes("sales"),false);
+ for(const role of ["employee","sales"]){assert.equal(isEmployeeRole(role),true);assert.equal(home(role),"/my-performance");}
+ for(const role of ["owner","admin","manager","viewer"]){assert.equal(isEmployeeRole(role),false);assert.equal(home(role),"/admin");}
 });
 
 test("employee report scopes the query to one affiliate and separates approved from paid",async t=>{

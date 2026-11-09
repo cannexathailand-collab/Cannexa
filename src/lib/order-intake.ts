@@ -1,3 +1,4 @@
+import {employeeRoles} from './accounts';
 import {randomBytes} from "node:crypto";
 import type {OrderIntake,Prisma} from "@prisma/client";
 import {db,transaction,userLock} from "./db";
@@ -60,7 +61,7 @@ export async function admitOrderText(tx:Prisma.TransactionClient,input:OrderText
  const parsed=parseOrderText(input.text);if(!parsed)return {reasons:['ไม่พบรหัสผู้ขายในบรรทัดแรก']};
  const stock=await checkOrderStock(tx,input.text,stockReader);
  if(stock?.reasons.length)return {reasons:stock.reasons};
- const sellers=await tx.affiliate.findMany({where:{archivedAt:null,active:true,code:{not:metaAdCode},OR:[{code:{equals:parsed.sellerCode,mode:"insensitive"}},{accounts:{some:{username:{equals:parsed.sellerCode,mode:"insensitive"},role:"employee",active:true}}}]},select:{id:true,salesCommissionBasis:true,salesCommissionBps:true,salesCommissionTransferBps:true,salesCommissionCodBps:true,accounts:{where:{role:"employee",active:true},select:{username:true}}},take:2});
+ const sellers=await tx.affiliate.findMany({where:{archivedAt:null,active:true,code:{not:metaAdCode},OR:[{code:{equals:parsed.sellerCode,mode:"insensitive"}},{accounts:{some:{username:{equals:parsed.sellerCode,mode:"insensitive"},role:{in:employeeRoles},active:true}}}]},select:{id:true,salesCommissionBasis:true,salesCommissionBps:true,salesCommissionTransferBps:true,salesCommissionCodBps:true,accounts:{where:{role:{in:employeeRoles},active:true},select:{username:true}}},take:2});
  const issues=[...parsed.issues];if(sellers.length!==1)issues.push("ไม่พบรหัสผู้ขายที่ใช้งานอยู่เพียงรายเดียว");
  let customer=null;
  if(sellers.length===1&&parsed.recipient&&parsed.phone)customer=await resolveOrderCustomer(tx,{code:parsed.customerCode,name:parsed.recipient,phone:parsed.phone,sellerId:sellers[0].id});

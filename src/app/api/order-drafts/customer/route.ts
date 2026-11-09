@@ -3,7 +3,7 @@ import {orderDraftCustomer} from '@/lib/order-draft-customer';
 import {limit} from '@/lib/rate-limit';
 import {userKey} from '@/lib/crypto';
 export async function POST(req:Request){
- let actor:string;try{actor=await admin(['employee','owner','admin','manager']);await sameOrigin();}catch{return Response.json({error:'กรุณาเข้าสู่ระบบ'},{status:403});}
+ let actor:string;try{actor=await admin(['employee','sales','owner','admin','manager']);await sameOrigin();}catch{return Response.json({error:'กรุณาเข้าสู่ระบบ'},{status:403});}
  try{
   if(!await limit(userKey('draft-customer:'+actor),60))return Response.json({error:'ค้นหาบ่อยเกินไป กรุณารอสักครู่'},{status:429});
   const input=await req.json(),code=typeof input.code==='string'?input.code.trim().toUpperCase():'';

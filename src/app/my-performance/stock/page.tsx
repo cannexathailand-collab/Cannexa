@@ -1,3 +1,4 @@
+import {employeeRoles} from '@/lib/accounts';
 import Link from 'next/link';
 import {after} from 'next/server';
 import {syncEmployeeStock} from '@/lib/employee-stock-sync';
@@ -7,7 +8,7 @@ import {employeeStock} from '@/lib/employee-stock';
 import {EmployeeNav} from '../employee-nav';
 const number=(value:number|null)=>value===null?'รอตรวจสอบ':value.toLocaleString('th-TH',{maximumFractionDigits:3});
 export default async function EmployeeStockPage({searchParams}:{searchParams:Promise<{q?:string;status?:string}>}){
- await requireAdminPage(['employee']);
+ await requireAdminPage(employeeRoles);
  after(()=>syncEmployeeStock().catch(()=>{}));
  const input=await searchParams,q=(input.q??'').trim().slice(0,100),status=['available','empty','unknown'].includes(input.status??'')?input.status!:'all';
  const data=await employeeStock(),search=q.normalize('NFKC').toUpperCase();

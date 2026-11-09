@@ -9,7 +9,7 @@ test("employee deletion only removes employee login and audits once across retri
  let exists = true;
  const audits: unknown[] = [];
  db.$transaction = (async (fn: (tx: unknown) => unknown) => fn({
-  userAccount: {deleteMany: async ({where}: {where: unknown}) => {
+  userAccount: {findUnique: async () => exists ? {role:"employee"} : null, deleteMany: async ({where}: {where: unknown}) => {
    assert.deepEqual(where, {username: "staff", role: "employee"});
    const count = Number(exists);
    exists = false;
@@ -27,4 +27,25 @@ test("employee deletion rejects owner, self, and invalid identifiers before data
  for (const username of ["owner", "invalid name", "x", "admin"]) {
   await assert.rejects(deleteEmployee(username, username === "admin" ? "admin" : "owner"));
  }
+});
+
+test("sales deletion uses the stored role and keeps its audit identity", async t => {
+ const original = db.$transaction;
+ t.after(() => { db.$transaction = original; });
+ let deleted = false;
+ db.$transaction = (async (fn: (tx: unknown) => unknown) => fn({
+  userAccount: {
+   findUnique: async () => ({role:"sales"}),
+   deleteMany: async ({where}: {where: unknown}) => {
+    assert.deepEqual(where, {username:"seller", role:"sales"});
+    deleted = true;
+    return {count:1};
+   },
+  },
+  auditLog: {create: async ({data}: {data: {details: {role:string}}}) => {
+   assert.equal(data.details.role,"sales");
+  }},
+ })) as typeof original;
+ await deleteEmployee("seller","owner");
+ assert.equal(deleted,true);
 });

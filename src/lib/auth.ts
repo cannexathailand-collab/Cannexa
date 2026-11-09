@@ -29,6 +29,6 @@ export async function requireAccount(){
 }
 export async function requireAdminPage(allowed:Role[]=["owner"]){
  const a=await requireAccount();
- if(a.role!=="owner"&&!allowed.includes(a.role as Role))redirect(a.role==="employee"?home(a.role):"/admin");
+ if(a.role!=="owner"&&!allowed.includes(a.role as Role))redirect(home(a.role));
  return a;
 }

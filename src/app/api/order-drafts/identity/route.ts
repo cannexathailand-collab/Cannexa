@@ -4,7 +4,7 @@ import {limit} from '@/lib/rate-limit';
 import {userKey} from '@/lib/crypto';
 export async function POST(req:Request){
  let actor:Awaited<ReturnType<typeof currentAccount>>;
- try{actor=await currentAccount();if(!['employee','owner','admin','manager'].includes(actor.role))throw Error();await sameOrigin();}catch{return Response.json({error:'กรุณาเข้าสู่ระบบ'},{status:403});}
+ try{actor=await currentAccount();if(!['employee','sales','owner','admin','manager'].includes(actor.role))throw Error();await sameOrigin();}catch{return Response.json({error:'กรุณาเข้าสู่ระบบ'},{status:403});}
  try{
   if(!await limit(userKey('draft-identity:'+actor.username),60))return Response.json({error:'ทำรายการบ่อยเกินไป กรุณารอสักครู่'},{status:429});
   const input=await req.json();if(typeof input.phone!=='string'||input.phone.length>40)return Response.json({error:'กรอกเบอร์โทรให้ถูกต้อง'},{status:400});

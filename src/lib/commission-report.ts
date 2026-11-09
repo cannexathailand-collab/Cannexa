@@ -1,3 +1,4 @@
+import {employeeRoles} from './accounts';
 import {metaAdCode} from "@/lib/meta-ad";
 import {db} from "./db";
 import {commissionPeriod} from "./commission-month";
@@ -9,7 +10,7 @@ export async function commissionReport(requestedMonth?: string,affiliateId?:stri
  const [affiliates, friends, sales, extras, specials] = await Promise.all([db.affiliate.findMany({
   where: {id:affiliateId,code: {not: metaAdCode}},
   orderBy: {name: "asc"},
-  include: {accounts: {where: {role: "employee"}, select: {username: true}, orderBy: {username: "asc"}}},
+  include: {accounts: {where: {role:{in:employeeRoles}}, select: {username: true}, orderBy: {username: "asc"}}},
  }), db.commission.findMany({
   where: {conversion:{affiliateId,source:mockMode()?"MOCK":"LINE"}, OR: [
    {status: "Approved", conversion: {status: "VERIFIED_NEW_FRIEND"}},
