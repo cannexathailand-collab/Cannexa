@@ -7,6 +7,8 @@ import {canonicalCustomerCode} from './customer-code';
 import {needsTrackingReview,needsCodReceiptReview} from './order-tracking-review';
 import {loadOrderRoundSettings} from './order-round-settings';
 import {hasActualDispatch} from './sales-recognition';
+import {readStockSheet} from './stock-google';
+import {orderProductCost} from './order-product-cost';
 export const orderStates={ALL:'ทั้งหมด',REVIEW:'ต้องตรวจสอบ',WAITING:'รอจัดส่ง',COD:'รอรับเงิน COD',SHIPPED:'จัดส่งแล้ว',VERIFY:'รอยืนยันการจัดส่ง',CONFIRMED:'ยืนยันการจัดส่งแล้ว',RETURNED:'ตีกลับ',CANCELLED:'ยกเลิก / ปิดรายการ'} as const;
 export type OrderFilters={q?:string;from?:string;to?:string;payment?:string;status?:string;sort?:string;page?:string;team?:string;focus?:string};
 export function orderMatchesState(row:{state:string;shipped:boolean;awaitingShipment:boolean;awaitingConfirmation?:boolean;shipmentVerified?:boolean},state:string){
@@ -55,7 +57,21 @@ export async function orderManagement(input:OrderFilters={}){
  const all=orders.map(order=>{const shipment=shipping.get(order.id),sale=saleMap.get(order.id),receipt=shipment?receiptMap.get(shipment.tracking):undefined,closed=['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(order.status),shipped=!closed&&!!shipment&&hasActualDispatch(shipment);return {order,teamName:teamNames.get(order.groupKey)??'ยังไม่ระบุทีม',shipment,sale,receipt,shipped,shipmentVerified:shipped&&!!shipment&&verifiedReports.has(shipment.importId),awaitingConfirmation:shipped&&!!shipment&&!verifiedReports.has(shipment.importId),awaitingShipment:!closed&&!shipped,state:orderState(order,shipment,sale,now,receipt),amountSatang:quotedTotal(order.rawText??'')??sale?.revenueSatang??null};});
  const counts=Object.fromEntries(Object.keys(orderStates).map(key=>[key,all.filter(row=>orderMatchesState(row,key)).length])) as Record<keyof typeof orderStates,number>;
  const filtered=all.filter(row=>orderMatchesState(row,status));
- return {filters:{q,from:'',to:'',status,payment,sort,team,page:String(roundPage)},teams,round,roundSettings,counts,all:filtered,rows:filtered,count:filtered.length,page:roundPage,pages:roundPages};
+ const active=all.filter(row=>row.state!=='CANCELLED');
+ const totalAmountSatang=active.reduce((total,row)=>total+(row.amountSatang??0),0);
+ const transferAmountSatang=active.filter(row=>row.order.payment==='โอน').reduce((total,row)=>total+(row.amountSatang??0),0);
+ const codAmountSatang=active.filter(row=>row.order.payment==='COD').reduce((total,row)=>total+(row.amountSatang??0),0);
+ const unknownAmountCount=active.filter(row=>row.amountSatang===null).length;
+ const dispatches=await db.stockDispatch.findMany({where:{orderId:{in:active.map(row=>row.order.id)},status:'POSTED'},select:{orderId:true,totalCostSatang:true}});
+ const recordedCosts=new Map(dispatches.map(row=>[row.orderId,row.totalCostSatang]));
+ const needsEstimate=active.some(row=>recordedCosts.get(row.order.id)==null);
+ const stock=needsEstimate?await readStockSheet().catch(()=>null):null;
+ const unitCosts=new Map(stock?.products.map(product=>[product.code,product.costSatang]));
+ const costs=active.map(row=>orderProductCost(row.order.rawText,recordedCosts.get(row.order.id)??null,unitCosts));
+ const unknownCostCount=costs.filter(cost=>cost.amountSatang===null).length;
+ const productCostSatang=unknownCostCount?null:costs.reduce((total,cost)=>total+(cost.amountSatang??0),0);
+ const afterProductCostSatang=unknownAmountCount||productCostSatang===null?null:totalAmountSatang-productCostSatang;
+ return {filters:{q,from:'',to:'',status,payment,sort,team,page:String(roundPage)},teams,round,roundSettings,counts,totalAmountSatang,transferAmountSatang,codAmountSatang,unknownAmountCount,productCostSatang,afterProductCostSatang,unknownCostCount,estimatedCosts:costs.some(cost=>cost.estimated),all:filtered,rows:filtered,count:filtered.length,page:roundPage,pages:roundPages};
 }
 export function orderListCsv(data:Awaited<ReturnType<typeof orderManagement>>){
  const rows=[['เลขออเดอร์','วันที่รับ','ทีม / บ้าน','ลูกค้า','เบอร์โทร','ผู้ขาย','การชำระ','ยอดตามออเดอร์ (บาท)','สถานะ','เลขพัสดุ'],...data.all.map(({order:o,teamName,shipment:s,state,amountSatang,shipped})=>[o.orderNumber,o.eventAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'}),teamName??'ยังไม่ระบุทีม',o.recipient??'',o.phone??'',o.sellerUsername??o.sellerCode??'',o.payment??'',amountSatang===null?'':(amountSatang/100).toFixed(2),(shipped&&state!=='SHIPPED'?'จัดส่งแล้ว · ':'')+orderStates[state],s?.tracking??''])];
