@@ -74,3 +74,5 @@ body{font-family:'Leelawadee UI','Noto Sans Thai',Tahoma,Arial,sans-serif;backgr
 .employee-stock-compact th:nth-child(2){width:auto;min-width:60px;}
 .employee-stock-compact td,.employee-stock-compact thead th:not(:first-child){text-align:right;}
 .employee-stock-compact small{margin-top:2px;font-size:10px;line-height:1.2;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+.stock-history-order-link{display:flex;flex-direction:column;justify-content:center;gap:4px;min-height:44px;text-decoration:none;}.stock-history-order-link:hover strong{text-decoration:underline;}.stock-history-order-link span{font-size:12px;}

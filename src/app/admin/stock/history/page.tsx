@@ -53,7 +53,7 @@ export default async function StockHistory({searchParams}:{searchParams:Promise<
    </>:<p className="muted">{config&&day<config.startDay?'ยังไม่ได้เปิดเก็บประวัติในวันที่เลือก จึงไม่มีข้อมูลย้อนหลังของวันนั้น':day>=today?'วันนี้ยังไม่ปิดวัน ประวัติจะพร้อมหลังสิ้นวัน':recent.length?'ไม่มีประวัติที่บันทึกไว้สำหรับวันนี้':'ยังไม่มีรอบปิดวัน ประวัติชุดแรกจะพร้อมหลังสิ้นวัน'}</p>}
   </section>
   {backup&&baseline?.status==='APPLIED'&&<p className="muted"><a href={STOCK_SHEET_URL+'#gid='+backup.sheetId} target="_blank" rel="noreferrer">ยอดก่อนเริ่มรอบจำนวนรอจ่าย</a> · เก็บข้อมูลเดิมก่อนเปลี่ยนระบบ</p>}
-  <StockDispatchHistory orderLinks={actor.role!=='store'} day={stockHistoryDate(params.round,day)} historyDay={day} page={params.dispatchPage}/>
+  <StockDispatchHistory orderBaseHref={actor.role==='store'?'/admin/store-orders/':'/admin/orders/'} orderSuffix={actor.role==='store'?'':'/review'} day={stockHistoryDate(params.round,day)} historyDay={day} page={params.dispatchPage}/>
   <StockReturnHistory orderLinks={actor.role!=='store'} day={day} page={params.returnPage}/>
   <section className="card"><h2>การเก็บประวัติ</h2>
    <p>เก็บอัตโนมัติหลังสิ้นวันตามเวลาไทย{config&&<> เริ่มวันที่ {dateLabel(config.startDay)}</>} และเก็บยอดก่อนรายการแก้ไขแรกของวันใหม่ เพื่อไม่ให้ยอดวันใหม่ทับวันก่อน</p>
