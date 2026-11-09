@@ -1,3 +1,4 @@
+import {bangkokDay,dayStart} from './sales-dates';
 import {orderProductCost} from './order-product-cost';
 import type {StockCostItem} from './stock-dispatch-plan';
 import type {ExpenseEntry} from './expense-report';
@@ -18,4 +19,11 @@ export function estimatedOrderCosts(orders:{id:string;orderNumber:string;rawText
   entries.push({id:'order-cost:'+order.id,kind:'PRODUCT_COST',date,description:'ต้นทุนสินค้า (ประมาณการก่อนจัดส่ง) · '+order.orderNumber,amountSatang:cost.amountSatang,recipient:null,bankName:null,bankAccount:null,estimated:true});
  }
  return {entries,missingOrderIds};
+}
+
+export type GroupedExpenseEntry=ExpenseEntry&{details?:ExpenseEntry[]};
+export function groupProductCostExpenses(entries:ExpenseEntry[]):GroupedExpenseEntry[]{
+ const groups=Map.groupBy(entries.filter(entry=>entry.kind==='PRODUCT_COST'),entry=>bangkokDay(entry.date));
+ const costs=[...groups].map(([day,details]):GroupedExpenseEntry=>({id:'product-cost-day:'+day,kind:'PRODUCT_COST',date:dayStart(day),description:'ต้นทุนสินค้ารวมประจำวัน',amountSatang:details.reduce((sum,entry)=>sum+entry.amountSatang,0),recipient:null,bankName:null,bankAccount:null,estimated:details.some(entry=>entry.estimated),details}));
+ return [...entries.filter(entry=>entry.kind!=='PRODUCT_COST'),...costs].sort((a,b)=>+b.date-+a.date||a.id.localeCompare(b.id));
 }

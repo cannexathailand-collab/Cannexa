@@ -19,3 +19,9 @@ test('unknown cost remains missing rather than being counted as zero',()=>{
  const result=estimatedOrderCosts([order],new Set(),new Map(),dates);
  assert.equal(result.entries.length,0);assert.deepEqual(result.missingOrderIds,['order']);
 });
+test('product cost display combines a day while keeping original entries and credits',async()=>{
+ const {groupProductCostExpenses}=await import('../src/lib/stock-cost-expenses');
+ const base={kind:'PRODUCT_COST' as const,date,recipient:null,bankName:null,bankAccount:null};
+ const entries=[{...base,id:'a',description:'ต้นทุน A',amountSatang:10000},{...base,id:'b',description:'ต้นทุน B',amountSatang:5000,estimated:true},{...base,id:'credit',description:'คืนต้นทุน',amountSatang:-2000},{...base,id:'other',kind:'LINE' as const,description:'รายจ่ายอื่น',amountSatang:300}];
+ const grouped=groupProductCostExpenses(entries);assert.equal(grouped.length,2);const cost=grouped.find(row=>row.kind==='PRODUCT_COST')!;assert.equal(cost.amountSatang,13000);assert.equal(cost.details?.length,3);assert.equal(cost.estimated,true);assert.equal(entries.length,4);assert.equal(grouped.reduce((sum,row)=>sum+row.amountSatang,0),13300);
+});
