@@ -15,7 +15,7 @@ export default async function MyPerformance({searchParams}: {searchParams: Promi
  const roundDate=(date:Date)=>date.toLocaleString('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
  return <main className="center-page performance-page"><section className="customer"><h1>ผลงานของฉัน</h1>
  <EmployeeNav active="overview"/>
- {r?<><p>{r.name} · {r.code}</p><section className="employee-noon-commission tone-income" aria-label="ค่าคอมรอรับสะสมรอบปัจจุบัน"><span>ค่าคอมรอรับสะสม</span><strong>{money(roundAmount??0)}</strong><small>รอบ {roundDate(round.start)} – {roundDate(round.end)}</small><p>เริ่มรอบแสดงผลใหม่ตามเวลาตัดรอบ {settings.closeTime} น. เฉพาะค่าคอมที่คำนวณแล้วและยังไม่จ่ายในรอบนี้</p></section><dl>
+ {r?<><p>{r.name} · {r.code}</p><section className="employee-noon-commission tone-income" aria-label="ค่าคอมวันนี้ตามรอบปัจจุบัน"><span>ค่าคอมวันนี้</span><strong>{money(roundAmount??0)}</strong><small>รอบ {roundDate(round.start)} – {roundDate(round.end)}</small><p>เริ่มรอบแสดงผลใหม่ตามเวลาตัดรอบ {settings.closeTime} น. เฉพาะค่าคอมที่คำนวณแล้วและยังไม่จ่ายในรอบนี้</p></section><dl>
 
  <dt>เพื่อนใหม่</dt><dd>{r.approved}</dd>
  </dl><CommissionPanel affiliateId={r.id} username={a.username} filters={filters}/></>:<p>{a.role==='owner'?'เลือกรายชื่อพนักงานด้านบนเพื่อดูข้อมูล':'ยังไม่ได้ผูกบัญชีกับ Affiliate'}</p>}
