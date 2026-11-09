@@ -26,7 +26,7 @@ export default async function LinePage({searchParams}:{searchParams:Promise<{sta
  <p>Callback URL <code>{baseUrl()}/api/line/callback</code></p>
  <p>Webhook URL <code>{baseUrl()}/api/line/webhook</code></p>
  <p>ผูก OA กับ LINE Login ใน Provider เดียวกันก่อนบันทึก เมื่อเปลี่ยน OA รายงานเดิมยังคงอยู่และนับรวมใน Dashboard</p>
- {mockMode()?<p>ใช้หน้านี้ในระบบจริงเพื่อเชื่อม LINE</p>:<PopupDetails className="admin-setup" open={!current} summary={<> <span>{current?"เปลี่ยนการเชื่อมต่อ LINE":"ตั้งค่าการเชื่อมต่อ LINE"}<small>ตั้งค่า LINE Login และ Messaging API</small></span> </>}><form method="post" action="/api/admin/line">
+ {mockMode()?<p>ใช้หน้านี้ในระบบจริงเพื่อเชื่อม LINE</p>:<PopupDetails className="admin-setup" summary={<> <span>{current?"เปลี่ยนการเชื่อมต่อ LINE":"ตั้งค่าการเชื่อมต่อ LINE"}<small>ตั้งค่า LINE Login และ Messaging API</small></span> </>}><form method="post" action="/api/admin/line">
  <h2>LINE Login</h2>
  <label>LINE Login Channel ID<input name="loginId" required inputMode="numeric" maxLength={20}/></label>
  <label>LINE Login Channel Secret<input name="loginSecret" required type="password" maxLength={128} autoComplete="new-password"/></label>

@@ -1,6 +1,6 @@
 'use client';
 
-import {useId, useRef} from 'react';
+import {PopupDetails} from './popup-details';
 
 type Entry = {
   id: string;
@@ -22,18 +22,9 @@ export function ExpenseDetailsButton({title, label, entries}: {
   label: string;
   entries: Entry[];
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
   const total = entries.reduce((sum, entry) => sum + entry.amountSatang, 0);
 
-  return <>
-    <button type="button" className="expense-summary-button" aria-haspopup="dialog"
-      onClick={() => dialog.current?.showModal()}>{label}</button>
-    <dialog ref={dialog} className="stock-modal expense-detail-modal" aria-labelledby={titleId}>
-      <div className="intro">
-        <h2 id={titleId}>{title}</h2>
-        <button type="button" className="secondary" onClick={() => dialog.current?.close()}>ปิด</button>
-      </div>
+  return <PopupDetails className="expense-cost-details" summary={label} title={title}>
       <p>{entries.length} รายการ · รวม {money(total)}</p>
       <div className="table-wrap">
         <table>
@@ -50,6 +41,5 @@ export function ExpenseDetailsButton({title, label, entries}: {
           <tfoot><tr><th colSpan={2}>รวม</th><td className="numeric">{amount(total)}</td></tr></tfoot>
         </table>
       </div>
-    </dialog>
-  </>;
+  </PopupDetails>;
 }

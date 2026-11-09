@@ -8,7 +8,7 @@ function TierEditor({initial,editable,active}:{initial:TierRule;editable:boolean
  const [rule,setRule]=useState(initial),[values,setValues]=useState(initial.conditions.map(c=>String(c.value)));
  const [required,setRequired]=useState({monthlySpend:String(initial.required.monthlySpend),monthlyProfit:String(initial.required.monthlyProfit),membershipDays:String(initial.required.membershipDays),monthlyPurchases:String(initial.required.monthlyPurchases)});
  const update=(index:number,patch:Partial<TierRule['conditions'][number]>)=>setRule({...rule,conditions:rule.conditions.map((c,i)=>i===index?{...c,...patch}:c)});
- return <PopupDetails className="card" open={active||undefined} summary={<> <strong>{tierNames[rule.tier]}</strong> · {rule.enabled?'เกณฑ์บังคับ 4 ข้อ · เกณฑ์เสริม '+rule.conditions.length+' ข้อ':'ปิดระดับนี้'} </>}>
+ return <PopupDetails className={'card'+(active?' is-selected':'')} summary={<> <strong>{tierNames[rule.tier]}</strong> · {rule.enabled?'เกณฑ์บังคับ 4 ข้อ · เกณฑ์เสริม '+rule.conditions.length+' ข้อ':'ปิดระดับนี้'} </>}>
 
   <form action="/api/admin/crm/tiers" method="post">
    <input type="hidden" name="rule" value={JSON.stringify({...rule,required:{monthlySpend:Number(required.monthlySpend),monthlyProfit:Number(required.monthlyProfit),membershipDays:Number(required.membershipDays),monthlyPurchases:Number(required.monthlyPurchases)},conditions:rule.conditions.map((c,i)=>({...c,value:Number(values[i])}))})}/>

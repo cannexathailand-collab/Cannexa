@@ -34,7 +34,7 @@ export async function OwnerCustomerView({params}:{params:{q?:string;customer?:st
   <section className="portal-section">
    <h1>Customer · โหมดเจ้าของระบบ</h1>
    <p className="portal-muted">เลือกลูกค้าเพื่อดูข้อมูลแบบอ่านอย่างเดียวและทดลองตะกร้า</p>
-   <PopupDetails open={!selected} summary={<> {selected?'เปลี่ยนลูกค้า':'เลือกลูกค้า'} </>}>
+   <PopupDetails summary={<> {selected?'เปลี่ยนลูกค้า':'เลือกลูกค้า'} </>}>
    <form action="/customer" className="portal-profile" method="get">
     <label>ค้นหารหัสลูกค้า ชื่อ หรือเบอร์โทร<input name="q" defaultValue={query} maxLength={100}/></label>
     <button>ค้นหาลูกค้า</button>

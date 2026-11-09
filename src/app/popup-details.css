@@ -1,0 +1,58 @@
+.popup-details {min-width:0}
+.popup-details-trigger {
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  width:100%;padding:13px 16px;border:1px solid #dce6df;border-radius:12px;
+  background:#fff;color:#244a36;text-align:left;line-height:1.55;white-space:normal;
+  font-size:13px;font-weight:600;transition:background .15s,border-color .15s,box-shadow .15s;
+}
+.popup-details-trigger:hover {background:#f3f8f5;border-color:#a4c4b1;box-shadow:0 2px 8px #234a3608}
+.popup-details-trigger:focus-visible,.popup-close:focus-visible {outline:3px solid #8bc4ac;outline-offset:3px}
+.popup-details-trigger small {display:block;margin-top:3px;color:#718378;font-size:11px;font-weight:400}
+.popup-trigger-icon {width:17px;height:17px;flex-shrink:0;color:#8b9e91}
+.popup-details.admin-danger>.popup-details-trigger {color:#ad4944;border-color:#eddeda;background:#fff}
+.popup-details.admin-danger>.popup-details-trigger:hover {background:#fff4f2;border-color:#ddb2ac}
+.popup-details.admin-danger .popup-trigger-icon {color:#ad7771}
+
+dialog.popup-details-dialog {
+  width:min(760px,calc(100vw - 40px));max-width:calc(100vw - 40px);
+  max-height:calc(100dvh - 64px);padding:0;border:1px solid #dfe8e2;border-radius:20px;
+  background:#fff;box-shadow:0 24px 100px #173a332e;
+}
+dialog.popup-details-dialog:has(table) {width:min(1040px,calc(100vw - 40px))}
+dialog.popup-details-dialog[open] {display:flex;flex-direction:column;overflow:hidden;animation:popup-appear .16s ease-out}
+dialog.popup-details-dialog::backdrop {background:#172d2780;backdrop-filter:blur(3px)}
+.popup-details-header {
+  display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-shrink:0;
+  padding:24px 28px 20px;border-bottom:1px solid #e8eee9;background:#f8fbf9;
+}
+.popup-details-header>[role="heading"] {padding-top:3px;font-size:19px;font-weight:700;line-height:1.5;color:#193d2a}
+.popup-details-header small {display:block;font-size:12px;font-weight:400;color:#708175;margin-top:5px}
+.popup-close {display:flex;align-items:center;gap:6px;flex-shrink:0;padding:8px 11px!important;border-radius:9px!important;font-size:12px!important}
+.popup-close svg {width:16px;height:16px}
+.popup-details-body {padding:24px 28px 28px;overflow:auto;min-height:0;min-width:0;overscroll-behavior:contain}
+.popup-details-body .popup-details {margin:12px 0}
+.popup-details-body .form-grid {margin-top:0;gap:20px}
+.popup-details-body label {font-size:12px;font-weight:600;color:#435d4b}
+.popup-details-body input:not([type="checkbox"]):not([type="radio"]),.popup-details-body select,.popup-details-body textarea {
+  border-radius:10px;border:1px solid #d6e2da;padding:12px;background:#fff;font-weight:400;
+}
+.popup-details-body input:focus,.popup-details-body select:focus,.popup-details-body textarea:focus {outline:2px solid #95cbb1;outline-offset:1px;border-color:#4d9c74}
+.popup-details-body p {line-height:1.8}
+.popup-details-body pre {white-space:pre-wrap;overflow-wrap:anywhere;padding:16px;border-radius:10px;background:#f5f8f6;font-size:12px}
+.popup-details-body table {width:100%}
+html:has(.popup-details-dialog[open]) {overflow:hidden}
+@keyframes popup-appear {from {opacity:0;transform:translateY(8px) scale(.99)}to {opacity:1;transform:translateY(0) scale(1)}}
+@media(prefers-reduced-motion:reduce) {dialog.popup-details-dialog[open] {animation:none}.popup-details-trigger {transition:none}}
+@media(max-width:600px) {
+  dialog.popup-details-dialog,dialog.popup-details-dialog:has(table) {width:calc(100vw - 24px);max-width:calc(100vw - 24px);max-height:calc(100dvh - 32px);border-radius:16px}
+  .popup-details-header {padding:19px 18px 16px;gap:12px}
+  .popup-details-header>[role="heading"] {font-size:17px}
+  .popup-details-body {padding:20px 18px 24px}
+  .popup-details-trigger {padding:12px 14px}
+}
+.popup-details.card {padding:0;overflow:hidden}
+.popup-details.card>.popup-details-trigger {border:0;border-radius:inherit;padding:20px 22px;box-shadow:none;background:#f8fbf9}
+.expense-cost-details>.popup-details-trigger {padding:0;background:transparent;border:0;box-shadow:none;color:#187b55;gap:8px}
+.expense-cost-details>.popup-details-trigger:hover {text-decoration:underline}
+.expense-cost-details .numeric {text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.expense-cost-details tfoot {font-weight:700;border-top:2px solid var(--border)}
