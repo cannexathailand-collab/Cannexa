@@ -6,7 +6,7 @@ test('failed stock entries show recipient, seller, order items and order revenue
  const d={id:'dispatch',orderId:'order',orderNumber:'ORDER-1',status:'NEEDS_REVIEW',candidateTracking:'TRACK1',totalCostSatang:15000,items:[{code:'A1',name:'สินค้า',quantityMilliG:20000}],issues:['ยังบันทึกไม่ได้']};
  const o={orderNumber:'ORDER-1',recipient:'ผู้รับทดสอบ',sellerUsername:'old',payment:'โอน',rawText:'ยอดรวม: 900 บาท'};
  const entry=stockReviewEntry(d,o,{revenueSatang:90000},null,['seller']);
- assert.equal(entry.recipient,'ผู้รับทดสอบ');assert.equal(entry.seller,'seller');assert.equal(entry.salesSatang,90000);assert.equal(entry.items[0].grams,20);assert.equal(entry.statusLabel,'ตัดสต๊อกไม่สำเร็จ');assert.deepEqual(entry.issues,['ยังบันทึกไม่ได้']);assert.ok(!stockReviewStatuses.includes('POSTED'));
+ assert.equal(entry.recipient,'ผู้รับทดสอบ');assert.equal(entry.seller,'seller');assert.equal(entry.salesSatang,90000);assert.equal(entry.items[0].grams,20);assert.equal(entry.statusLabel,'รอตรวจสอบ · ตัดสต๊อกไม่สำเร็จ');assert.deepEqual(entry.issues,['ยังบันทึกไม่ได้']);assert.ok(!stockReviewStatuses.includes('POSTED'));
 });
 test('review falls back to reserved items and quoted sale total, without inventing missing amounts or claim revenue',()=>{
  const d={orderId:'order',orderNumber:'ORDER',status:'WAITING_COST',items:[],issues:[]},o={recipient:'ผู้รับ',payment:'COD',rawText:'ยอดรวม: 300 บาท',sellerCode:'S1'};
