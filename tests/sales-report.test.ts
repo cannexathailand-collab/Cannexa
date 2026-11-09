@@ -13,6 +13,21 @@ test('source totals reconcile and repeat buyers count once independently of sell
  const legacy=results.find(r=>r.key==='legacy')!;assert.equal(legacy.customers,1);assert.equal(legacy.orders,2);assert.equal(legacy.revenueSatang,20000);
  assert.ok(results.some(r=>r.key==='meta'));assert.ok(results.some(r=>r.key==='affiliate:a'));
 });
+
+test('customer source distinguishes the legacy base from new and unlinked customers',()=>{
+ const fresh={code:'NEW',legacy:false,referrerId:null,referrer:null,metaFbc:null};
+ const result=salesSources([
+  row('new-1',{customer:fresh}),row('new-2',{customer:fresh}),
+  row('old',{customer:{...fresh,code:'OLD',legacy:true,metaFbc:'tracked'}}),
+  row('unlinked'),
+ ]);
+ assert.equal(result.find(source=>source.key==='legacy')?.customerType,'ลูกค้าเก่า');
+ assert.equal(result.find(source=>source.key==='unknown')?.customerType,'ลูกค้าใหม่');
+ assert.equal(result.find(source=>source.key==='unknown')?.customers,1);
+ assert.equal(result.find(source=>source.key==='unknown')?.orders,2);
+ assert.equal(result.find(source=>source.key==='unlinked')?.customerType,'ยังไม่ระบุลูกค้า');
+ assert.equal(result.reduce((sum,source)=>sum+source.revenueSatang,0),40000);
+});
 test("sales exclude unshipped paid transfers, tracking labels and freight reports without dispatch proof",()=>{
  for(const status of ["PENDING","PAID"]){const base=row(status,{status});assert.equal(summarizeSales([{...base,recognizedAt:null}]).count,0);assert.equal(summarizeSales([{...base,shipment:{...base.shipment!,fulfillmentStatus:"UNCONFIRMED",dispatchedAt:null}}]).count,0);}
  assert.equal(summarizeSales([row("sent")]).count,1);
