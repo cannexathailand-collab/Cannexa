@@ -1,6 +1,4 @@
 import {referredSalesReport} from '@/lib/referred-sales';
-import {employeeOrderDashboard} from '@/lib/employee-order-dashboard';
-import {EmployeeOrderSummary} from '../employee-order-summary';
 import {requireEmployeePage} from '@/lib/employee-view';
 import {commissionReport} from '@/lib/commission-report';
 import {salesReport} from '@/lib/sales-report';
@@ -11,12 +9,11 @@ export default async function EmployeeMonthly({searchParams}:{searchParams:Promi
  if(!a.affiliateId)return <main className="center-page performance-page"><section className="customer"><h1>สรุปผลงานรายเดือน</h1><EmployeeNav active="monthly"/><p>{a.role==='owner'?'เลือกรายชื่อพนักงานด้านบนเพื่อดูข้อมูล':'ยังไม่ได้ผูกบัญชีกับ Affiliate'}</p></section></main>;
  const {month:requested}=await searchParams;
  const result=await commissionReport(requested,a.affiliateId),entries=result.groups.get(a.affiliateId)??[];
- const [closed,referred,today]=await Promise.all([salesReport({month:result.month,seller:a.username}),referredSalesReport(result.month,a.affiliateId),employeeOrderDashboard()]);
+ const [closed,referred]=await Promise.all([salesReport({month:result.month,seller:a.username}),referredSalesReport(result.month,a.affiliateId)]);
  const money=(n:number)=>(n/100).toLocaleString('th-TH',{style:'currency',currency:'THB'});
  const amount=(status:'Approved'|'Paid')=>entries.filter(r=>r.status===status).reduce((n,r)=>n+r.amountSatang,0);
  return <main className="center-page performance-page"><section className="customer">
   <h1>สรุปผลงานรายเดือน</h1><p className="muted">{a.username} · เลือกเดือนเพื่อดูผลงานและค่าคอมของคุณ</p><EmployeeNav active="monthly"/>
-  <EmployeeOrderSummary data={today} shared/>
   <CommissionMonthSelect action="/my-performance/monthly" month={result.month} months={result.months} label="เดือนที่ต้องการดู"/>
   <section className="commission-summary-grid" aria-label="ค่าคอมประจำเดือน">
    <article className="commission-metric"><span>ค่าคอมรอจ่ายของเดือนที่เลือก</span><strong>{money(amount('Approved'))}</strong><small>ค่าคอมที่คำนวณแล้วและยังไม่จ่าย</small></article>

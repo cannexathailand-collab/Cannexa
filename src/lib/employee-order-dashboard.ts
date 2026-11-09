@@ -1,19 +1,23 @@
-import {bookedSalesReport} from './booked-sales';
+import {orderManagement} from './order-management';
 import {bangkokDay,shiftDay} from './sales-dates';
+import {orderRoundClosingDay} from './order-round';
 export function employeeSalesWeekStart(roundDay:string){
  const weekday=new Date(roundDay+'T00:00:00Z').getUTCDay();
  return shiftDay(roundDay,-((weekday+6)%7));
 }
-export async function employeeOrderDashboard(username?:string,affiliateId?:string,now=new Date()){
- const day=bangkokDay(now);
- const report=await bookedSalesReport({seller:username,affiliateId,from:shiftDay(day.slice(0,7)+'-01',-7),to:shiftDay(day,1)},now);
- const weekStart=employeeSalesWeekStart(report.currentRound);
- const weeklyRows=report.orderRows.filter(row=>row.day>=weekStart&&row.day<=report.currentRound&&row.eventAt<=now);
- const month=report.currentRound.slice(0,7);
- const monthlyRows=report.orderRows.filter(row=>row.day.startsWith(month)&&row.day<=report.currentRound&&row.eventAt<=now);
- const todayRows=weeklyRows.filter(row=>row.day===report.currentRound);
- return {currentRound:report.currentRound,closeTime:report.closeTime,weekStart,month,todayRows,weeklyRows,monthlyRows,
-  monthCount:monthlyRows.length,monthAmount:monthlyRows.reduce((total,row)=>total+(row.revenueSatang??0),0),
-  todayCount:todayRows.length,todayAmount:todayRows.reduce((total,row)=>total+(row.revenueSatang??0),0),
-  weekCount:weeklyRows.length,weekAmount:weeklyRows.reduce((total,row)=>total+(row.revenueSatang??0),0)};
+export async function employeeOrderDashboard(){
+ const report=await orderManagement();
+ const todayRows=report.rows.map(row=>({
+  id:row.order.id,orderNumber:row.order.orderNumber,recipient:row.order.recipient,
+  eventAt:row.order.eventAt,day:orderRoundClosingDay(row.order.eventAt,report.roundSettings.closeMinutes),
+  sellerUsername:row.order.sellerUsername,payment:row.order.payment,
+  revenueSatang:row.amountSatang,tracking:row.shipment?.tracking??null,hasTracking:!!row.shipment?.tracking,
+  state:row.state,shipped:!!row.shipment?.tracking&&row.state!=='RETURNED',
+  awaitingShipment:!row.shipment?.tracking&&row.state!=='RETURNED',
+ }));
+ return {currentRound:bangkokDay(report.round.end),closeTime:report.roundSettings.closeTime,todayRows,
+  todayCount:todayRows.length,
+  todayAmount:todayRows.filter(row=>row.state!=='RETURNED'&&row.payment!=='เคลม').reduce((total,row)=>total+(row.revenueSatang??0),0),
+  counts:{ALL:todayRows.length,WAITING:todayRows.filter(row=>row.awaitingShipment).length,SHIPPED:todayRows.filter(row=>row.shipped).length,RETURNED:todayRows.filter(row=>row.state==='RETURNED').length,REVIEW:todayRows.filter(row=>row.state==='REVIEW').length},
+ };
 }

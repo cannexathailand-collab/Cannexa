@@ -132,3 +132,9 @@ dialog.stock-modal{position:fixed;inset:0;margin:auto;width:min(560px,calc(100vw
  .employee-order-dashboard .commission-metric>strong {font-size:clamp(16px,4.7vw,22px);}
  .performance-page .employee-nav[aria-label="เมนูผลงานพนักงาน"] {grid-template-columns:repeat(6,minmax(0,1fr));gap:2px;}
 }
+
+.employee-order-dashboard .employee-order-dashboard-grid {grid-template-columns:repeat(2,minmax(0,1fr));}
+
+.employee-order-dashboard .employee-order-warning {background:#fff0d9;border-color:#edc899;}
+
+.performance-page .employee-nav-short {white-space:pre-line;}
