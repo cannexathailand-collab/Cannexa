@@ -36,25 +36,22 @@ export default async function WebsiteOrdersPage({searchParams}: {searchParams: P
       </form>
       <p className="muted small">แสดง {orders.length} รายการล่าสุด</p>
     </section>
-    <div className="website-order-list">
-      {orders.map(order => <article className="card website-order-card" id={"website-order-"+order.id} key={order.id} aria-label={'ออเดอร์ ' + order.orderNumber}>
-        <header><div><h2>{order.orderNumber}</h2><span className="muted small">{new Date(order.createdAt).toLocaleString('th-TH', {timeZone: 'Asia/Bangkok'})}</span></div>
-          <span className="pill">{websiteOrderStatusLabels[order.status] ?? order.status}</span></header>
-        <p className="muted small">{displayCustomerCode(order.customerCode)}</p>
-        <OrderShippingDetails copyDetails={{orderNumber:order.orderNumber,createdAt:new Date(order.createdAt),status:websiteOrderStatusLabels[order.status]??order.status}} data={{recipient:order.recipient,phone:order.phone,address:order.address,payment:order.paymentMethod==='TRANSFER'?'โอน':order.paymentMethod,amountSatang:order.totalSatang,items:order.items.map(item=>({code:item.code,name:item.name,quantityMilliG:Math.round(item.grams*item.quantity*1000),description:item.pack+' × '+item.quantity}))}}/>
+    <div className="website-order-list employee-order-list store-preparing-list">
+      {orders.map(order => <article className="website-order-card employee-order-card" id={"website-order-"+order.id} key={order.id} aria-label={'ออเดอร์ ' + order.orderNumber}>
+        <header><div><strong>{order.intakeOrderId?<Link className="employee-order-reference" href={'/admin/orders/list/'+encodeURIComponent(order.intakeOrderId)} title="เปิดออเดอร์จัดส่ง">{order.orderNumber}</Link>:order.orderNumber}</strong><small>สร้าง {new Date(order.createdAt).toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</small></div><span className="pill">{websiteOrderStatusLabels[order.status]??order.status}</span></header>
+        <p className="muted small">ลูกค้า {displayCustomerCode(order.customerCode)}</p>
+        <OrderShippingDetails copyDetails={{orderNumber:order.orderNumber,createdAt:new Date(order.createdAt),status:websiteOrderStatusLabels[order.status]??order.status}} data={{recipient:order.recipient,phone:order.phone,address:order.address,payment:order.paymentMethod==='TRANSFER'?'โอน':order.paymentMethod,amountSatang:order.totalSatang,items:order.items.map(item=>({code:item.code,name:item.name,quantityMilliG:Math.round(item.grams*item.quantity*1000),description:item.pack+' × '+item.quantity}))}}>
+          {order.status==='PENDING_REVIEW'&&<PopupDetails className="compact-order-action" summary="ตรวจสอบและรับออเดอร์" title={'ตรวจสอบออเดอร์ '+order.orderNumber}><WebsiteOrderReviewControls id={order.id} status={order.status} totalSatang={order.totalSatang} sellerCode={sellerCodes.get(order.customerCode)??''}/></PopupDetails>}
+          <PopupDetails className="compact-order-action" summary="ราคาสินค้า" title="ราคาสินค้าแยกรายการ"><div className="table-wrap"><table><thead><tr><th>สินค้า</th><th>ขนาด</th><th>จำนวน</th><th>ราคาต่อชิ้น</th><th>รวม</th></tr></thead><tbody>{order.items.map(item=><tr key={item.code+'|'+item.pack}><td><strong>{item.code}</strong><div>{item.name}</div></td><td>{item.pack}</td><td>{item.quantity}</td><td>{money(item.unitPriceSatang)}</td><td>{money(item.lineTotalSatang)}</td></tr>)}</tbody></table></div></PopupDetails>
+          {order.slipVersion&&<a href={'/api/customer/website-orders/'+encodeURIComponent(order.id)+'/slip?v='+order.slipVersion} target="_blank" rel="noopener noreferrer">ดูสลิปโอนเงิน</a>}
+        </OrderShippingDetails>
         <p className="muted small">ค่าสินค้า {money(order.subtotalSatang)} บาท · ค่าจัดส่ง {money(order.shippingSatang)} บาท</p>
-        {order.bankDetails && <p>บัญชีรับโอน {order.bankDetails.bankName} · {order.bankDetails.accountName} · {order.bankDetails.accountNumber}</p>}
-        {order.slipVersion && <p><a className="button secondary" href={'/api/customer/website-orders/'+encodeURIComponent(order.id)+'/slip?v='+order.slipVersion} target="_blank" rel="noopener noreferrer">ดูสลิปโอนเงิน</a></p>}
-        <PopupDetails summary={<>ราคาสินค้าแยกรายการ</>}><div className="table-wrap"><table><thead><tr><th>สินค้า</th><th>ขนาด</th><th>จำนวน</th><th>ราคาต่อชิ้น</th><th>รวม</th></tr></thead>
-          <tbody>{order.items.map(item => <tr key={item.code + '|' + item.pack}>
-            <td><strong>{item.code}</strong><div>{item.name}</div></td><td>{item.pack}</td><td>{item.quantity}</td><td>{money(item.unitPriceSatang)}</td><td>{money(item.lineTotalSatang)}</td>
-          </tr>)}</tbody></table></div></PopupDetails>
-        {order.reviewedAt && <p className="muted small">ตรวจสอบโดย {order.reviewedBy} · {new Date(order.reviewedAt).toLocaleString('th-TH', {timeZone: 'Asia/Bangkok'})}</p>}
-        {order.intakeOrderId && <p>ออเดอร์จัดส่ง <Link href={'/admin/orders/list/' + encodeURIComponent(order.intakeOrderId)}>{intakeNumbers.get(order.intakeOrderId) ?? 'เปิดรายละเอียด'}</Link></p>}
-        {order.reviewNote && <p>หมายเหตุ {order.reviewNote}</p>}
-        <WebsiteOrderReviewControls id={order.id} status={order.status} totalSatang={order.totalSatang} sellerCode={sellerCodes.get(order.customerCode) ?? ''}/>
+        {order.bankDetails&&<p className="muted small">บัญชีรับโอน {order.bankDetails.bankName} · {order.bankDetails.accountName} · {order.bankDetails.accountNumber}</p>}
+        {order.reviewedAt&&<p className="muted small">ตรวจสอบโดย {order.reviewedBy} · {new Date(order.reviewedAt).toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>}
+        {order.intakeOrderId&&<p className="muted small">ออเดอร์จัดส่ง <Link href={'/admin/orders/list/'+encodeURIComponent(order.intakeOrderId)}>{intakeNumbers.get(order.intakeOrderId)??'เปิดรายละเอียด'}</Link></p>}
+        {order.reviewNote&&<p className="muted small">หมายเหตุ {order.reviewNote}</p>}
       </article>)}
-      {!orders.length && <section className="card"><p className="empty">ไม่มีออเดอร์จากเว็บไซต์ในสถานะนี้</p></section>}
+      {!orders.length&&<section className="card"><p className="empty">ไม่มีออเดอร์จากเว็บไซต์ในสถานะนี้</p></section>}
     </div>
   </>;
 }

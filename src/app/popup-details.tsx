@@ -4,6 +4,7 @@ import {useEffect, useId, useRef, type CSSProperties, type ReactNode} from 'reac
 
 type Props = {
   children: ReactNode;
+  onOpen?: () => void;
   summary: ReactNode;
   title?: ReactNode;
   summaryClassName?: string;
@@ -14,7 +15,7 @@ type Props = {
   'aria-label'?: string;
 };
 
-export function PopupDetails({children, summary, title = summary, summaryClassName = '', className = '', style, id, open, 'aria-label': ariaLabel}: Props) {
+export function PopupDetails({children, onOpen, summary, title = summary, summaryClassName = '', className = '', style, id, open, 'aria-label': ariaLabel}: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -24,7 +25,7 @@ export function PopupDetails({children, summary, title = summary, summaryClassNa
 
   return <div className={'popup-details ' + className} style={style} id={id} aria-label={ariaLabel}>
     <button type="button" className={'popup-details-trigger ' + summaryClassName}
-      aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>
+      aria-haspopup="dialog" onClick={() => {onOpen?.();dialog.current?.showModal();}}>
       <span>{summary}</span><svg className="popup-trigger-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="m9 5 7 7-7 7"/></svg>
     </button>
     <dialog ref={dialog} className="stock-modal popup-details-dialog" aria-labelledby={titleId}>

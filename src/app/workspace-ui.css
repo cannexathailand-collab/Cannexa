@@ -125,3 +125,10 @@ button.stock-delete-action:disabled{background:#f8d9d5;color:#85251f;border-colo
 .order-cancel .order-cancel-confirm:disabled{opacity:.65;cursor:wait;}
 
 .employee-order-reference{display:inline-flex;align-items:center;min-height:32px;color:#216346;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere;}
+.order-row-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.order-row-actions>.button{min-height:40px;padding:8px 12px;font-size:12px;}
+.compact-order-action>.popup-details-trigger{width:auto;min-height:40px;padding:8px 12px;font-size:12px;border-radius:8px;gap:8px;}
+.website-order-list.store-preparing-list{gap:10px;}
+.website-order-list.store-preparing-list .website-order-card>header{flex-direction:row;}
+.website-order-list.store-preparing-list .website-order-card>header small{display:block;font-size:11px;color:#748477;margin-top:5px;}
+.admin-order-list .employee-order-card>.notice{margin:8px 0;padding:8px 10px;}
