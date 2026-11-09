@@ -1,5 +1,16 @@
 // Chat prices are declared amounts, never inventory costs.
 import {contactPhones} from './contact-phones';
+export function parseOrderAddress(text:string){
+ const lines=text.replace(/\r/g,'').split('\n').map(line=>line.trim()).filter(Boolean);
+ const start=lines.findIndex(line=>/^(?:ที่อยู่|ที่อยู่ผู้รับ)\s*[:：]/.test(line));
+ if(start<0)return null;
+ const parts=[lines[start].replace(/^(?:ที่อยู่|ที่อยู่ผู้รับ)\s*[:：]\s*/,'')];
+ for(const line of lines.slice(start+1)){
+  if(/^(?:รายการสินค้า|สินค้า|ยอดสินค้า|ค่าส่ง|ยอดรวม|ยอดตามข้อความ|รวมทั้งสิ้น|ยอดโอน|ชำระเงิน|วิธีชำระเงิน|รหัสลูกค้า|รหัสผู้ขาย|ชื่อผู้รับ|ผู้รับ|ชื่อลูกค้า|เบอร์โทร|โทรศัพท์|โทร|เบอร์|Green Coin|หมายเหตุ|ออเดอร์เว็บไซต์)(?:\s*[:：=]|\s|$)/i.test(line)||/^[A-Z][A-Z0-9._-]*\s*[x×*]\s*\d/i.test(line))break;
+  parts.push(line);
+ }
+ return parts.filter(Boolean).join(' ')||null;
+}
 export function parseOrderText(text:string){
  const lines=text.replace(/\r/g,"").split("\n").map(x=>x.trim()).filter(Boolean);
  const seller=lines[0]?.match(/^รหัสผู้ขาย\s*[:：]\s*([A-Za-z0-9._-]{3,64})\s*$/);
@@ -9,7 +20,7 @@ export function parseOrderText(text:string){
  const phoneInput=field("เบอร์โทร|โทรศัพท์|โทร|เบอร์");
  const numbers=phoneInput?contactPhones(phoneInput):[];
  const phone=numbers.length&&numbers.every(n=>/^0\d{8,9}$/.test(n)&&!/^0+$/.test(n))&&!phoneInput?.includes('+660')?numbers.join(' / '):null;
- const address=field("ที่อยู่|ที่อยู่ผู้รับ");
+ const address=parseOrderAddress(text);
  const paymentInput=field("ชำระเงิน|วิธีชำระเงิน");
  const payment=paymentInput&&/^(เคลม|เครม)$/.test(paymentInput)?"เคลม":paymentInput&&/^(COD|โอน)$/i.test(paymentInput)?paymentInput.toUpperCase():null;
  const issues:string[]=[];

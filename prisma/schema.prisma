@@ -468,6 +468,7 @@ model GmailImport {
 }
 
 model Shipment {
+ manualImportId String?
  freightSatang Int?
  totalChargeSatang Int?
  freightReportAt DateTime?
@@ -486,6 +487,16 @@ model Shipment {
  dispatchEvidence String?
  dispatchConfirmedBy String?
  @@index([fulfillmentStatus, dispatchedAt])
+ createdAt DateTime @default(now())
+}
+
+model ManualShipmentImport {
+ id String @id
+ fingerprint String
+ filename String
+ rows Json
+ dispatchedAt DateTime
+ createdBy String
  createdAt DateTime @default(now())
 }
 
