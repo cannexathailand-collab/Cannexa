@@ -29,3 +29,9 @@ test('customer dashboard shows the product name with its code',()=>{
  const html=renderToStaticMarkup(createElement(CustomerDashboard,{data,productNames:new Map([['CG1','Product name']])}));
  assert.match(html,/Product name/);assert.match(html,/CG1/);
 });
+
+test('missing product names use a dash and retain the product code',()=>{
+ const data=buildCustomerDashboard([row('unnamed','2026-11-01')],undefined,now);
+ const html=renderToStaticMarkup(createElement(CustomerDashboard,{data,productNames:new Map([['CG1','  ']])}));
+ assert.match(html,/<strong>—<\/strong>/);assert.match(html,/CG1/);
+});
