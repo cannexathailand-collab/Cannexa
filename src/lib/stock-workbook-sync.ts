@@ -97,7 +97,7 @@ export async function syncStockWorkbook(){
   phase='COPY';
   {
    const width=Math.max(16,main.properties.gridProperties.columnCount),height=Math.max(main.rows.length,remoteRows.length,1);
-   const requests:Record<string,unknown>[]=[{updateSheetProperties:{properties:{sheetId:state.activeSheetId,gridProperties:{rowCount:Math.max(height,main.properties.gridProperties.rowCount),columnCount:width}},fields:'gridProperties.rowCount,gridProperties.columnCount'}},{updateCells:{range:{sheetId:state.activeSheetId,startRowIndex:0,endRowIndex:height,startColumnIndex:0,endColumnIndex:width},rows:main.rows.map(row=>({values:row.map((value,column)=>({userEnteredValue:value===null?undefined:typeof value==='number'?{numberValue:value}:typeof value==='boolean'?{boolValue:value}:[6,13].includes(column)&&value.startsWith('=')?{formulaValue:value}:{stringValue:value}}))})),fields:'userEnteredValue'}}];
+   const requests:Record<string,unknown>[]=[{updateSheetProperties:{properties:{sheetId:state.activeSheetId,gridProperties:{rowCount:Math.max(height,main.properties.gridProperties.rowCount),columnCount:width}},fields:'gridProperties.rowCount,gridProperties.columnCount'}},{updateCells:{range:{sheetId:state.activeSheetId,startRowIndex:0,endRowIndex:height,startColumnIndex:0,endColumnIndex:width},rows:main.rows.map(row=>({values:row.map((value,column)=>({userEnteredValue:value===null?undefined:typeof value==='number'?{numberValue:value}:typeof value==='boolean'?{boolValue:value}:[6,13].includes(column)&&value.startsWith('=')?{formulaValue:column===6?'=IF(INDEX(E:E,ROW())="","",'+value.slice(1)+')':value}:{stringValue:value}}))})),fields:'userEnteredValue'}}];
    await client(':batchUpdate',{method:'POST',body:JSON.stringify({requests})});
   }
   phase='PROTECT';
@@ -111,7 +111,7 @@ export async function syncStockWorkbook(){
   const copied=await client('/values/'+encodeURIComponent(range(primary))+'?valueRenderOption=UNFORMATTED_VALUE');
   const expectedProducts=stockRows(workbookValues(main),{costColumnConfirmed:true}),copiedProducts=stockRows(copied.values??[],{costColumnConfirmed:true});
   const normalized=(value:unknown)=>JSON.stringify(value,(_key,item)=>typeof item==='number'?Math.round(item*1000000)/1000000:item);
-  if(normalized(expectedProducts)!==normalized(copiedProducts))throw Error('STOCK_SHEET_COPY_NOT_CONFIRMED');
+  if(normalized(expectedProducts)!==normalized(copiedProducts)){const differences=expectedProducts.flatMap(expected=>{const actual=copiedProducts.find(product=>product.code===expected.code);return normalized(expected)===normalized(actual)?[]:[{code:expected.code,expected,actual}];}).slice(0,3);throw Object.assign(Error('STOCK_SHEET_COPY_NOT_CONFIRMED'),{detail:JSON.stringify(differences).slice(0,1800)});}
   for(let attempt=0;attempt<5;attempt++){
    const current=await db.stockWorkbook.findUniqueOrThrow({where:{id:'active'}}),next=current.state as unknown as StockWorkbookState;
    next.pending=next.pending.filter(batch=>!processed.includes(batch.id));
