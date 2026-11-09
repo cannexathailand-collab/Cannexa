@@ -19,6 +19,7 @@ export default async function Income({searchParams}:{searchParams:Promise<Filter
  }
  const {income,range}=data,demo=filters.demo==='1';
  const days=income.daily;
+ const todayTotals=days.find(day=>day.day===today)??(await salesReport({...filters,from:today,to:today})).income.daily[0];
  const selectedDay=days.some(day=>day.day===input.day)?input.day!:null;
  const entries=selectedDay?income.rows.filter(row=>bangkokDay(row.date)===selectedDay):income.rows;
  const views={ALL:entries,TRANSFER:entries.filter(row=>row.method==='TRANSFER'),COD:entries.filter(row=>row.method==='COD'),UNMATCHED:entries.filter(row=>row.method==='COD'&&!row.orderId)};
@@ -27,9 +28,11 @@ export default async function Income({searchParams}:{searchParams:Promise<Filter
  const labels={ALL:'รายรับทั้งหมด',TRANSFER:'รายรับจากยอดโอน',COD:'รายรับ COD ตามอีเมล',UNMATCHED:'รับเงินแล้ว · รอจับคู่ออเดอร์'};
  const query=new URLSearchParams({from:range.from,to:range.to,payment:data.payment,seller:data.seller,...(demo?{demo:'1'}:{})});
  const href=(selected:string)=>'/admin/income?'+new URLSearchParams({...Object.fromEntries(query),view:selected}).toString()+'#income-entries';
+ const todayHref=(view:string)=>{const params=new URLSearchParams(query);if(today<range.from||today>range.to){params.set('from',today);params.set('to',today);}params.set('day',today);params.set('view',view);return '/admin/income?'+params.toString()+'#income-entries';};
  return <>
   <div className="intro"><div><div className="eyebrow">บัญชี</div><h1>รายรับ</h1><p>{range.from===today&&range.to===today?'วันนี้ · ':''}{dayStart(range.from).toLocaleDateString('th-TH',{dateStyle:'medium',timeZone:'Asia/Bangkok'})}{range.to!==range.from&&' ถึง '+dayStart(range.to).toLocaleDateString('th-TH',{dateStyle:'medium'})}</p></div><Link className="button secondary" href={'/admin/sales?'+query}>ดูยอดขาย</Link></div>
   {demo&&<p className="notice">ข้อมูลทดสอบ</p>}
+  <section className="card income-today" aria-label="รายรับวันนี้"><h2>รายรับวันนี้</h2><Link className="income-today-total" href={todayHref('ALL')}>{money(todayTotals.transferSatang+todayTotals.codSatang)}</Link><div className="income-today-breakdown"><Link href={todayHref('TRANSFER')}><span>ยอดโอน</span><strong>{money(todayTotals.transferSatang)}</strong></Link><Link href={todayHref('COD')}><span>COD รับตามอีเมล</span><strong>{money(todayTotals.codSatang)}</strong></Link></div></section>
   <section className="card"><p>COD ใช้วันรับเงินตามอีเมล ส่วนยอดโอนใช้วันจัดส่งตามรายงานยอดโอนเดิม</p>
    <AutoFilterForm action="/admin/income">{demo&&<input type="hidden" name="demo" value="1"/>}
     <label>ตั้งแต่<input type="date" name="from" defaultValue={range.from} required/></label>
