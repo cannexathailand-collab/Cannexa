@@ -86,3 +86,10 @@ test('a receipt waiting for an order keeps its original income date after matchi
  assert.equal(+before.income.rows[0].date,+after.income.rows[0].date);assert.equal(after.income.rows[0].orderId,'later');
  assert.equal(analyzeSales([],{from:'2026-11-09',to:'2026-11-09'},new Date(),[linked]).income.codSatang,0);
 });
+
+ test('income daily rows reconcile transfers and later COD receipts and retain empty dates',()=>{
+ const paid=cod('paid',{receipt:{tracking:'TRACK-paid',amountSatang:10000,reportAt:new Date('2026-11-07T17:30:00Z')}});
+ const report=analyzeSales([row('transfer'),paid],{from:'2026-11-06',to:'2026-11-08'});
+ assert.deepEqual(report.income.daily,[{day:'2026-11-06',transferSatang:10000,codSatang:0,count:1},{day:'2026-11-07',transferSatang:0,codSatang:0,count:0},{day:'2026-11-08',transferSatang:0,codSatang:10000,count:1}]);
+ assert.equal(report.income.daily.reduce((sum,day)=>sum+day.transferSatang+day.codSatang,0),report.income.amountSatang);
+ });
