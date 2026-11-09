@@ -1,3 +1,5 @@
+import {PopupDetails} from '@/app/popup-details';
+import {OrderShippingDetails} from '@/app/order-shipping-details';
 import Link from 'next/link';
 import {requireAdminPage} from '@/lib/auth';
 import {displayCustomerCode} from '@/lib/customer-code';
@@ -38,20 +40,15 @@ export default async function WebsiteOrdersPage({searchParams}: {searchParams: P
       {orders.map(order => <article className="card website-order-card" id={"website-order-"+order.id} key={order.id} aria-label={'ออเดอร์ ' + order.orderNumber}>
         <header><div><h2>{order.orderNumber}</h2><span className="muted small">{new Date(order.createdAt).toLocaleString('th-TH', {timeZone: 'Asia/Bangkok'})}</span></div>
           <span className="pill">{websiteOrderStatusLabels[order.status] ?? order.status}</span></header>
-        <div className="website-order-customer">
-          <div><strong>{order.recipient}</strong><p>{displayCustomerCode(order.customerCode)} · {order.phone}</p><p>{order.address}</p></div>
-          <strong className="website-order-total">{money(order.totalSatang)} บาท</strong>
-        </div>
-        {order.paymentMethod && <div className="website-order-customer">
-          <p>วิธีชำระเงิน {order.paymentMethod==='TRANSFER'?'โอนเงิน':'เก็บเงินปลายทาง (COD)'}</p>
-          <p>ค่าสินค้า {money(order.subtotalSatang)} บาท · ค่าจัดส่ง {money(order.shippingSatang)} บาท · รวมทั้งสิ้น {money(order.totalSatang)} บาท</p>
-        </div>}
+        <p className="muted small">{displayCustomerCode(order.customerCode)}</p>
+        <OrderShippingDetails data={{recipient:order.recipient,phone:order.phone,address:order.address,payment:order.paymentMethod==='TRANSFER'?'โอน':order.paymentMethod,amountSatang:order.totalSatang,items:order.items.map(item=>({code:item.code,name:item.name,quantityMilliG:Math.round(item.grams*item.quantity*1000),description:item.pack+' × '+item.quantity}))}}/>
+        <p className="muted small">ค่าสินค้า {money(order.subtotalSatang)} บาท · ค่าจัดส่ง {money(order.shippingSatang)} บาท</p>
         {order.bankDetails && <p>บัญชีรับโอน {order.bankDetails.bankName} · {order.bankDetails.accountName} · {order.bankDetails.accountNumber}</p>}
         {order.slipVersion && <p><a className="button secondary" href={'/api/customer/website-orders/'+encodeURIComponent(order.id)+'/slip?v='+order.slipVersion} target="_blank" rel="noopener noreferrer">ดูสลิปโอนเงิน</a></p>}
-        <div className="table-wrap"><table><thead><tr><th>สินค้า</th><th>ขนาด</th><th>จำนวน</th><th>ราคาต่อชิ้น</th><th>รวม</th></tr></thead>
+        <PopupDetails summary={<>ราคาสินค้าแยกรายการ</>}><div className="table-wrap"><table><thead><tr><th>สินค้า</th><th>ขนาด</th><th>จำนวน</th><th>ราคาต่อชิ้น</th><th>รวม</th></tr></thead>
           <tbody>{order.items.map(item => <tr key={item.code + '|' + item.pack}>
             <td><strong>{item.code}</strong><div>{item.name}</div></td><td>{item.pack}</td><td>{item.quantity}</td><td>{money(item.unitPriceSatang)}</td><td>{money(item.lineTotalSatang)}</td>
-          </tr>)}</tbody></table></div>
+          </tr>)}</tbody></table></div></PopupDetails>
         {order.reviewedAt && <p className="muted small">ตรวจสอบโดย {order.reviewedBy} · {new Date(order.reviewedAt).toLocaleString('th-TH', {timeZone: 'Asia/Bangkok'})}</p>}
         {order.intakeOrderId && <p>ออเดอร์จัดส่ง <Link href={'/admin/orders/list/' + encodeURIComponent(order.intakeOrderId)}>{intakeNumbers.get(order.intakeOrderId) ?? 'เปิดรายละเอียด'}</Link></p>}
         {order.reviewNote && <p>หมายเหตุ {order.reviewNote}</p>}

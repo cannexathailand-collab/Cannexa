@@ -5,20 +5,15 @@ import {employeeOrderDashboard} from '@/lib/employee-order-dashboard';
 import {orderMatchesState} from '@/lib/order-management';
 import {loadDuplicateOrderReviews} from '@/lib/order-duplicates';
 import {DuplicateOrderNotice} from '@/app/duplicate-order-notice';
-import {CopyOrderShipping} from '@/app/copy-order-shipping';
-import {shippingSummaryText,shippingPaymentLabel,shippingAmountLabel} from '@/lib/order-shipping-summary';
-import {orderStockItems} from '@/lib/order-stock-items';
-import {db} from '@/lib/db';
+import {OrderShippingDetails} from '@/app/order-shipping-details';
+import {loadOrderShippingItems} from '@/lib/order-shipping-items';
 export default async function StoreOrders({searchParams}:{searchParams:Promise<{q?:string;page?:string;status?:string}>}){
  await requireStockPage(stockOperators);
  const input=await searchParams;
  const [data,duplicates]=await Promise.all([employeeOrderDashboard(input),loadDuplicateOrderReviews()]);
  const status=['ALL','WAITING','SHIPPED','REVIEW','RETURNED'].includes(input.status??'')?input.status!:'WAITING';
  const rows=data.todayRows.filter(row=>orderMatchesState(row,status));
- const parsed=new Map(rows.map(order=>[order.id,orderStockItems(order.rawText)]));
- const codes=[...new Set([...parsed.values()].flatMap(value=>value.items.map(item=>item.code)))];
- const products=codes.length?await db.stockProduct.findMany({where:{code:{in:codes}},select:{code:true,name:true}}):[];
- const names=new Map(products.map(product=>[product.code,product.name]));
+ const parsed=await loadOrderShippingItems(rows);
  const link=(change:Record<string,string>)=>'/admin/store-orders?'+new URLSearchParams({q:data.query,page:String(data.page),status,...change});
  const labels={ALL:'ออเดอร์ทั้งหมด',WAITING:'เตรียมจัดส่ง',SHIPPED:'จัดส่งแล้ว',REVIEW:'ต้องตรวจสอบ',RETURNED:'ตีกลับ'};
  return <><header className="intro"><div><h1>ออเดอร์เตรียมจัดส่ง</h1><p>ออเดอร์ของผู้ขายทุกคน · รอบวันที่ {data.currentRound} · เวลาตัดรอบ {data.closeTime} น.</p></div><div className="actions"><Link className="button secondary" href="/admin/stock/returns">รับสินค้าตีกลับ</Link><Link className="button" href="/admin/orders/upload">อัปโหลดรายการจัดส่ง</Link></div></header>
@@ -27,25 +22,13 @@ export default async function StoreOrders({searchParams}:{searchParams:Promise<{
  <h2>{labels[status as keyof typeof labels]} · {rows.length} รายการ</h2>
  <div className="employee-order-list store-preparing-list">{rows.map(order=>{
   const details=parsed.get(order.id)!;
-  const items=details.items.map(item=>({...item,name:names.get(item.code)??null}));
-  const text=shippingSummaryText({recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:order.revenueSatang,items});
+  const items=details.items;
   return <article className={'employee-order-card'+(duplicates.has(order.id)?' duplicate-order-row':'')} key={order.id}>
    <header><strong>{order.orderNumber}</strong><span>{order.state==='RETURNED'?'ตีกลับ':order.hasTracking?'จัดส่งแล้ว':'เตรียมจัดส่ง'}</span></header>
    <p>ผู้ขาย {order.sellerUsername??'ยังไม่ระบุ'} · สร้าง {order.createdAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
-   <dl className="store-shipping-facts">
-    <div><dt>ชื่อผู้รับ</dt><dd>{order.recipient||'ยังไม่ระบุ'}</dd></div>
-    <div><dt>เบอร์โทร</dt><dd>{order.phone||'ยังไม่ระบุ'}</dd></div>
-    <div className="shipping-address"><dt>ที่อยู่จัดส่ง</dt><dd>{order.address||'ยังไม่ระบุ'}</dd></div>
-   </dl>
-   <h3>สินค้าที่ต้องจัด</h3><ul>{items.map(item=><li key={item.code}><strong>{item.code}</strong>{item.name?' · '+item.name:''} · {(item.quantityMilliG/1000).toLocaleString('th-TH',{maximumFractionDigits:3})} G</li>)}</ul>
-   <dl className="store-shipping-facts shipping-payment-facts">
-    <div><dt>การชำระเงิน</dt><dd>{shippingPaymentLabel(order.payment)}</dd></div>
-    <div><dt>ยอดรวม</dt><dd>{shippingAmountLabel(order.revenueSatang)}</dd></div>
-    <div><dt>เลขพัสดุ</dt><dd>{order.tracking??'ยังไม่มีเลขพัสดุ'}</dd></div>
-   </dl>
+   <OrderShippingDetails data={{recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:order.revenueSatang,items}} tracking={order.tracking}><Link href={'/admin/store-orders/'+encodeURIComponent(order.id)}>เปิดรายละเอียดออเดอร์</Link></OrderShippingDetails>
    {details.issues.map(issue=><p className="notice" key={issue}>{issue}</p>)}{details.issues.length>0&&<pre>{order.rawText}</pre>}
    <DuplicateOrderNotice matches={duplicates.get(order.id)??[]} currentOrder={order} baseHref="/admin/store-orders/"/>
-   <div className="actions"><CopyOrderShipping text={text}/><Link href={'/admin/store-orders/'+encodeURIComponent(order.id)}>เปิดรายละเอียดออเดอร์</Link></div>
   </article>;
  })}</div>
  {!rows.length&&<p>ไม่มีออเดอร์ในกลุ่มนี้</p>}

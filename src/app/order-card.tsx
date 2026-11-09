@@ -1,3 +1,5 @@
+import {OrderShippingDetails} from './order-shipping-details';
+import {orderStockItems} from '@/lib/order-stock-items';
 import {PopupDetails} from '@/app/popup-details';
 import Link from 'next/link';
 import {displayCustomerCode} from '@/lib/customer-code';
@@ -30,15 +32,14 @@ export function OrderCard({order:o,sale,sellerName,groupName,tracking,fulfillmen
  return <article style={{borderBottom:'1px solid #ddd',padding:'16px 12px',...color}}>
   <strong>{o.orderNumber}</strong>
   <p className="small">บันทึกเมื่อ {o.createdAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
-  {total!==null&&<p>ยอดตามออเดอร์: ฿{(total/100).toLocaleString('th-TH',{minimumFractionDigits:2})}</p>}
   <p role="status"><strong>สถานะจัดส่ง: {match.label}</strong></p>
-  {!!tracking&&<p>เลขพัสดุ: <strong>{tracking}</strong></p>}
   {verificationLabel&&<p>{verificationLabel}</p>}
   {!!o.customerCode&&<p>รหัสลูกค้า: {displayCustomerCode(o.customerCode)}</p>}
   <p>{groupName??'กลุ่มส่งงาน'} · {o.eventAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
   <p>สถานะออเดอร์ / ค่าคอม: {financialStatus(o,sale)}</p>
   {o.status!=='WITHDRAWN'&&<>
-   <p>ผู้ขายปัจจุบัน: {sellerName??o.sellerCode??'ยังไม่ระบุ'} · ผู้รับ: {o.recipient??'ยังไม่ระบุ'}</p>
+   <p>ผู้ขายปัจจุบัน: {sellerName??o.sellerCode??'ยังไม่ระบุ'}</p>
+   <OrderShippingDetails data={{recipient:o.recipient,phone:o.phone,address:o.address,payment:o.payment,amountSatang:total,items:orderStockItems(o.rawText).items}} tracking={tracking}/>
    {Array.isArray(o.issues)&&o.issues.length>0&&<p className="muted">{o.issues.map(String).join(' · ')}</p>}
    {o.payment==='โอน'&&!(fulfillmentStatus==='DISPATCHED'&&dispatchedAt)&&<p>ยอดขายรอยืนยันจากรายงานจัดส่ง</p>}
    {o.status==='RETURNED'&&<p>ต้นทุนพัสดุตีกลับ: รอข้อมูลจากระบบสต็อก</p>}
