@@ -14,7 +14,7 @@ export function StockUpdateButton(props:Details&{enabled:boolean}){
  const delta=remove?-added:added;
  const initialize=!remove&&added>0&&draft.receivedQuantity===null&&draft.remainingQuantity===null&&draft.deductedQuantity!==null;
  return <>
-  <button type="button" className="secondary" disabled={!props.enabled} onClick={()=>{setDraft({...props,prices:props.prices.map(p=>({...p}))});setRequestKey(crypto.randomUUID());setQuantity('');setRemove(false);setError('');dialog.current?.showModal();}}>อัพเดต</button>
+  <button type="button" className="secondary" disabled={!props.enabled} onClick={()=>{setDraft({...props,prices:props.prices.map(p=>({...p}))});setRequestKey(crypto.randomUUID());setQuantity('');setRemove(false);setError('');dialog.current?.showModal();}}>แก้ไข / อัปเดต</button>
   <dialog className="stock-modal" ref={dialog} onCancel={e=>{if(busy)e.preventDefault();}}>
    <h2>อัพเดต {draft.code}</h2>
    <form key={requestKey} className="form-grid" onSubmit={async e=>{
