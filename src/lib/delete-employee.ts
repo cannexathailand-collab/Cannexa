@@ -7,7 +7,7 @@ export async function deleteEmployee(username: string, actor: string) {
  }
  await transaction(async tx => {
   const account = await tx.userAccount.findUnique({where: {username}, select: {role: true}});
-  if (!account || !isEmployeeRole(account.role)) return;
+  if (!account || !isEmployeeRole(account.role)&&account.role!=='store') return;
   const deleted = await tx.userAccount.deleteMany({where: {username, role: account.role}});
   if (!deleted.count) return;
   await tx.auditLog.create({data: {

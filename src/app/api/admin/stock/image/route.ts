@@ -1,3 +1,4 @@
+import {stockEditors} from '@/lib/accounts';
 import {admin,sameOrigin} from '@/lib/auth';
 import {maxRewardImageBytes} from '@/lib/crm-reward-image';
 import {saveStockProductImage} from '@/lib/stock-product-image';
@@ -5,7 +6,7 @@ import {saveStockProductImage} from '@/lib/stock-product-image';
 export const maxDuration=60;
 export async function POST(request:Request){
  let actor:string;
- try{actor=await admin();await sameOrigin();}catch{return Response.json({error:'เฉพาะเจ้าของระบบเท่านั้นที่อัปโหลดรูปสินค้าได้'},{status:403});}
+ try{actor=await admin(stockEditors);await sameOrigin();}catch{return Response.json({error:'ไม่มีสิทธิ์อัปโหลดรูปสินค้า'},{status:403});}
  try{
   const text=await request.text();
   if(Buffer.byteLength(text)>Math.ceil(maxRewardImageBytes/3)*4+4096)return Response.json({error:'รูปภาพต้องมีขนาดไม่เกิน 2 MB'},{status:413});

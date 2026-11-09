@@ -1,11 +1,11 @@
 import {admin} from '@/lib/auth';
-import {approvers} from '@/lib/accounts';
+import {stockOperators} from '@/lib/accounts';
 import {db} from '@/lib/db';
 import {stockCode} from '@/lib/stock-code';
 import {customerCatalogAccess} from '@/lib/customer-catalog';
 
 export async function GET(request:Request,{params}:{params:Promise<{code:string}>}){
- try{await admin(approvers);}catch(error){
+ try{await admin(stockOperators);}catch(error){
   if(!(error instanceof Error)||!['UNAUTHORIZED','FORBIDDEN'].includes(error.message))throw error;
   const access=await customerCatalogAccess();
   if(access!=='owner'&&access!=='customer')return new Response('Forbidden',{status:403,headers:{'Cache-Control':'no-store'}});

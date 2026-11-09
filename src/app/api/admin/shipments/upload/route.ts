@@ -1,3 +1,4 @@
+import {stockEditors} from '@/lib/accounts';
 import {after} from 'next/server';
 import {admin,sameOrigin} from '@/lib/auth';
 import {parseManualShipmentFile} from '@/lib/manual-shipment-file';
@@ -8,7 +9,7 @@ import {recordRejectedShipmentMatches} from '@/lib/rejected-shipments';
 export const maxDuration=60;
 export async function POST(request:Request){
  let actor:string;
- try{actor=await admin();await sameOrigin();}catch{return Response.json({error:'เฉพาะเจ้าของระบบเท่านั้น'},{status:403});}
+ try{actor=await admin(stockEditors);await sameOrigin();}catch{return Response.json({error:'ไม่มีสิทธิ์อัปโหลดรายการจัดส่ง'},{status:403});}
  try{
   if(Number(request.headers.get('content-length')??0)>3*1024*1024)throw Error('ไฟล์ต้องมีขนาดไม่เกิน 2 MB');
   if(request.headers.get('content-type')?.includes('multipart/form-data')){

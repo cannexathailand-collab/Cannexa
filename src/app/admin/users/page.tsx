@@ -5,7 +5,7 @@ import {requireAdminPage} from "@/lib/auth";
 import {db} from "@/lib/db";
 import {roles,isEmployeeRole} from "@/lib/accounts";
 
-const labels={admin:"แอดมินอนุมัติค่าคอม",manager:"ผู้จัดการ Affiliate",viewer:"ผู้ดูรายงาน",employee:"พนักงานขายแอดมินประจำ",sales:"เซลล์ Affiliate"};
+const labels={admin:"แอดมินอนุมัติค่าคอม",manager:"ผู้จัดการ Affiliate",viewer:"ผู้ดูรายงาน",employee:"พนักงานขายแอดมินประจำ",sales:"เซลล์ Affiliate",store:"พนักงานสโตร์ / ผู้ดูแลสินค้า"};
 type User={username:string;role:string;active:boolean;affiliateId:string|null};
 type Affiliate={id:string;name:string;code:string};
 function UserForm({user,affiliates}:{user?:User;affiliates:Affiliate[]}){
@@ -28,7 +28,7 @@ export default async function Users({searchParams}:{searchParams:Promise<{status
  <div className="user-account-list">
  {users.map(user=><section className="user-account-card" key={user.username}><header className="user-account-heading"><span className="user-avatar" aria-hidden="true">{user.username.slice(0,2).toUpperCase()}</span><div className="user-account-identity"><h2>{user.username}</h2><p>{labels[user.role as keyof typeof labels]}{user.affiliateId&&<span> · {affiliateNames.get(user.affiliateId)??"Affiliate"}</span>}</p></div><span className={"user-status "+(user.active?"is-active":"is-inactive")}><i aria-hidden="true"/>{user.active?"เปิดใช้งาน":"ปิดใช้งาน"}</span></header><div className="user-account-actions"><PopupDetails summary={<>แก้ไขบัญชี</>} title={"แก้ไขบัญชี · "+user.username}><UserForm user={user} affiliates={affiliates}/></PopupDetails>
  <PopupDetails summary={<>เปลี่ยนชื่อผู้ใช้</>} title={"เปลี่ยนชื่อผู้ใช้ · "+user.username}><form action="/api/admin/users/rename" method="post"><input type="hidden" name="originalUsername" value={user.username}/><label>ชื่อผู้ใช้ใหม่<input name="newUsername" required pattern="[a-z0-9._-]{3,64}" minLength={3} maxLength={64} defaultValue={user.username}/></label><p className="muted">รหัสผ่าน สิทธิ์ และ Affiliate เดิมยังคงอยู่ ผู้ใช้นี้ต้องเข้าสู่ระบบใหม่ และข้อความส่งงานถัดไปให้ใช้ชื่อใหม่หรือรหัส Affiliate เดิม</p><button>บันทึกชื่อผู้ใช้ใหม่</button></form></PopupDetails>
- {isEmployeeRole(user.role)&&<>{user.affiliateId&&<a className="button secondary user-commission" href={"/admin/affiliates#"+encodeURIComponent(user.affiliateId)}>ตั้งค่าคอมมิชชัน</a>}
+ {(isEmployeeRole(user.role)||user.role==='store')&&<>{user.affiliateId&&<a className="button secondary user-commission" href={"/admin/affiliates#"+encodeURIComponent(user.affiliateId)}>ตั้งค่าคอมมิชชัน</a>}
   <PopupDetails className="admin-danger" summary={<>ลบบัญชี</>} title={"ลบบัญชี · "+user.username}><p>บัญชีนี้จะเข้าสู่ระบบไม่ได้หลังลบ ข้อมูล Affiliate และผลงานยังดูย้อนหลังได้</p>
   <form action="/api/admin/users/delete" method="post">
    <input type="hidden" name="username" value={user.username}/>

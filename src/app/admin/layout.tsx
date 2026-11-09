@@ -11,7 +11,8 @@ import {WorkspaceLocation} from '@/app/workspace-location';
 import {pendingWebsiteOrderCount} from "@/lib/website-orders";
 export const dynamic="force-dynamic";
 export default async function AdminLayout({children}:{children:React.ReactNode}){
- const a=await requireAdminPage(office);
+ const a=await requireAdminPage([...office,"store"]);
+ if(a.role==='store')return <div className="shell"><aside className="sidebar"><Link href="/admin/stock" className="brand">Cannexa สโตร์</Link><p>พนักงานสโตร์ · {a.username}</p><SidebarNavigation><Link href="/admin/stock">รายการสินค้า</Link><Link href="/admin/stock/history">ประวัติสต๊อก</Link><Link href="/admin/store-orders">ออเดอร์เตรียมจัดส่ง</Link><Link href="/admin/orders/upload">อัปโหลดรายการจัดส่ง</Link><Link href="/account/password">เปลี่ยนรหัสผ่าน</Link></SidebarNavigation><form action="/api/admin/logout" method="post"><button className="secondary">ออกจากระบบ</button></form></aside><main id="main-content" className="main"><header className="topbar workspace-header"><h1>หน้าพนักงานสโตร์</h1></header><div className="admin-content">{children}</div></main></div>;
  const owner=a.role==="owner", manage=owner||a.role==="admin"||a.role==="manager", approve=owner||a.role==="admin";
  const connected=mockMode()?false:!!await lineSettings();
  const pendingStock=approve&&!mockMode()?await db.stockDispatch.count({where:{status:{in:stockReviewStatuses}}}):0;

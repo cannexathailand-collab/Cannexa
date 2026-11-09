@@ -6,7 +6,7 @@ import type {RejectedOrderMatch} from '@/lib/rejected-shipments';
 type Candidate={id:string;orderNumber:string;recipient:string|null;phone:string|null;payment:string|null;eventAt:string;amountSatang:number|null;address:string|null;addressMatches:boolean};
 type Row={tracking:string;recipient:string;phone:string;address?:string;payment?:'COD'|'โอน';amountSatang?:number;candidates:Candidate[];existingOrderId:string|null;selectedOrderId:string|null;matchMessage?:string;rejectedOrders?:RejectedOrderMatch[]};
 const localNow=()=>new Date(Date.now()+7*3600000).toISOString().slice(0,16);
-export function ShipmentUpload(){
+export function ShipmentUpload({ordersHref='/admin/orders/list'}:{ordersHref?:string}={}){
  const [rows,setRows]=useState<Row[]>([]),[selected,setSelected]=useState<Record<string,string>>({});
  const [filename,setFilename]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const [date,setDate]=useState(localNow),[confirmed,setConfirmed]=useState(false),[done,setDone]=useState<number|null>(null);
@@ -42,7 +42,7 @@ export function ShipmentUpload(){
   <p className="muted">รองรับรูปแบบ Export Data ที่มีเบอร์โทร ยอดเงิน และ TRACKING NO. ขนาดไม่เกิน 2 MB จับคู่ด้วยเบอร์โทรและยอดขาย</p>
   <p className="muted">เมื่อเบอร์และยอดตรงกันหลายออเดอร์ ระบบเทียบที่อยู่จัดส่งต่อ แล้วเลือกออเดอร์เก่าสุดในกลุ่มที่อยู่ตรงกัน</p>
   {error&&<p role="alert" className="notice">{error}</p>}
-  {done!==null?<p role="status" className="notice live">นำเข้าและผูกเลขพัสดุแล้ว {done} รายการ <Link href="/admin/orders/list">เปิดรายการออเดอร์</Link></p>:rows.length>0&&<>
+  {done!==null?<p role="status" className="notice live">นำเข้าและผูกเลขพัสดุแล้ว {done} รายการ <Link href={ordersHref}>เปิดรายการออเดอร์</Link></p>:rows.length>0&&<>
    <h2>ตรวจรายการจาก {filename}</h2><p>พบ {rows.length} รายการ · เลือกนำเข้า {count} รายการ · รอเลือกออเดอร์ {missing} รายการ</p>
    <div className="table-wrap"><table><thead><tr><th>เลขพัสดุ</th><th>ผู้รับในไฟล์</th><th>เบอร์โทร</th><th>ออเดอร์ที่จับคู่</th></tr></thead><tbody>{rows.map(row=><tr key={row.tracking}>
     <td>{row.tracking}</td><td>{row.recipient}<div className="muted small">{row.address}</div></td><td>{row.phone}<div>{row.payment} {row.amountSatang!==undefined?(row.amountSatang/100).toLocaleString('th-TH')+' บาท':''}</div></td><td>
