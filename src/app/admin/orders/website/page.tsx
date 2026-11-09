@@ -35,7 +35,7 @@ export default async function WebsiteOrdersPage({searchParams}: {searchParams: P
       <p className="muted small">แสดง {orders.length} รายการล่าสุด</p>
     </section>
     <div className="website-order-list">
-      {orders.map(order => <article className="card website-order-card" key={order.id} aria-label={'ออเดอร์ ' + order.orderNumber}>
+      {orders.map(order => <article className="card website-order-card" id={"website-order-"+order.id} key={order.id} aria-label={'ออเดอร์ ' + order.orderNumber}>
         <header><div><h2>{order.orderNumber}</h2><span className="muted small">{new Date(order.createdAt).toLocaleString('th-TH', {timeZone: 'Asia/Bangkok'})}</span></div>
           <span className="pill">{websiteOrderStatusLabels[order.status] ?? order.status}</span></header>
         <div className="website-order-customer">

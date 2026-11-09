@@ -49,3 +49,29 @@ test('booked sales export includes orders without tracking and escapes spreadshe
  const csv=bookedSalesCsv(report);assert.ok(csv.includes('ORDER-new'));assert.ok(csv.includes('รอจัดส่ง'));assert.ok(csv.includes('วันที่รับออเดอร์'));
  assert.ok(csv.includes("'=SUM(1,2)"));assert.ok(csv.includes('100.00'));
 });
+
+test('shipping display groups use linked tracking numbers and reconcile totals',()=>{
+ const dataset={...data([order('new'),order('labeled'),order('sent')]),shipments:[
+  {orderId:'labeled',tracking:'LABEL',status:'MATCHED',fulfillmentStatus:'UNCONFIRMED',dispatchedAt:null},
+  {orderId:'sent',tracking:'SENT',status:'MATCHED',fulfillmentStatus:'DISPATCHED',dispatchedAt:new Date()},
+ ]};
+ const report=analyzeBookedSales(dataset,{...filter,detail:'WAITING'});
+ assert.equal(report.awaitingShipment.count,1);
+ assert.equal(report.shipped.count,2);
+ assert.equal(report.awaitingShipment.revenueSatang+report.shipped.revenueSatang,report.summary.revenueSatang);
+ assert.deepEqual(report.detailRows.map(row=>row.id).sort(),['new']);
+ assert.deepEqual(analyzeBookedSales(dataset,{...filter,detail:'SHIPPED'}).detailRows.map(row=>row.id).sort(),['labeled','sent']);
+ assert.ok(report.availableDays.includes(filter.from));
+});
+
+test('pending website orders are separate and disappear from the new group once linked or approved',()=>{
+ const pending={id:'web',orderNumber:'WEB-1',createdAt:new Date('2026-11-09T09:00:00+07:00'),totalSatang:10000,recipient:'Customer',customerCode:'C1',paymentMethod:'COD',status:'PENDING_REVIEW',intakeOrderId:null};
+ const base={...data([order('accepted')]),websiteOrders:[pending]};
+ const report=analyzeBookedSales(base,{...filter,detail:'WEB_PENDING'});
+ assert.equal(report.webPending.count,1);assert.equal(report.webPending.revenueSatang,10000);
+ assert.equal(report.summary.count,1);assert.equal(report.summary.revenueSatang,10000);
+ assert.equal(analyzeBookedSales({...base,websiteOrders:[{...pending,status:'APPROVED',intakeOrderId:'accepted'}]},filter).webPending.count,0);
+ assert.equal(analyzeBookedSales({...base,websiteOrders:[{...pending,intakeOrderId:'accepted'}]},filter).webPending.count,0);
+ assert.equal(analyzeBookedSales(base,{...filter,payment:'TRANSFER'}).webPending.count,0);
+ assert.equal(analyzeBookedSales(base,{...filter,seller:'seller'}).webPending.count,0);
+});

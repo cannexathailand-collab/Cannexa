@@ -1,4 +1,4 @@
-import type {OrderIntake, SalesOrder, Shipment, CodReceipt} from '@prisma/client';
+import type {OrderIntake, SalesOrder, Shipment, CodReceipt, WebsiteOrder} from '@prisma/client';
 import {db} from './db';
 import {quotedTotal} from './shipment-matching';
 import {salesSources, type SaleCustomer, type SalesFilters} from './sales-report';
@@ -9,15 +9,16 @@ type Order = Pick<OrderIntake,'id'|'orderNumber'|'eventAt'|'rawText'|'status'|'p
 type Data = {
  orders:Order[];
  sales:Pick<SalesOrder,'orderId'|'revenueSatang'>[];
- shipments:Pick<Shipment,'orderId'|'tracking'|'status'|'fulfillmentStatus'|'dispatchedAt'>[];
+ shipments:Pick<Shipment,'orderId'|'tracking'|'fulfillmentStatus'>[];
  receipts:Pick<CodReceipt,'tracking'|'amountSatang'>[];
  affiliates:{id:string;name:string;code:string}[];
+ websiteOrders?:Pick<WebsiteOrder,'id'|'orderNumber'|'createdAt'|'totalSatang'|'recipient'|'customerCode'|'paymentMethod'|'status'|'intakeOrderId'>[];
 };
 export type BookedSale = {
  id:string;orderNumber:string;eventAt:Date;day:string;paymentMethod:'TRANSFER'|'COD';
  revenueSatang:number|null;sellerUsername:string|null;affiliateId:string|null;
  affiliate:{id:string;name:string;code:string}|null;customer:SaleCustomer|null;
- recipient:string|null;tracking:string|null;dispatched:boolean;codPaid:boolean;
+ recipient:string|null;tracking:string|null;hasTracking:boolean;codPaid:boolean;
 };
 function totals(rows:BookedSale[]){
  const sum=(items:BookedSale[])=>items.reduce((total,row)=>total+(row.revenueSatang??0),0);
@@ -43,11 +44,16 @@ export function analyzeBookedSales(data:Data,input:SalesFilters={},now=new Date(
   return [{id:order.id,orderNumber:order.orderNumber,eventAt:order.eventAt,day:bangkokDay(order.eventAt),
    paymentMethod,revenueSatang:amount,sellerUsername:order.sellerUsername,affiliateId:order.affiliateId,
    affiliate:affiliates.get(order.affiliateId??'')??null,customer:order.customer,recipient:order.recipient,
-   tracking:shipment?.tracking??null,dispatched:shipment?.fulfillmentStatus==='DISPATCHED'&&!!shipment.dispatchedAt,
+   tracking:shipment?.tracking??null,hasTracking:!!shipment?.tracking,
    codPaid:paymentMethod==='COD'&&amount!==null&&!!shipment&&receipts.get(shipment.tracking)?.amountSatang===amount}];
  }).sort((a,b)=>+b.eventAt-+a.eventAt||a.id.localeCompare(b.id));
  const inRange=(from:string,to:string)=>rows.filter(row=>row.day>=from&&row.day<=to);
  const orderRows=inRange(range.from,range.to),summary=totals(orderRows);
+ const awaitingShipment=orderRows.filter(row=>!row.hasTracking),shipped=orderRows.filter(row=>row.hasTracking);
+ const websiteOrders=(data.websiteOrders??[]).filter(order=>order.status==='PENDING_REVIEW'&&!order.intakeOrderId&&(!payment||order.paymentMethod===payment)&&!input.seller&&!input.affiliateId);
+ const pendingWebsiteOrders=websiteOrders.filter(order=>bangkokDay(order.createdAt)>=range.from&&bangkokDay(order.createdAt)<=range.to).sort((a,b)=>+b.createdAt-+a.createdAt);
+ const webPending={count:pendingWebsiteOrders.length,revenueSatang:pendingWebsiteOrders.reduce((total,order)=>total+order.totalSatang,0)};
+ const availableDays=[...new Set([bangkokDay(now),...rows.map(row=>row.day),...websiteOrders.map(order=>bangkokDay(order.createdAt))])].sort().reverse();
  const waitingCod=orderRows.filter(row=>row.paymentMethod==='COD'&&!row.codPaid);
  const daily=[];
  for(let day=range.from;day<=range.to;day=shiftDay(day,1))daily.push({day,...totals(inRange(day,day))});
@@ -56,10 +62,10 @@ export function analyzeBookedSales(data:Data,input:SalesFilters={},now=new Date(
   {label:'เดือนก่อน',from:shiftMonth(range.from,-1),to:shiftMonth(range.to,-1)}]
   .map(period=>({...period,...compareRevenue(summary.revenueSatang,totals(inRange(period.from,period.to)).revenueSatang)}));
  const groups=[...Map.groupBy(orderRows,row=>row.sellerUsername??'affiliate:'+row.affiliateId)].map(([key,items])=>({key,name:items[0].sellerUsername??items[0].affiliate?.name??'ยังไม่ระบุผู้ขาย',code:items[0].affiliate?.code??'',...totals(items)})).sort((a,b)=>b.revenueSatang-a.revenueSatang);
- const details={ALL:orderRows,TRANSFER:orderRows.filter(row=>row.paymentMethod==='TRANSFER'),COD:orderRows.filter(row=>row.paymentMethod==='COD'),
+ const details={WEB_PENDING:[] as BookedSale[],ALL:orderRows,WAITING:awaitingShipment,SHIPPED:shipped,TRANSFER:orderRows.filter(row=>row.paymentMethod==='TRANSFER'),COD:orderRows.filter(row=>row.paymentMethod==='COD'),
   COD_PAID:orderRows.filter(row=>row.codPaid),COD_WAITING:waitingCod,RECOGNIZED:orderRows.filter(row=>row.paymentMethod==='TRANSFER'||row.codPaid)};
  const detail=Object.hasOwn(details,input.detail??'')?input.detail as keyof typeof details:'ALL';
- return {range,summary,orderRows,orderTotals:{...summary,amountSatang:summary.revenueSatang},daily,previous,groups,
+ return {range,summary,orderRows,availableDays,webPending,pendingWebsiteOrders,awaitingShipment:totals(awaitingShipment),shipped:totals(shipped),orderTotals:{...summary,amountSatang:summary.revenueSatang},daily,previous,groups,
   sources:salesSources(orderRows.flatMap(row=>row.revenueSatang===null?[]:[{customer:row.customer,revenueSatang:row.revenueSatang}])),
   waitingCodCount:waitingCod.length,waitingCodSatang:totals(waitingCod).revenueSatang,detail,detailRows:details[detail],payment,seller:input.seller??'',
   sellerOptions:[...new Set(data.orders.flatMap(order=>order.sellerUsername?[order.sellerUsername]:[]))].sort()};
@@ -69,12 +75,13 @@ export async function bookedSalesReport(input:SalesFilters={}){
   const sample=demoSalesRows();
   return analyzeBookedSales({orders:sample.map(row=>({id:row.orderId,orderNumber:row.order!.orderNumber,eventAt:row.createdAt,rawText:null,status:row.order!.status,payment:row.order!.payment,sellerUsername:row.order!.sellerUsername,affiliateId:row.affiliateId,recipient:null,customer:row.customer??null})),sales:sample,shipments:sample.flatMap(row=>row.shipment?[row.shipment]:[]),receipts:sample.flatMap(row=>row.receipt?[row.receipt]:[]),affiliates:sample.flatMap(row=>row.affiliate?[row.affiliate]:[])},input);
  }
- const [orders,sales,shipments,receipts,affiliates]=await Promise.all([
+ const [orders,sales,shipments,receipts,affiliates,websiteOrders]=await db.$transaction([
   db.orderIntake.findMany({select:{id:true,orderNumber:true,eventAt:true,rawText:true,status:true,payment:true,sellerUsername:true,affiliateId:true,recipient:true,customer:{select:{code:true,legacy:true,referrerId:true,metaFbc:true,referrer:{select:{name:true,code:true}}}}}}),
   db.salesOrder.findMany({select:{orderId:true,revenueSatang:true}}),
-  db.shipment.findMany({where:{orderId:{not:null}},select:{orderId:true,tracking:true,status:true,fulfillmentStatus:true,dispatchedAt:true}}),
+  db.shipment.findMany({where:{orderId:{not:null}},select:{orderId:true,tracking:true,fulfillmentStatus:true}}),
   db.codReceipt.findMany({select:{tracking:true,amountSatang:true}}),
   db.affiliate.findMany({select:{id:true,name:true,code:true}}),
- ]);
- return analyzeBookedSales({orders,sales,shipments,receipts,affiliates},input);
+  db.websiteOrder.findMany({where:{status:'PENDING_REVIEW',intakeOrderId:null},select:{id:true,orderNumber:true,createdAt:true,totalSatang:true,recipient:true,customerCode:true,paymentMethod:true,status:true,intakeOrderId:true}}),
+ ],{isolationLevel:'RepeatableRead'});
+ return analyzeBookedSales({orders,sales,shipments,receipts,affiliates,websiteOrders},input);
 }
