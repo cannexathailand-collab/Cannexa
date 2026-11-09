@@ -280,6 +280,19 @@ test('LINE intake alone never records shipping history or deducts physical stock
  Object.assign(h.shipments.get('new'),{fulfillmentStatus:'DISPATCHED',dispatchedAt:new Date()});
  assert.equal((await processStockDispatch('new','owner')).status,'POSTED');assert.equal(h.rows[2][6],470);assert.equal(h.rows[2][5],0);
 });
+
+test('manual tracking dispatch deducts once without an email shipment report',async t=>{
+ const h=await harness(t);h.addOrder('manual',20);
+ h.shipments.get('manual').importId='manual-upload';
+ replace(t,db.gmailImport,'findUnique',async()=>null);
+ await queueStockOrder('manual');await syncStockReservation('manual');
+ assert.equal((await processStockDispatch('manual','owner')).status,'POSTED');
+ assert.equal(h.rows[2][6],470);assert.equal(h.rows[2][5],0);
+ assert.equal(h.reservations.get('manual').status,'CONSUMED');
+ assert.equal((await processStockDispatch('manual','owner')).status,'POSTED');
+ assert.equal(h.rows[2][6],470);
+ assert.equal(h.events.filter(event=>event==='deduction').length,1);
+});
 test('rolling dispatch retains only residual precounted credits and never deducts restored orders twice, including after a lost response',async t=>{
  const h=await harness(t);h.addOrder('precounted',3);h.addOrder('precounted-later',5);h.addOrder('normal',20);
  const orderIds=['precounted','precounted-later','normal'];

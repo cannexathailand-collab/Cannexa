@@ -60,8 +60,6 @@ export async function processFlowStockDispatch(orderId:string,actor:string){
   if(!pending.historySavedAt){
    if(!stockDispatchEligible(order,shipment,config.activeFrom,!!enrolled))return issue(['ยังไม่เข้าเงื่อนไขออเดอร์ใหม่ที่ยืนยันจัดส่งจริง']);
    if(shipment!.tracking!==pending.candidateTracking)return issue(['เลขพัสดุเปลี่ยนหลังเริ่มประมวลผล ต้องตรวจสอบก่อน']);
-   const report=await db.gmailImport.findUnique({where:{id:shipment!.importId}});
-   if(report?.kind!=='SHIPMENT')return issue(['ไม่พบรายงานจัดส่งจากอีเมลที่ยืนยันแหล่งข้อมูลได้']);
    const peer=await db.stockDispatch.findUnique({where:{tracking:shipment!.tracking}});
    if(peer&&peer.orderId!==orderId)return issue(['เลขพัสดุนี้มีรายการต้นทุนอยู่แล้ว']);
    await queueStockOrder(orderId,true);
