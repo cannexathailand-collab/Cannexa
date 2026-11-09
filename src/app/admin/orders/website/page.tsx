@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import {requireAdminPage} from '@/lib/auth';
 import {displayCustomerCode} from '@/lib/customer-code';
+import {db} from '@/lib/db';
+import {metaAdCode} from '@/lib/meta-ad';
 import {listWebsiteOrders} from '@/lib/website-orders';
 import {websiteOrderStatusLabels} from '@/lib/website-order-status';
 import {WebsiteOrderReviewControls} from './review-controls';
@@ -13,9 +15,15 @@ export default async function WebsiteOrdersPage({searchParams}: {searchParams: P
   const params = await searchParams;
   const status = params.status === 'ALL' ? undefined : Object.hasOwn(websiteOrderStatusLabels, params.status ?? '') ? params.status : 'PENDING_REVIEW';
   const orders = await listWebsiteOrders(status);
+  const pendingCodes = [...new Set(orders.filter(order => order.status === 'PENDING_REVIEW').map(order => order.customerCode))];
+  const referrers = pendingCodes.length ? await db.customer.findMany({where: {code: {in: pendingCodes}}, select: {code: true, referrer: {select: {code: true, active: true, archivedAt: true}}}}) : [];
+  const sellerCodes = new Map(referrers.map(row => [row.code, row.referrer && row.referrer.active && !row.referrer.archivedAt && row.referrer.code !== metaAdCode ? row.referrer.code : '']));
+  const intakeIds = orders.flatMap(order => order.intakeOrderId ? [order.intakeOrderId] : []);
+  const intakes = intakeIds.length ? await db.orderIntake.findMany({where: {id: {in: intakeIds}}, select: {id: true, orderNumber: true}}) : [];
+  const intakeNumbers = new Map(intakes.map(row => [row.id, row.orderNumber]));
   return <>
     <div className="intro"><div><div className="eyebrow">ออเดอร์ / เว็บไซต์</div><h1>ออเดอร์จากเว็บไซต์</h1>
-      <p className="muted">รายการที่ลูกค้าส่งจากตะกร้า Shop เพื่อให้เจ้าหน้าที่ตรวจสอบ</p>
+      <p className="muted">รายการที่ลูกค้าส่งจากตะกร้า Shop ระหว่างรอตรวจระบบกันสต๊อกไว้ให้ เมื่ออนุมัติจะสร้างออเดอร์จัดส่งและจองสต๊อกตามปกติ</p>
     </div><Link className="button secondary" href="/admin/orders/list">รายการออเดอร์</Link></div>
     <section className="card">
       <form method="get" className="website-order-filter">
@@ -45,8 +53,9 @@ export default async function WebsiteOrdersPage({searchParams}: {searchParams: P
             <td><strong>{item.code}</strong><div>{item.name}</div></td><td>{item.pack}</td><td>{item.quantity}</td><td>{money(item.unitPriceSatang)}</td><td>{money(item.lineTotalSatang)}</td>
           </tr>)}</tbody></table></div>
         {order.reviewedAt && <p className="muted small">ตรวจสอบโดย {order.reviewedBy} · {new Date(order.reviewedAt).toLocaleString('th-TH', {timeZone: 'Asia/Bangkok'})}</p>}
+        {order.intakeOrderId && <p>ออเดอร์จัดส่ง <Link href={'/admin/orders/list/' + encodeURIComponent(order.intakeOrderId)}>{intakeNumbers.get(order.intakeOrderId) ?? 'เปิดรายละเอียด'}</Link></p>}
         {order.reviewNote && <p>หมายเหตุ {order.reviewNote}</p>}
-        <WebsiteOrderReviewControls id={order.id} status={order.status}/>
+        <WebsiteOrderReviewControls id={order.id} status={order.status} totalSatang={order.totalSatang} sellerCode={sellerCodes.get(order.customerCode) ?? ''}/>
       </article>)}
       {!orders.length && <section className="card"><p className="empty">ไม่มีออเดอร์จากเว็บไซต์ในสถานะนี้</p></section>}
     </div>

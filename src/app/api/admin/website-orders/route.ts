@@ -1,6 +1,6 @@
 import {NextResponse} from 'next/server';
 import {admin,sameOrigin} from '@/lib/auth';
-import {reviewWebsiteOrder} from '@/lib/website-orders';
+import {reviewWebsiteOrder,WebsiteOrderApprovalError} from '@/lib/website-orders';
 
 export async function POST(request:Request){
  let actor:string;
@@ -13,6 +13,7 @@ export async function POST(request:Request){
   const order=await reviewWebsiteOrder(actor,input);
   return NextResponse.json({ok:true,order},{headers:{'Cache-Control':'private, no-store'}});
  }catch(error){
+  if(error instanceof WebsiteOrderApprovalError)return NextResponse.json({error:'ยังอนุมัติเข้าระบบจัดส่งไม่ได้: '+error.reasons.join(' · '),code:'APPROVAL_BLOCKED',reasons:error.reasons},{status:409});
   const code=error instanceof Error?error.message:'';
   const messages:Record<string,string>={INVALID_WEBSITE_ORDER_REVIEW:'กรุณาตรวจข้อมูลการพิจารณา',WEBSITE_ORDER_NOT_FOUND:'ไม่พบออเดอร์นี้',REVIEW_CONFLICT:'ออเดอร์นี้ได้รับการพิจารณาแล้ว กรุณารีเฟรชหน้าจอ'};
   const status=code==='INVALID_WEBSITE_ORDER_REVIEW'?400:code==='WEBSITE_ORDER_NOT_FOUND'?404:code==='REVIEW_CONFLICT'?409:503;
