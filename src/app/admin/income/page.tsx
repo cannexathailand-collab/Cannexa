@@ -6,6 +6,7 @@ import {salesReport,type SalesFilters} from '@/lib/sales-report';
 import {bangkokDay,dayStart} from '@/lib/sales-dates';
 
 const money=(amount:number)=>(amount/100).toLocaleString('th-TH',{style:'currency',currency:'THB'});
+const tableMoney=(amount:number)=>(amount/100).toLocaleString('th-TH',{maximumFractionDigits:2});
 type Filters=SalesFilters&{view?:string;day?:string};
 
 export default async function Income({searchParams}:{searchParams:Promise<Filters>}){
@@ -41,7 +42,7 @@ export default async function Income({searchParams}:{searchParams:Promise<Filter
     <label>ผู้ขาย<select name="seller" defaultValue={data.seller}><option value="">ทั้งหมด</option>{data.sellerOptions.map(seller=><option key={seller}>{seller}</option>)}</select></label>
    </AutoFilterForm>
   </section>
-  <section className="card"><h2>รายรับแต่ละวัน</h2><div className="table-wrap"><table className="income-daily-table"><thead><tr><th>วันที่</th><th>ยอดโอน</th><th>COD รับแล้ว</th><th>รายรับรวม</th></tr></thead><tbody>{days.map(day=><tr key={day.day}><td><Link href={href('ALL').replace('#income-entries','&day='+day.day+'#income-entries')}>{dayStart(day.day).toLocaleDateString('th-TH',{day:'numeric',month:'short',timeZone:'Asia/Bangkok'})}{day.day===today?' · วันนี้':''}</Link><small className="order-meta">{day.count} รายการ</small></td><td>{money(day.transferSatang)}</td><td>{money(day.codSatang)}</td><td><strong>{money(day.transferSatang+day.codSatang)}</strong></td></tr>)}</tbody><tfoot><tr><th>รวม<small className="order-meta">{income.count} รายการ</small></th><td>{money(income.transferSatang)}</td><td>{money(income.codSatang)}</td><td><strong>{money(income.amountSatang)}</strong></td></tr></tfoot></table></div></section>
+  <section className="card"><h2>รายรับแต่ละวัน <small className="muted">(บาท)</small></h2><div className="table-wrap"><table className="income-daily-table"><thead><tr><th>วันที่</th><th>โอน</th><th>COD รับแล้ว</th><th>รวม</th></tr></thead><tbody>{days.map(day=><tr key={day.day}><td><Link href={href('ALL').replace('#income-entries','&day='+day.day+'#income-entries')}>{dayStart(day.day).toLocaleDateString('th-TH',{day:'numeric',month:'short',timeZone:'Asia/Bangkok'})}{day.day===today?' · วันนี้':''}</Link><small className="order-meta">{day.count} รายการ</small></td><td>{tableMoney(day.transferSatang)}</td><td>{tableMoney(day.codSatang)}</td><td><strong>{tableMoney(day.transferSatang+day.codSatang)}</strong></td></tr>)}</tbody><tfoot><tr><th>รวม<small className="order-meta">{income.count} รายการ</small></th><td>{tableMoney(income.transferSatang)}</td><td>{tableMoney(income.codSatang)}</td><td><strong>{tableMoney(income.amountSatang)}</strong></td></tr></tfoot></table></div></section>
   {income.unmatchedCount>0&&<p className="small"><Link href={href('UNMATCHED')}>รับเงินแล้ว · รอจับคู่ออเดอร์ {income.unmatchedCount.toLocaleString('th-TH')} รายการ →</Link></p>}
   {showEntries?<section className="card" id="income-entries"><div className="intro"><h2>{labels[view]}{selectedDay?' · '+dayStart(selectedDay).toLocaleDateString('th-TH',{dateStyle:'medium'}):''}</h2><Link href={'/admin/income?'+query}>ปิดรายการ</Link></div><p>พบ {views[view].length.toLocaleString('th-TH')} รายการ</p>
    {view==='UNMATCHED'&&<p className="notice">รายการรับเงินเก็บค้างไว้เพื่อจับคู่ออเดอร์เมื่อข้อมูลเข้าครบ โดยคงวันที่รับเงินเดิม</p>}
