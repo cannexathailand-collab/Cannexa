@@ -294,6 +294,17 @@ test('manual tracking dispatch deducts once without an email shipment report',as
  assert.equal(h.rows[2][6],470);
  assert.equal(h.events.filter(event=>event==='deduction').length,1);
 });
+
+test('failed dispatch identifies the product with a missing quantity without deducting stock',async t=>{
+ const h=await harness(t);h.addOrder('unknown-balance',20);
+ await queueStockOrder('unknown-balance');await syncStockReservation('unknown-balance');
+ h.rows[2][4]=null;h.rows[2][6]=null;
+ const result=await processStockDispatch('unknown-balance','owner');
+ assert.equal(result.status,'NEEDS_REVIEW');
+ assert.match(h.dispatches.get('unknown-balance').issues[0],/สินค้า A1.*ยังไม่ระบุจำนวนรับหรือคงเหลือ/);
+ assert.equal(h.rows[2][4],null);assert.equal(h.rows[2][5],20);
+ assert.equal(h.events.filter(event=>event==='deduction').length,0);
+});
 test('rolling dispatch retains only residual precounted credits and never deducts restored orders twice, including after a lost response',async t=>{
  const h=await harness(t);h.addOrder('precounted',3);h.addOrder('precounted-later',5);h.addOrder('normal',20);
  const orderIds=['precounted','precounted-later','normal'];

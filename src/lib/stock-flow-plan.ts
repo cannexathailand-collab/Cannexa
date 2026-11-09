@@ -77,10 +77,11 @@ export function flowDispatchPlan(items:OrderStockItem[],source:FlowSource,precou
  const changes:FlowChange[]=[],requests:any[]=[];
  for(const item of items){
   const p=source.products.find(p=>p.code===item.code);
-  if(!p||p.receivedQuantity===null||p.remainingQuantity===null||p.issuedQuantity===null||p.completedQuantity==null)throw Error('STOCK_QUANTITY_UNKNOWN');
-  if(milli(p.receivedQuantity)-milli(p.completedQuantity)!==milli(p.remainingQuantity))throw Error('STOCK_BALANCE_MISMATCH');
+  if(!p)throw Error('STOCK_PRODUCT_NOT_FOUND '+item.code);
+  if(p.receivedQuantity===null||p.remainingQuantity===null||p.issuedQuantity===null||p.completedQuantity==null)throw Error('STOCK_QUANTITY_UNKNOWN '+item.code);
+  if(milli(p.receivedQuantity)-milli(p.completedQuantity)!==milli(p.remainingQuantity))throw Error('STOCK_BALANCE_MISMATCH '+item.code);
   const credit=p.precountedPendingQuantity??0,unknown=p.unverifiedPendingQuantity??0;
-  if(milli(precounted?credit:p.issuedQuantity-credit-unknown)<item.quantityMilliG)throw Error('STOCK_PENDING_MISMATCH');
+  if(milli(precounted?credit:p.issuedQuantity-credit-unknown)<item.quantityMilliG)throw Error('STOCK_PENDING_MISMATCH '+item.code);
   const unknownAfter=unknown;
   const quantity=item.quantityMilliG/1000,pendingAfter=add(p.issuedQuantity,-quantity),remainingAfter=precounted?p.remainingQuantity:add(p.remainingQuantity,-quantity),creditAfter=precounted?add(credit,-quantity):credit;
   // Roll the latest balance into the next opening quantity. Keep only deductions

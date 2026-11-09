@@ -105,7 +105,9 @@ export async function processFlowStockDispatch(orderId:string,actor:string){
   const databaseCode=(error as {code?:unknown}|null)?.code;
   const errorCode=message.startsWith('STOCK_')?message.split(' ')[0]:typeof databaseCode==='string'&&/^P\d{4}$/.test(databaseCode)?databaseCode:error instanceof Error?error.name:'UNKNOWN';
   await db.auditLog.upsert({where:{id:'stock-dispatch-failure:'+orderId},create:{id:'stock-dispatch-failure:'+orderId,actor,action:'STOCK_DISPATCH_FAILED',entityId:orderId,details:{errorCode,phase:row?.historySavedAt?'AFTER_HISTORY':'BEFORE_HISTORY'}},update:{details:{errorCode,phase:row?.historySavedAt?'AFTER_HISTORY':'BEFORE_HISTORY'},createdAt:new Date()}});
-  const reason=message.startsWith('STOCK_QUANTITY_UNKNOWN')?'จำนวนรับหรือคงเหลือยังไม่ระบุ กรุณาเติมยอดสต๊อกจริง':message==='STOCK_PENDING_MISMATCH'?'จำนวนรอจ่ายไม่ตรงกับออเดอร์ กรุณาตรวจรายการก่อนลองใหม่':message==='STOCK_BALANCE_MISMATCH'?'ยอดรับ ตัดสะสม และคงเหลือในชีตไม่สัมพันธ์กัน กรุณาตรวจสูตร':message==='STOCK_SOURCE_CHANGED'?'ชีตสต๊อกที่ใช้งานเปลี่ยนไป กรุณาตรวจการเชื่อมต่อ':'ยังยืนยันผลตัดสต๊อกไม่ได้ อาจติดที่การเชื่อมต่อหรือการบันทึกข้อมูล ลองประมวลผลรายการเดิมอีกครั้ง';
+  const productCode=message.split(' ').slice(1).join(' ');
+  const product=productCode?'สินค้า '+productCode+' · ':'';
+  const reason=message.startsWith('STOCK_QUANTITY_UNKNOWN')?product+'ยังไม่ระบุจำนวนรับหรือคงเหลือ จึงตัดสต๊อกไม่ได้ กรุณาเติมยอดสต๊อกจริง':message.startsWith('STOCK_PRODUCT_NOT_FOUND')?product+'ไม่พบรหัสสินค้าในสต๊อก':message.startsWith('STOCK_PENDING_MISMATCH')?product+'จำนวนรอจ่ายไม่ตรงกับออเดอร์ กรุณาตรวจรายการก่อนลองใหม่':message.startsWith('STOCK_BALANCE_MISMATCH')?product+'ยอดรับ ตัดสะสม และคงเหลือในชีตไม่สัมพันธ์กัน กรุณาตรวจสูตร':message==='STOCK_SOURCE_CHANGED'?'ชีตสต๊อกที่ใช้งานเปลี่ยนไป กรุณาตรวจการเชื่อมต่อ':'ยังยืนยันผลตัดสต๊อกไม่ได้ อาจติดที่การเชื่อมต่อหรือการบันทึกข้อมูล ลองประมวลผลรายการเดิมอีกครั้ง';
   const status=row?.historySavedAt?'HISTORY_SAVED':'NEEDS_REVIEW',issues=[reason];
   await db.stockDispatch.updateMany({where:{orderId,status:{not:'POSTED'}},data:{status,issues}});return {status,issues};
  }

@@ -22,3 +22,11 @@ test('stock item parsing accepts employee forms with colon, grams, multiplicatio
  assert.deepEqual(orderStockItems('สินค้า: CG13 20g\nCG2 10g\nชำระเงิน: COD').items,[{code:'CG13',quantityMilliG:20000},{code:'CG2',quantityMilliG:10000}]);
  assert.ok(orderStockItems('สินค้า: CG13 20g\nCG2 ไม่ทราบจำนวน\nชำระเงิน: COD').issues.length);
 });
+
+test('admission names AF8 and distinguishes an unknown quantity from zero stock',()=>{
+ const items=[{code:'AF8',quantityMilliG:10000}];
+ const unknown=unavailableStock(items,[{...product,code:'AF8',receivedQuantity:null,remainingQuantity:null}]);
+ assert.match(unknown[0],/ยังตรวจสอบจำนวนสินค้า AF8 ไม่ได้/);
+ const empty=unavailableStock(items,[{...product,code:'AF8',receivedQuantity:0,remainingQuantity:0}]);
+ assert.match(empty[0],/สินค้า AF8 หมด/);
+});
