@@ -53,6 +53,25 @@ export function flowReservationPlan(items:OrderStockItem[],source:FlowSource,rel
  }
  return {sourceSheet:source.tab.title,changes,requests};
 }
+export function releasedReservationSource(items:OrderStockItem[],source:FlowSource,precounted=false){
+ const release=flowReservationPlan(items,source,true,precounted);
+ const changes=new Map(release.changes.map(change=>[change.code,change]));
+ const products=source.products.map(product=>{
+  const change=changes.get(product.code);
+  return change?{...product,receivedQuantity:change.received,issuedQuantity:change.pendingAfter,remainingQuantity:change.remainingAfter,completedQuantity:change.completedAfter,precountedPendingQuantity:change.precountedAfter,unverifiedPendingQuantity:change.unverifiedAfter}:product;
+ });
+ return {release,source:{...source,products}};
+}
+export function flowReplaceReservationPlan(previous:OrderStockItem[],items:OrderStockItem[],source:FlowSource,precounted=false):FlowPlan{
+ const released=releasedReservationSource(previous,source,precounted);
+ const reserve=flowReservationPlan(items,released.source);
+ const changes=new Map(released.release.changes.map(change=>[change.code,change]));
+ for(const change of reserve.changes){
+  const before=changes.get(change.code);
+  changes.set(change.code,before?{...change,pendingBefore:before.pendingBefore,remainingBefore:before.remainingBefore,completedBefore:before.completedBefore,precountedBefore:before.precountedBefore,unverifiedBefore:before.unverifiedBefore}:change);
+ }
+ return {sourceSheet:source.tab.title,changes:[...changes.values()],requests:[...released.release.requests,...reserve.requests]};
+}
 export function flowDispatchPlan(items:OrderStockItem[],source:FlowSource,precounted=false):FlowPlan{
  if(source.rows[0]?.[12]!==STOCK_COMPLETED_HEADER)throw Error('STOCK_FLOW_NOT_READY');
  const changes:FlowChange[]=[],requests:any[]=[];

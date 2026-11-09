@@ -3,8 +3,9 @@ import {displayCustomerCode} from '@/lib/customer-code';
 import type {CSSProperties} from 'react';
 import {needsOrderReview} from '@/lib/order-review-state';
 import {orderShipmentStatus} from '@/lib/order-shipment-status';
+import {quotedTotal} from '@/lib/shipment-matching';
 import type {OrderIntake,SalesOrder} from '@prisma/client';
-type Props={order:OrderIntake;sale?:Pick<SalesOrder,'commissionSatang'|'status'|'paymentMethod'>;sellerName?:string;groupName?:string;tracking?:string;fulfillmentStatus?:string;dispatchedAt?:Date|null;reviewHref?:string};
+type Props={order:OrderIntake;sale?:Pick<SalesOrder,'commissionSatang'|'status'|'paymentMethod'>;sellerName?:string;groupName?:string;tracking?:string;fulfillmentStatus?:string;dispatchedAt?:Date|null;reviewHref?:string;verificationLabel?:string};
 function financialStatus(o:OrderIntake,sale:Props['sale']){
  if(o.status==='RETURNED')return 'ตีกลับ · ไม่นับยอดขาย · รอต้นทุนจากสต็อก';
  if(o.status==='CANCELLED')return 'ยกเลิกแล้ว ไม่นับยอดขายและค่าคอม';
@@ -20,14 +21,18 @@ function financialStatus(o:OrderIntake,sale:Props['sale']){
  if(o.status==='NEEDS_REVIEW')return 'ต้องตรวจข้อมูล · ยังไม่นับยอด';
  return o.payment==='COD'?'รอจับคู่ COD':'รอจับคู่การจัดส่ง · ยังไม่นับยอด';
 }
-export function OrderCard({order:o,sale,sellerName,groupName,tracking,fulfillmentStatus,dispatchedAt,reviewHref}:Props){
+export function OrderCard({order:o,sale,sellerName,groupName,tracking,fulfillmentStatus,dispatchedAt,reviewHref,verificationLabel}:Props){
  const closed=['RETURNED','WITHDRAWN','CANCELLED'].includes(o.status);
+ const total=quotedTotal(o.rawText??'');
  const match=orderShipmentStatus(o.status,tracking,fulfillmentStatus,dispatchedAt);
  const color:CSSProperties=o.status==='RETURNED'?{background:'#fff1f2',color:'#991b1b',borderLeft:'4px solid #dc2626'}:closed?(o.payment==='โอน'||sale?.paymentMethod==='TRANSFER'?{background:'#fef9c3',color:'#854d0e',borderLeft:'4px solid #facc15'}:{background:'#fff1f2',color:'#991b1b',borderLeft:'4px solid #dc2626'}):sale?.status==='PAID'?{background:'#166534',color:'#ffffff',borderLeft:'4px solid #14532d'}:o.payment==='COD'&&['WAITING_SHIPMENT','MATCHED_SHIPMENT_WAITING_COD','COD_AMOUNT_MISMATCH'].includes(o.status)?{background:'#fef9c3',color:'#854d0e',borderLeft:'4px solid #facc15'}:sale?.status==='PENDING'&&sale.commissionSatang!==null?{background:'#ecfdf5',color:'#065f46',borderLeft:'4px solid #34d399'}:{};
  return <article style={{borderBottom:'1px solid #ddd',padding:'16px 12px',...color}}>
   <strong>{o.orderNumber}</strong>
+  <p className="small">บันทึกเมื่อ {o.createdAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
+  {total!==null&&<p>ยอดตามออเดอร์: ฿{(total/100).toLocaleString('th-TH',{minimumFractionDigits:2})}</p>}
   <p role="status"><strong>สถานะจัดส่ง: {match.label}</strong></p>
   {!!tracking&&<p>เลขพัสดุ: <strong>{tracking}</strong></p>}
+  {verificationLabel&&<p>{verificationLabel}</p>}
   {!!o.customerCode&&<p>รหัสลูกค้า: {displayCustomerCode(o.customerCode)}</p>}
   <p>{groupName??'กลุ่มส่งงาน'} · {o.eventAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
   <p>สถานะออเดอร์ / ค่าคอม: {financialStatus(o,sale)}</p>

@@ -8,7 +8,7 @@ test('matching needs a tracking number and dispatch needs separate confirmed evi
  assert.equal(orderShipmentStatus('CANCELLED','TRACK','DISPATCHED',new Date()).label,'ยกเลิก');
 });
 test('shared owner and employee order card visibly includes match status and tracking',()=>{
- const order={id:'test',orderNumber:'ORD-TEST',status:'MATCHED_SHIPMENT',payment:'COD',eventAt:new Date(),issues:[],replyStatus:'SENT'} as unknown as OrderIntake;
+ const order={id:'test',orderNumber:'ORD-TEST',status:'MATCHED_SHIPMENT',payment:'COD',eventAt:new Date(),createdAt:new Date(),issues:[],replyStatus:'SENT'} as unknown as OrderIntake;
  const html=renderToStaticMarkup(createElement(OrderCard,{order,tracking:'TRACK-123',fulfillmentStatus:'DISPATCHED',dispatchedAt:new Date()}));
  assert.ok(html.includes('จับคู่สำเร็จ · จัดส่งแล้ว'));assert.ok(html.includes('เลขพัสดุ:'));assert.ok(html.includes('TRACK-123'));
  const pending=renderToStaticMarkup(createElement(OrderCard,{order}));assert.ok(pending.includes('ยังไม่จับคู่'));assert.ok(!pending.includes('จับคู่สำเร็จ'));

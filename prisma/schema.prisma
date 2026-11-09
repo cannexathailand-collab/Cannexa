@@ -651,6 +651,7 @@ model StockWorkflow {
  sourceSheet String
 }
 model StockReservation {
+ adjustmentFrom Json?
  orderId String @id
  precounted Boolean @default(false)
  needsReconciliation Boolean @default(false)

@@ -8,13 +8,16 @@ import {reservationOperationId} from './stock-flow';
 import type {StockRow} from './stock-import';
 import {websiteOrderStockItems} from './website-order-stock';
 export type StockReader=typeof readStockSheet;
-export async function pendingStockSaleItems(tx:Prisma.TransactionClient=db){
- const reservations=await tx.stockReservation.findMany({where:{status:'QUEUED',precounted:false,needsReconciliation:false}});
+export async function pendingStockSaleItems(tx:Prisma.TransactionClient=db,excludeOrderId?:string){
+ const reservations=await tx.stockReservation.findMany({where:{status:'QUEUED',precounted:false,needsReconciliation:false,...(excludeOrderId?{orderId:{not:excludeOrderId}}:{})}});
  const orders=reservations.length?await tx.orderIntake.findMany({where:{id:{in:reservations.map(r=>r.orderId)},status:{notIn:['CANCELLED','WITHDRAWN','EXPIRED','RETURNED']}},select:{id:true}}):[];
  const active=new Set(orders.map(o=>o.id));const ids=reservations.map(reservationOperationId);
  const operations=ids.length?await tx.stockSheetOperation.findMany({where:{id:{in:ids},status:'APPLIED'},select:{id:true}}):[];
  const applied=new Set(operations.map(o=>o.id));
- const queued=reservations.filter(r=>active.has(r.orderId)&&!applied.has(reservationOperationId(r))).flatMap(r=>r.items as unknown as OrderStockItem[]);
+ const queued=reservations.filter(r=>active.has(r.orderId)&&!applied.has(reservationOperationId(r))).flatMap(r=>{
+  const items=r.items as unknown as OrderStockItem[],previous=r.adjustmentFrom as {items:OrderStockItem[]}|null;
+  return previous?items.map(item=>({...item,quantityMilliG:Math.max(0,item.quantityMilliG-previous.items.filter(old=>old.code===item.code).reduce((total,old)=>total+old.quantityMilliG,0))})).filter(item=>item.quantityMilliG>0):items;
+ });
  // Website orders hold stock while they wait for owner review; approval moves the hold to a reservation.
  const websiteOrders=await tx.websiteOrder.findMany({where:{status:'PENDING_REVIEW'},select:{items:true}});
  return [...queued,...websiteOrders.flatMap(order=>websiteOrderStockItems(order.items))];

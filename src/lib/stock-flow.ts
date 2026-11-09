@@ -1,7 +1,8 @@
 import {createHash,randomInt} from 'node:crypto';
+import {Prisma} from '@prisma/client';
 import {db} from './db';
 import {readStockSheet,stockGoogleClient} from './stock-google';
-import {flowBaselinePlan,flowReservationPlan} from './stock-flow-plan';
+import {flowBaselinePlan,flowReservationPlan,flowReplaceReservationPlan} from './stock-flow-plan';
 import {applyFlowOperation} from './stock-flow-operation';
 import {orderStockItems,type OrderStockItem} from './order-stock-items';
 import {bangkokDay} from './sales-dates';
@@ -35,14 +36,14 @@ export async function queueStockOrder(orderId:string,force=false){
  const parsed=orderStockItems(order.rawText);
  return db.stockReservation.upsert({where:{orderId},create:{orderId,messageKey:order.messageKey,orderNumber:order.orderNumber,actor:order.sellerUsername??'line-order',items:parsed.items,issues:parsed.issues},update:{}});
 }
-export async function syncStockReservation(orderId:string){
+export async function syncStockReservation(orderId:string,actor='line-unsend'){
  return db.$transaction(async tx=>{
   await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended($1,0))','stock-sheet-add');
-  return syncStockReservationLocked(orderId);
+  return syncStockReservationLocked(orderId,actor);
  },{timeout:55000,maxWait:10000});
 }
 // The caller holds the shared stock-sheet-add lock.
-export async function syncStockReservationLocked(orderId:string){
+export async function syncStockReservationLocked(orderId:string,actor='line-unsend'){
   const config=await db.stockWorkflow.findUnique({where:{id:'active'}});if(!config?.enabled)return {status:'DISABLED'};
   const reservation=await db.stockReservation.findUnique({where:{orderId}});if(!reservation)return {status:'NOT_FOUND'};
   if(['CONSUMED','RELEASED','ALREADY_COUNTED','RECONCILING'].includes(reservation.status))return {status:reservation.status};
@@ -54,12 +55,12 @@ export async function syncStockReservationLocked(orderId:string){
   if(release&&(returned||await db.stockReturn.findFirst({where:{OR:[{orderId},...(shipment?.tracking?[{tracking:shipment.tracking}]:[])]},select:{id:true}})))return {status:'RETURN_IN_PROGRESS'};
   const client=await stockGoogleClient();
   const pending=await db.stockSheetOperation.findUnique({where:{id:reservationOperationId(reservation)}});
-  if(reservation.status==='QUEUED'&&(!release||pending)){
+ if(reservation.status==='QUEUED'&&(!release||pending||reservation.adjustmentFrom)){
    const parsed=(reservation.items as unknown as OrderStockItem[]).length?{items:reservation.items as unknown as OrderStockItem[],issues:[]}:orderStockItems(order?.rawText??null);
    if(parsed.issues.length){await db.stockReservation.update({where:{orderId},data:{issues:parsed.issues}});return {status:'NEEDS_REVIEW'};}
    try{
-    await applyFlowOperation(client,reservationOperationId(reservation),'RESERVE',reservation.actor,async()=>{const source=await readStockSheet(client);if(source.tab.title!==config.sourceSheet)throw Error('STOCK_SOURCE_CHANGED');return flowReservationPlan(parsed.items,source,false,reservation.precounted,reservation.needsReconciliation);});
-    await db.stockReservation.update({where:{orderId},data:{status:'RESERVED',items:parsed.items,issues:[]}});
+    await applyFlowOperation(client,reservationOperationId(reservation),'RESERVE',reservation.actor,async()=>{const source=await readStockSheet(client);if(source.tab.title!==config.sourceSheet)throw Error('STOCK_SOURCE_CHANGED');const previous=reservation.adjustmentFrom as {items:OrderStockItem[];precounted:boolean}|null;return previous?flowReplaceReservationPlan(previous.items,parsed.items,source,previous.precounted):flowReservationPlan(parsed.items,source,false,reservation.precounted,reservation.needsReconciliation);});
+    await db.stockReservation.update({where:{orderId},data:{status:'RESERVED',items:parsed.items,issues:[],...(reservation.adjustmentFrom?{adjustmentFrom:Prisma.DbNull,precounted:false}:{})}});
     await db.auditLog.upsert({where:{id:'stock-reserve:'+orderId},create:{id:'stock-reserve:'+orderId,actor:reservation.actor,action:'STOCK_RESERVED',entityId:orderId,details:{orderNumber:reservation.orderNumber,items:parsed.items}},update:{}});
    }catch(error){const message=error instanceof Error?error.message:'';const missing=message.startsWith('STOCK_PRODUCT_NOT_FOUND ')?message.slice('STOCK_PRODUCT_NOT_FOUND '.length):null;const unknown=message.startsWith('STOCK_QUANTITY_UNKNOWN ')?message.slice('STOCK_QUANTITY_UNKNOWN '.length):null;const issue=unknown?'รหัส '+unknown+' ยังไม่ระบุจำนวนรับหรือคงเหลือ กรุณาเติมข้อมูลสต๊อกก่อน':missing?'ไม่พบรหัส '+missing+' ในชีตสต๊อก กรุณาตรวจรหัสหรือเพิ่มสินค้าก่อน':'ยังบันทึกจำนวนรอจ่ายไม่ได้ ตรวจข้อมูลสต๊อกและการเชื่อมต่อ แล้วลองใหม่';await db.stockReservation.update({where:{orderId},data:{issues:[issue]}});return {status:'NEEDS_REVIEW'};}
   }
@@ -70,7 +71,7 @@ export async function syncStockReservationLocked(orderId:string){
    if(dispatch?.historySavedAt)return {status:'DISPATCH_IN_PROGRESS'};
    if(current.status==='RESERVED'){
     await applyFlowOperation(client,'release:'+orderId,'RELEASE',reservation.actor,async()=>flowReservationPlan(current.items as unknown as OrderStockItem[],await readStockSheet(client),true,reservation.precounted));
-    await db.auditLog.upsert({where:{id:'stock-release:'+orderId},create:{id:'stock-release:'+orderId,actor:'line-unsend',action:'STOCK_RESERVATION_RELEASED',entityId:orderId,details:{orderNumber:reservation.orderNumber,items:current.items}},update:{}});
+    await db.auditLog.upsert({where:{id:'stock-release:'+orderId},create:{id:'stock-release:'+orderId,actor,action:'STOCK_RESERVATION_RELEASED',entityId:orderId,details:{orderNumber:reservation.orderNumber,items:current.items}},update:{}});
    }
    await db.stockReservation.update({where:{orderId},data:{status:'RELEASED',issues:[]}});
    return {status:'RELEASED'};

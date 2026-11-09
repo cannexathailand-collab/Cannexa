@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
+import {useRouter} from 'next/navigation';
 import {defaultOrderTemplate,draftFields,emptyOrderDraft,analyzeOrderDraft,orderDraftIssues,renderOrderDraft,differentDraftAddress,type OrderDraft} from '@/lib/order-draft';
 import {orderStockItems} from '@/lib/order-stock-items';
 import {moneySatang} from '@/lib/shipment-matching';
@@ -20,6 +21,7 @@ async function draftRequest(path:string,body:unknown){
 function requireCustomerCode(customer:{customerCode?:unknown}|null|undefined){if(!customer||typeof customer.customerCode!=='string'||!/^(?:[A-Z]{1,3}\d{4,8}|CUS-\d{8})$/.test(customer.customerCode))throw Error('ข้อมูลรหัสลูกค้าไม่สมบูรณ์ กรุณาลองใหม่');}
 type DirectOrders={groups:{id:string;name:string}[];sellers:{username:string}[]};
 export function OrderDraftBuilder({seller,initialTemplates,canManage=false,directOrders}:{seller:string;initialTemplates:Template[];canManage?:boolean;directOrders?:DirectOrders}){
+ const router=useRouter();
  const [draft,setDraft]=useState<OrderDraft>({...emptyOrderDraft,seller}),[source,setSource]=useState(''),[lookup,setLookup]=useState(''),[ready,setReady]=useState(false),[templates,setTemplates]=useState(initialTemplates),[templateId,setTemplateId]=useState('standard'),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[lookupIssue,setLookupIssue]=useState(''),[copied,setCopied]=useState(false),[templateName,setTemplateName]=useState(''),[templateBody,setTemplateBody]=useState(defaultOrderTemplate),[saving,setSaving]=useState(false);
  const [addressComparison,setAddressComparison]=useState<{incoming:string;stored:string}|null>(null),[addressChoice,setAddressChoice]=useState('');
  const [parseIssues,setParseIssues]=useState<Partial<Record<keyof OrderDraft,string>>>({});
@@ -84,7 +86,7 @@ export function OrderDraftBuilder({seller,initialTemplates,canManage=false,direc
   try{
    const response=await fetch('/api/admin/orders/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,requestKey:directRequest.current.key}),signal:AbortSignal.timeout(60000)});
    const result=await response.json();if(!response.ok){directRequest.current=null;throw Error(result.error);}
-   setDirectSaved(result);setNotice('บันทึกออเดอร์ '+result.orderNumber+' แล้ว'+(result.status==='NEEDS_REVIEW'?' · มีข้อมูลที่ต้องตรวจสอบ':''));
+   setDirectSaved(result);setNotice('บันทึกออเดอร์ '+result.orderNumber+' แล้ว'+(result.createdAt?' · วันที่ '+new Date(result.createdAt).toLocaleString('th-TH',{timeZone:'Asia/Bangkok'}):'')+(result.status==='NEEDS_REVIEW'?' · มีข้อมูลที่ต้องตรวจสอบ':''));router.push('/admin/orders/list?'+new URLSearchParams({status:result.status==='NEEDS_REVIEW'?'REVIEW':'WAITING',q:result.orderNumber,focus:result.orderId}));
   }catch(error){setNotice(error instanceof Error?error.message:'ยังยืนยันผลไม่ได้ กรุณาลองบันทึกอีกครั้ง');}finally{directSending.current=false;setDirectSaving(false);}
  }
  function readSlip(file?:File){
@@ -131,7 +133,7 @@ export function OrderDraftBuilder({seller,initialTemplates,canManage=false,direc
  return <div className="order-draft-builder draft-single-flow">
   <section className="draft-source"><h2>วางข้อมูลดิบของลูกค้า</h2><p className="muted">{directOrders?'วางข้อความลูกค้า ระบบจะแยกข้อมูลให้ตรวจ แล้วบันทึกออเดอร์เข้าระบบจากหน้านี้ได้':'วางข้อความทั้งหมดที่ได้รับมา หรือใส่รหัสลูกค้า ระบบจะแยกข้อมูลลงคอลัมน์ให้ตรวจและคัดลอก'}</p>
    <form className="draft-lookup" onSubmit={e=>{e.preventDefault();void analyze();}}><label>ดึงจากรหัสลูกค้า <input value={lookup} onChange={e=>setLookup(e.target.value)} disabled={busy} maxLength={20} placeholder="เช่น C0001"/></label><button disabled={busy||!lookup.trim()}>{busy?'กำลังตรวจสอบ…':'ดึงข้อมูลลูกค้า'}</button></form>
-   <label className="sr-only" htmlFor="raw-order-data">ข้อมูลดิบของลูกค้า</label><textarea id="raw-order-data" aria-label="ข้อมูลดิบของลูกค้า" disabled={busy} value={source} onChange={e=>setSource(e.target.value)} rows={8} maxLength={12000} placeholder={'วางข้อมูลลูกค้าที่นี่ เช่น\nชื่อผู้รับ: ...\nเบอร์โทร: ...\nที่อยู่: ...\nสินค้า: ...\nยอดเงิน: ...\nชำระเงิน: COD\nรหัสลูกค้า: C0001'}/>
+   <label className="sr-only" htmlFor="raw-order-data">ข้อมูลดิบของลูกค้า</label><textarea id="raw-order-data" aria-label="ข้อมูลดิบของลูกค้า" disabled={busy} value={source} onChange={e=>{setSource(e.target.value);if(directOrders){setReady(false);setResultVisible(false);setDirectSaved(null);setLookup('');directRequest.current=null;}}} rows={8} maxLength={12000} placeholder={'วางข้อมูลลูกค้าที่นี่ เช่น\nชื่อผู้รับ: ...\nเบอร์โทร: ...\nที่อยู่: ...\nสินค้า: ...\nยอดเงิน: ...\nชำระเงิน: COD\nรหัสลูกค้า: C0001'}/>
    <div className="draft-source-actions"><button type="button" disabled={busy||!source.trim()&&!lookup.trim()} onClick={analyze}>{busy?'กำลังตรวจสอบ…':'ตรวจสอบและจัดข้อมูล'}</button>{ready&&<button type="button" className="secondary" onClick={()=>setResultVisible(true)}>ดูผลลัพธ์ล่าสุด</button>}<span>ข้อมูลที่อ่านไม่ได้จะเว้นไว้ให้เติม</span></div>
   </section>
   {ready&&<dialog ref={resultDialog} className="draft-result-dialog" aria-labelledby="draft-result-title" onClose={()=>setResultVisible(false)} onClick={e=>{if(e.target!==e.currentTarget)return;const rect=e.currentTarget.getBoundingClientRect();if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)resultDialog.current?.close();}}>

@@ -17,7 +17,7 @@ const inputSchema=z.object({
  slip:z.string().optional(),
 });
 export type ManualOrderInput=z.infer<typeof inputSchema>;
-type ManualOrderResult={reasons:string[]}|{orderId:string;orderNumber:string;status:string};
+type ManualOrderResult={reasons:string[]}|{orderId:string;orderNumber:string;status:string;createdAt:string};
 export function manualOrderText(input:ManualOrderInput){
  return [
   'รหัสผู้ขาย: '+input.sellerCode,'รหัสลูกค้า: '+input.customerCode,'ผู้รับ: '+input.recipient,
@@ -39,7 +39,7 @@ export async function createManualOrder(actor:string,value:unknown,stockReader?:
    if(details.fingerprint!==fingerprint)throw Error('คำขอเดิมมีข้อมูลเปลี่ยนแปลง กรุณาส่งใหม่');
    if(previous.action==='ORDER_REJECTED')return {reasons:details.reasons??['บันทึกไม่สำเร็จ']};
    const order=await tx.orderIntake.findUniqueOrThrow({where:{id:previous.entityId}});
-   return {orderId:order.id,orderNumber:order.orderNumber,status:order.status};
+   return {orderId:order.id,orderNumber:order.orderNumber,status:order.status,createdAt:order.createdAt.toISOString()};
   }
   let slip:ReturnType<typeof parseRewardImage>|null=null;
   if(input.payment==='โอน'){
@@ -58,6 +58,6 @@ export async function createManualOrder(actor:string,value:unknown,stockReader?:
   }
   if(slip)await tx.orderPaymentSlip.create({data:{orderId:result.order.id,data:slip.imageData,mime:slip.imageMime,version:slip.imageVersion}});
   await tx.auditLog.create({data:{id:auditId,actor,action:'ORDER_MANUAL_CREATED',entityId:result.order.id,details:{fingerprint,orderNumber:result.order.orderNumber,groupKey:group.id,team:group.name}}});
-  return {orderId:result.order.id,orderNumber:result.order.orderNumber,status:result.order.status};
+  return {orderId:result.order.id,orderNumber:result.order.orderNumber,status:result.order.status,createdAt:result.order.createdAt.toISOString()};
  },55000);
 }

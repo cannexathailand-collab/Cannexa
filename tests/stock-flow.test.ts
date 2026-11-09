@@ -29,6 +29,19 @@ test('new LINE stock notice reserves once, uses 50G sellable stock and preserves
  assert.deepEqual(await getOrderStockNotice('new-order'),result);assert.equal(h.rows[2][5],590);assert.equal(h.rows[2][6],490);
 });
 function replace(t:TestContext,target:any,key:string,value:any){const before=target[key];target[key]=value;t.after(()=>{target[key]=before;});}
+test('edited reservation recovers an applied sheet update once and cancellation releases the revised quantity',async t=>{
+ const h=await harness(t);h.addOrder('edited',20);await queueStockOrder('edited');await syncStockReservation('edited');
+ const old=h.reservations.get('edited');
+ h.reservations.set('edited',{...old,status:'QUEUED',generation:1,items:[{code:'A1',quantityMilliG:30000}],adjustmentFrom:{items:old.items,precounted:false}});
+ const update=db.stockReservation.update;let fail=true;
+ replace(t,db.stockReservation,'update',async(args:any)=>{if(args.data.status==='RESERVED'&&fail){fail=false;throw Error('simulated lost final write');}return update(args);});
+ assert.equal((await syncStockReservation('edited')).status,'NEEDS_REVIEW');
+ assert.equal(h.rows[2][5],30);
+ assert.equal((await syncStockReservation('edited')).status,'RESERVED');
+ assert.equal(h.rows[2][5],30);
+ h.orders.get('edited').status='CANCELLED';
+ assert.equal((await syncStockReservation('edited')).status,'RELEASED');assert.equal(h.rows[2][5],0);
+});
 const fresh=():any[][]=>[[null,null,'รายการ',null,'จำนวนรับ','จำนวนจ่าย','จำนวนคงเหลือ',null,null,null,null,null,null],['','','','','','','','','10G','50G','100G','1 KG'],['','Example','A1',1.5,500,10,490,'',300,500,800,2000]];
 const source=(rows:any[][])=>({tab:{sheetId:5,title:'5.11.69'},rows,products:stockRows(rows,{costColumnConfirmed:true})});
 async function harness(t:TestContext){
