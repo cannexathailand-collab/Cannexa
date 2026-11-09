@@ -1,3 +1,4 @@
+import {hasManualStockReceipt} from './stock-return-receipt';
 import {transaction,userLock} from './db';
 import {sha} from './crypto';
 
@@ -84,6 +85,7 @@ export async function recordReturnEmail(input:StockReturnEmail,actor:string,conn
  if(parsed.ignored)return {imported:false,reports:0,issues:[] as string[]};
  return transaction(async tx=>{
   await userLock(tx,'gmail-reports');
+  await userLock(tx,'stock-sheet-add');
   if(connectionRevision!==undefined){const connection=await tx.gmailConnection.findUnique({where:{id:'active'}});if(connection?.revision!==connectionRevision||!connection.encryptedToken)throw Error('GMAIL_RECONNECT');}
   let imported=false,count=0;
   for(const report of parsed.reports){
@@ -92,16 +94,17 @@ export async function recordReturnEmail(input:StockReturnEmail,actor:string,conn
    const sender=input.sender.trim().toLowerCase(),evidence={reportId:id,messageId:input.messageId,sender,subject:input.subject,reportedAt:input.reportedAt.toISOString(),stage:report.stage,reason:report.reason,statusText:report.statusText,format:report.format};
    await tx.stockReturnReport.create({data:{id,messageId:input.messageId,tracking:report.tracking,sender,subject:input.subject,reportedAt:input.reportedAt,stage:report.stage,reason:report.reason}});
    const previous=await tx.stockReturn.findUnique({where:{tracking:report.tracking}}),shipment=await tx.shipment.findUnique({where:{tracking:report.tracking}});
-   const stage=previous?.stage==='RECEIVED'?'RECEIVED':report.stage,terminal=previous&&['POSTED','NO_STOCK_CHANGE'].includes(previous.status),advanced=report.stage==='RECEIVED'&&previous?.stage!=='RECEIVED';
-   const status=terminal||previous?.stage==='RECEIVED'?previous!.status:stage==='RECEIVED'?'PENDING':'NEEDS_REVIEW';
+   const terminal=previous&&['POSTED','NO_STOCK_CHANGE'].includes(previous.status),confirmed=hasManualStockReceipt(previous?.evidence);
+   const stage=terminal?previous.stage:confirmed?'RECEIVED':'IN_TRANSIT';
+   const status=terminal||confirmed?previous!.status:'NEEDS_REVIEW';
    const currentEvidence=Array.isArray(previous?.evidence)?previous.evidence:[];
-   const reportIssues=[...new Set([...report.issues,...parsed.issues])];
+   const reportIssues=[...new Set([...report.issues,...parsed.issues,...(confirmed?[]:['รอพนักงานยืนยันว่าได้รับสินค้าคืนครบก่อนเพิ่มสต๊อก'])])];
    await tx.stockReturn.upsert({where:{tracking:report.tracking},create:{tracking:report.tracking,orderId:shipment?.orderId??null,stage,status,reportedAt:input.reportedAt,evidence:[evidence],items:[],issues:reportIssues},update:{
     ...(previous?.orderId?{}:{orderId:shipment?.orderId??null}),stage,status,evidence:[...currentEvidence,evidence],
-    ...(terminal||previous?.stage==='RECEIVED'&&!advanced?{}:{issues:reportIssues}),
+    ...(terminal||confirmed?{}:{issues:reportIssues}),
     // The report timestamp records when receipt evidence arrived; it is not a
     // guessed physical receipt timestamp. The return processor chooses its basis.
-    ...(advanced||previous?.stage!=='RECEIVED'&&previous&&input.reportedAt>previous.reportedAt?{reportedAt:input.reportedAt}:{})
+    ...(!terminal&&!confirmed&&previous&&input.reportedAt>previous.reportedAt?{reportedAt:input.reportedAt}:{})
    }});
    imported=true;count++;
   }

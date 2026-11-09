@@ -1,3 +1,4 @@
+import {hasManualStockReceipt} from './stock-return-receipt';
 import type {Prisma,StockReturn} from '@prisma/client';
 import {db} from './db';
 import {readStockSheet,stockGoogleClient} from './stock-google';
@@ -15,12 +16,8 @@ const trackingCode=(value:string)=>value.trim().toUpperCase().replace(/\s/g,'');
 const json=(value:unknown)=>value as Prisma.InputJsonValue;
 const values=(value:unknown)=>Array.isArray(value)?value:[];
 const operationId=(tracking:string)=>'return:'+tracking;
-const normalized=(value:string)=>value.normalize('NFKC').replace(/\s/g,'');
-const receivedStatuses=new Set(['นำส่งคืนผู้ฝากส่งสำเร็จ','ส่งคืนถึงผู้ส่งแล้ว'].map(normalized));
 
-function receiptEvidence(row:StockReturn){
- return values(row.evidence).some(entry=>entry&&typeof entry==='object'&&(entry.kind==='MANUAL_RECEIPT'||entry.format==='MYORDER_RETURN_TABLE'&&entry.stage==='RECEIVED'&&typeof entry.statusText==='string'&&receivedStatuses.has(normalized(entry.statusText))));
-}
+function receiptEvidence(row:StockReturn){return hasManualStockReceipt(row.evidence);}
 function assertSnapshot(snapshot:StockReturnSnapshot,row:StockReturn){
  if(!snapshot||snapshot.returnId!==row.id||snapshot.tracking!==row.tracking||!snapshot.orderId||row.orderId&&snapshot.orderId!==row.orderId||!snapshot.dispatchId)throw Error('STOCK_RETURN_IDENTITY_MISMATCH');
  stockReturnItems(snapshot.items,snapshot.totalCostSatang);
@@ -58,6 +55,7 @@ export async function processStockReturn(tracking:string,actor:string){
   // A durable return operation was already authorized against a frozen history.
   // Recover it even if unrelated live metadata has changed since the first try.
   const existing=await db.stockSheetOperation.findUnique({where:{id:operationId(code)}});
+  if(!existing&&!receiptEvidence(initial))return review(code,'รอพนักงานยืนยันว่าได้รับสินค้าคืนครบก่อนเพิ่มสต๊อก');
   if(!existing)await prepareReceivedReturn(initial,actor);
   return await db.$transaction(async tx=>{
    await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended($1,0))','stock-sheet-add');
@@ -147,7 +145,7 @@ export async function confirmStockReturnReceived(tracking:string,actor:string){
  return db.$transaction(async tx=>{
   await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended($1,0))','stock-sheet-add');
   const row=await tx.stockReturn.findUnique({where:{tracking:code}});if(!row)throw Error('STOCK_RETURN_NOT_FOUND');
-  if(terminal.includes(row.status)||row.stage==='RECEIVED')return {status:row.status,replayed:true};
+  if(terminal.includes(row.status)||row.stage==='RECEIVED'&&receiptEvidence(row))return {status:row.status,replayed:true};
   const now=new Date(),evidence={kind:'MANUAL_RECEIPT',actor,receivedAt:now.toISOString()};
   await tx.stockReturn.update({where:{tracking:code},data:{stage:'RECEIVED',status:'PENDING',receivedAt:now,evidence:json([...values(row.evidence),evidence]),issues:[]}});
   await tx.auditLog.upsert({where:{id:'stock-return-received:'+code},create:{id:'stock-return-received:'+code,actor,action:'STOCK_RETURN_RECEIVED_CONFIRMED',entityId:row.orderId??code,details:{tracking:code,receivedAt:now.toISOString()}},update:{}});

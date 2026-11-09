@@ -19,7 +19,7 @@ function harness(t:TestContext){
  const day=86400000,now=Date.now(),reportedAt=new Date(now-day),dispatchedAt=new Date(now-2*day);
  const rows:any[][]=[['','','รายการ','','จำนวนรับ','จำนวนรอจ่าย','จำนวนคงเหลือ','','','','','',STOCK_COMPLETED_HEADER,'ขายได้',STOCK_PRECOUNTED_HEADER,STOCK_UNVERIFIED_HEADER],[],['','New name','CG2',99,-54,100,-54,'','','','','',0,-154,0,0]];
  const state={
-  row:{id:'return1',tracking,orderId:'order1',stage:'RECEIVED',status:'PENDING',reportedAt,receivedAt:null,evidence:[{format:'MYORDER_RETURN_TABLE',stage:'RECEIVED',statusText:'นำส่งคืนผู้ฝากส่งสำเร็จ'}],items:[],sourceSheet:null,totalCostSatang:null,historySnapshot:null,historySavedAt:null,processedAt:null,issues:[],createdAt:reportedAt,updatedAt:reportedAt} as any,
+  row:{id:'return1',tracking,orderId:'order1',stage:'RECEIVED',status:'PENDING',reportedAt,receivedAt:reportedAt,evidence:[{kind:'MANUAL_RECEIPT',actor:'store-user'}],items:[],sourceSheet:null,totalCostSatang:null,historySnapshot:null,historySavedAt:null,processedAt:null,issues:[],createdAt:reportedAt,updatedAt:reportedAt} as any,
   dispatch:{id:'dispatch1',orderId:'order1',orderNumber:'ORDER1',candidateTracking:tracking,tracking,status:'POSTED',items:[structuredClone(originalItem)],totalCostSatang:75000,sourceSheet:'6.11.69',dispatchedAt,processedAt:dispatchedAt,historySavedAt:dispatchedAt,historySnapshot:{original:true}} as any,
   shipment:{tracking,orderId:'order1',importId:'import1',status:'MATCHED',fulfillmentStatus:'DISPATCHED',dispatchedAt,reportAt:dispatchedAt,dispatchEvidence:'Original dispatch'} as any,
   order:{id:'order1',messageKey:'message1',orderNumber:'ORDER1',eventAt:new Date(now-3*day),createdAt:new Date(now-3*day),status:'TRANSFER_RECORDED',payment:'โอน',affiliateId:null} as any,
@@ -77,12 +77,12 @@ function harness(t:TestContext){
  return state;
 }
 
-test('received email restores original quantity and cost once, preserving other demand and original dispatch history',async t=>{
+test('confirmed receipt restores original quantity and cost once, preserving other demand and original dispatch history',async t=>{
  const h=harness(t),original=structuredClone(h.dispatch),reportedAt=h.row.reportedAt;
  assert.equal((await processStockReturn(tracking,'owner')).status,'POSTED');
  assert.equal(h.rows[2][4],446);assert.equal(h.rows[2][6],446);assert.equal(h.rows[2][5],100);assert.equal(h.rows[2][12],0);assert.equal(h.rows[2][3],99);assert.equal(h.rows[2][1],'New name');
  assert.deepEqual(h.dispatch,original);assert.equal(h.row.items[0].unitCostSatang,150);assert.equal(h.row.totalCostSatang,75000);
- assert.equal(h.row.receivedAt.getTime(),reportedAt.getTime());assert.equal(h.row.historySnapshot.dateBasis,'EMAIL_REPORT_RECEIVED_AT');
+ assert.equal(h.row.receivedAt.getTime(),reportedAt.getTime());assert.equal(h.row.historySnapshot.dateBasis,'RECEIVED_AT');
  assert.equal(stockReturnExpenses([h.row])[0].amountSatang,-75000);
  assert.ok(h.events.indexOf('history')<h.events.indexOf('archive'));assert.ok(h.events.indexOf('archive')<h.events.indexOf('restore'));
  const archive=[...h.sheets.values()].find(s=>s.title.startsWith('รับคืน '));assert.equal(archive.rows[1][8],-750);assert.equal(archive.rows[1][7],1.5);
@@ -212,4 +212,15 @@ test('native archive validation includes original costs and saved balance column
 test('pending worker processes received returns and reports completed credits',async t=>{
  const h=harness(t);const result=await processPendingStockReturns('worker',1);
  assert.deepEqual(result,{processed:1,posted:1,noStockChange:0});assert.equal(h.row.status,'POSTED');
+});
+
+
+test('carrier delivered-return email cannot restore stock before a staff confirmation, including legacy received rows',async t=>{
+ const h=harness(t);h.row.receivedAt=null;h.row.evidence=[{format:'MYORDER_RETURN_TABLE',stage:'RECEIVED',statusText:'ส่งคืนถึงผู้ส่งแล้ว'}];
+ assert.equal((await processStockReturn(tracking,'owner')).status,'NEEDS_REVIEW');
+ assert.equal(h.rows[2][4],-54);assert.equal(h.networkCalls,0);assert.equal(h.row.historySavedAt,null);
+ await confirmStockReturnReceived(tracking,'store-user');
+ assert.ok(h.row.evidence.some((entry:any)=>entry.kind==='MANUAL_RECEIPT'));
+ assert.equal((await processStockReturn(tracking,'store-user')).status,'POSTED');assert.equal(h.rows[2][4],446);
+ await processStockReturn(tracking,'store-user');assert.equal(h.events.filter(event=>event==='restore').length,1);
 });

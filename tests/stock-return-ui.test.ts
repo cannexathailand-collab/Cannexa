@@ -71,8 +71,8 @@ test('valid retry and checked receipt confirmation use only the fixed review red
 test('return review shows exact order details, full-receipt confirmation and unknown tracking without invented links',async t=>{
  const rows=[
   {id:'r1',tracking:'TRACK0001',orderId:'order1',stage:'IN_TRANSIT',status:'NEEDS_REVIEW',reportedAt:at,issues:[],items:[]},
-  {id:'r2',tracking:'UNKNOWN1',orderId:null,stage:'IN_TRANSIT',status:'NEEDS_REVIEW',reportedAt:at,issues:['ตรวจเลขพัสดุเดิม'],items:[]},
-  {id:'r3',tracking:'TRACK0003',orderId:'order3',stage:'RECEIVED',status:'PENDING',reportedAt:at,issues:[],items:[{code:'CG2',quantityMilliG:500000}]}
+  {id:'r2',tracking:'UNKNOWN1',orderId:null,stage:'RECEIVED',status:'NEEDS_REVIEW',reportedAt:at,issues:['ตรวจเลขพัสดุเดิม'],items:[]},
+  {id:'r3',tracking:'TRACK0003',orderId:'order3',stage:'RECEIVED',status:'PENDING',reportedAt:at,evidence:[{kind:'MANUAL_RECEIPT'}],issues:[],items:[{code:'CG2',quantityMilliG:500000}]}
  ];
  replace(t,db.stockReturn,'count',async()=>rows.length);replace(t,db.stockReturn,'findMany',async({where,take}:any)=>{assert.deepEqual(where.status.notIn,['POSTED','NO_STOCK_CHANGE']);assert.equal(take,25);return rows;});
  replace(t,db.auditLog,'findMany',async({where,take}:any)=>{assert.equal(where.action,'STOCK_RETURN_EMAIL_REVIEW');assert.equal(take,10);return [{id:'mail1',createdAt:at,details:{sender:'carrier@example.test',subject:'Unknown return layout',reportedAt:at.toISOString(),issues:['ไม่พบเลขพัสดุที่ยืนยันได้']}}];});
@@ -83,7 +83,7 @@ test('return review shows exact order details, full-receipt confirmation and unk
  const {StockReturnStatus}=await import('../src/app/stock-return-status');
  const html=renderToStaticMarkup(await StockReturnStatus({}));
  assert.match(html,/รับสินค้าตีกลับ/);assert.match(html,/Buyer One/);assert.match(html,/seller-current/);assert.match(html,/CG13.*25 G/);
- const checkbox=html.match(/<input[^>]*name="receivedAll"[^>]*>/)?.[0];assert.ok(checkbox);assert.match(checkbox,/required=""/);assert.match(html,/ยืนยันรับคืนครบ/);assert.match(html,/ลองรับคืนอีกครั้ง/);
+ const checkbox=html.match(/<input[^>]*name="receivedAll"[^>]*>/)?.[0];assert.ok(checkbox);assert.match(checkbox,/required=""/);assert.match(html,/ยืนยันรับคืนครบ/);assert.match(html,/ลองรับคืนอีกครั้ง/);assert.equal((html.match(/name="receivedAll"/g)??[]).length,2);
  assert.match(html,/ยังจับคู่เลขพัสดุนี้กับออเดอร์เดิมไม่ได้/);assert.doesNotMatch(html,/href="[^"]*UNKNOWN1/);
  assert.match(html,/href="\/admin\/orders\/order1\/review"/);
  const storeHtml=renderToStaticMarkup(await StockReturnStatus({returnPath:'/admin/stock/returns',orderBaseHref:'/admin/store-orders/',orderSuffix:''}));

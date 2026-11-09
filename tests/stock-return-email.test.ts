@@ -31,7 +31,7 @@ test('observed MyOrder refusal email is return-in-transit evidence, not proof th
  assert.equal(parsed.reports[0].format,'MYORDER_RETURN_TABLE');assert.match(parsed.reports[0].reason,/ผู้รับปฏิเสธการรับ \/ อื่นๆ/);
 });
 
-test('only exact receipt-completed text in the mapped status cell confirms a return',()=>{
+test('only exact receipt-completed text maps the carrier receipt status',()=>{
  for(const status of ['นำส่งคืนผู้ฝากส่งสำเร็จ','ส่งคืนถึงผู้ส่งแล้ว'])assert.equal(parseStockReturnEmail(email({html:table(status)})).reports[0].stage,'RECEIVED');
  for(const status of ['ยังไม่ส่งคืนถึงผู้ส่งแล้ว','กำลังนำส่งคืนผู้ฝากส่งสำเร็จ','ส่งคืน','นำจ่ายสำเร็จ','ผู้รับปฏิเสธการรับ']){
   const parsed=parseStockReturnEmail(email({html:table(status,tracking,'ส่งคืนถึงผู้ส่งแล้ว','นำส่งคืนผู้ฝากส่งสำเร็จ')}));
@@ -75,13 +75,14 @@ test('return email recording is idempotent and links only an exact known shipmen
  await recordReturnEmail(email({messageId:'unlinked',html:table('送信',otherTracking)}),'test');assert.equal(h.returns.get(otherTracking).orderId,null);
 });
 
-test('receipt evidence advances stage once and later transit messages cannot regress it or alter its receipt report date',async t=>{
+test('carrier receipt report waits for staff confirmation and later mail preserves confirmed receipt',async t=>{
  const h=harness(t);await recordReturnEmail(email(),'test');
  const receivedAt=new Date('2026-11-07T02:00:00Z');
  await recordReturnEmail(email({messageId:'receipt',reportedAt:receivedAt,html:table('ส่งคืนถึงผู้ส่งแล้ว')}),'test');
- let row=h.returns.get(tracking);assert.equal(row.stage,'RECEIVED');assert.equal(row.status,'PENDING');assert.equal(row.receivedAt,null);assert.deepEqual(row.reportedAt,receivedAt);assert.deepEqual(row.issues,[]);
+ let row=h.returns.get(tracking);assert.equal(row.stage,'IN_TRANSIT');assert.equal(row.status,'NEEDS_REVIEW');assert.equal(row.receivedAt,null);assert.deepEqual(row.reportedAt,receivedAt);assert.ok(row.issues.length);
+ row.stage='RECEIVED';row.status='PENDING';row.receivedAt=receivedAt;row.evidence.push({kind:'MANUAL_RECEIPT',actor:'store-user'});
  await recordReturnEmail(email({messageId:'late-transit',reportedAt:new Date('2026-11-08T02:00:00Z')}),'test');
- row=h.returns.get(tracking);assert.equal(row.stage,'RECEIVED');assert.equal(row.status,'PENDING');assert.deepEqual(row.reportedAt,receivedAt);assert.equal(row.evidence.length,3);
+ row=h.returns.get(tracking);assert.equal(row.stage,'RECEIVED');assert.equal(row.status,'PENDING');assert.deepEqual(row.reportedAt,receivedAt);assert.equal(row.evidence.length,4);assert.deepEqual(row.receivedAt,receivedAt);
 });
 
 test('new evidence preserves posted history, costs and terminal decisions while retaining historical reports',async t=>{
