@@ -21,10 +21,10 @@ export default async function StoreOrder({params}:{params:Promise<{id:string}>})
  const names=new Map(products.map(product=>[product.code,product.name]));
  const items=parsed.items.map(item=>({...item,name:names.get(item.code)??null}));
  const amount=quotedTotal(order.rawText??'')??sale?.revenueSatang??null;
- const text=shippingSummaryText({orderNumber:order.orderNumber,recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:amount,tracking:shipment?.tracking??null,seller:order.sellerUsername,items});
+ const text=shippingSummaryText({recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:amount,items});
  return <section className="card store-shipping-detail">
   <Link href="/admin/store-orders">กลับออเดอร์เตรียมจัดส่ง</Link>
-  <header className="intro"><div><h1>{order.orderNumber}</h1><p>ผู้ขาย {order.sellerUsername??'ยังไม่ระบุ'} · สร้าง {order.createdAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p></div><CopyOrderShipping key={id} text={parsed.issues.length?text+'\n\nข้อความออเดอร์ต้นฉบับ\n'+(order.rawText??''):text}/></header>
+  <header className="intro"><div><h1>{order.orderNumber}</h1><p>ผู้ขาย {order.sellerUsername??'ยังไม่ระบุ'} · สร้าง {order.createdAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p></div><CopyOrderShipping key={id} text={text}/></header>
   <h2>ข้อมูลจัดส่ง</h2><dl className="store-shipping-facts">
    <div><dt>ชื่อผู้รับ</dt><dd>{order.recipient||'ยังไม่ระบุ'}</dd></div>
    <div><dt>เบอร์โทร</dt><dd>{order.phone||'ยังไม่ระบุ'}</dd></div>

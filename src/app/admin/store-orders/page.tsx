@@ -28,7 +28,7 @@ export default async function StoreOrders({searchParams}:{searchParams:Promise<{
  <div className="employee-order-list store-preparing-list">{rows.map(order=>{
   const details=parsed.get(order.id)!;
   const items=details.items.map(item=>({...item,name:names.get(item.code)??null}));
-  const text=shippingSummaryText({orderNumber:order.orderNumber,recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:order.revenueSatang,tracking:order.tracking,seller:order.sellerUsername,items});
+  const text=shippingSummaryText({recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:order.revenueSatang,items});
   return <article className={'employee-order-card'+(duplicates.has(order.id)?' duplicate-order-row':'')} key={order.id}>
    <header><strong>{order.orderNumber}</strong><span>{order.state==='RETURNED'?'ตีกลับ':order.hasTracking?'จัดส่งแล้ว':'เตรียมจัดส่ง'}</span></header>
    <p>ผู้ขาย {order.sellerUsername??'ยังไม่ระบุ'} · สร้าง {order.createdAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
@@ -45,7 +45,7 @@ export default async function StoreOrders({searchParams}:{searchParams:Promise<{
    </dl>
    {details.issues.map(issue=><p className="notice" key={issue}>{issue}</p>)}{details.issues.length>0&&<pre>{order.rawText}</pre>}
    <DuplicateOrderNotice matches={duplicates.get(order.id)??[]} currentOrder={order} baseHref="/admin/store-orders/"/>
-   <div className="actions"><CopyOrderShipping text={details.issues.length?text+'\n\nข้อความออเดอร์ต้นฉบับ\n'+(order.rawText??''):text}/><Link href={'/admin/store-orders/'+encodeURIComponent(order.id)}>เปิดรายละเอียดออเดอร์</Link></div>
+   <div className="actions"><CopyOrderShipping text={text}/><Link href={'/admin/store-orders/'+encodeURIComponent(order.id)}>เปิดรายละเอียดออเดอร์</Link></div>
   </article>;
  })}</div>
  {!rows.length&&<p>ไม่มีออเดอร์ในกลุ่มนี้</p>}
