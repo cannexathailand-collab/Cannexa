@@ -114,3 +114,13 @@ button.stock-delete-action:disabled{background:#f8d9d5;color:#85251f;border-colo
 .order-shipping-table-cell{min-width:340px;max-width:520px;}
 @media(max-width:600px){.order-shipping-details .shipping-payment-facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 10px;}.order-shipping-details .shipping-payment-facts>div:last-child{grid-column:1/-1;}.store-preparing-list .employee-order-card{padding:0 10px 8px;}.store-preparing-list .employee-order-card>header{margin:0 -10px 5px;padding:8px 10px;}}
 .store-order-search{grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px;margin-bottom:12px;}.store-order-search>button{min-height:44px;margin:0;padding:10px 22px;}.store-order-search>label{margin:0;}
+.order-shipping-details .shipping-actions{gap:8px 12px;}
+.order-cancel{display:inline-block;max-width:100%;}
+.order-cancel>.order-cancel-trigger,.customer .order-cancel>.order-cancel-trigger{width:auto;min-height:40px;padding:8px 12px;margin:0;border:1px solid #efb9b3;border-radius:8px;background:#fff1ee;color:#a32923;font-size:12px;line-height:1.5;white-space:nowrap;}
+.order-cancel>.order-cancel-trigger:hover{background:#ffe1dc;border-color:#db8a81;}
+.order-cancel>.order-cancel-trigger .popup-trigger-icon{display:none;}
+.order-cancel .popup-details-dialog{width:min(440px,calc(100vw - 24px));}
+.order-cancel .order-cancel-reference{padding:10px 12px;background:#fff3f1;border:1px solid #f4d7d1;border-radius:8px;font-weight:600;overflow-wrap:anywhere;}
+.order-cancel .order-cancel-confirm,.customer .order-cancel .order-cancel-confirm{width:auto;min-height:44px;padding:10px 18px;border:1px solid #b83027;border-radius:8px;background:#b83027;color:#fff;font-size:14px;}
+.order-cancel .order-cancel-confirm:disabled{opacity:.65;cursor:wait;}
+@media(max-width:600px){.employee-order-card .shipping-actions:has(.order-cancel){display:grid;grid-template-columns:minmax(0,1fr) auto;}.employee-order-card .shipping-actions:has(.order-cancel)>.order-shipping-copy{grid-column:1/-1;}.customer .employee-order-card .shipping-actions:has(.order-cancel)>.order-shipping-copy button{width:100%;}}

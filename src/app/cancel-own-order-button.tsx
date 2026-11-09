@@ -5,10 +5,10 @@ import {PopupDetails} from './popup-details';
 export function CancelOwnOrderButton({id,version,orderNumber}:{id:string;version:string;orderNumber:string}){
  const router=useRouter(),requestKey=useRef(''),sending=useRef(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[done,setDone]=useState(false);
- return <PopupDetails summary="ยกเลิกออเดอร์" title="ยืนยันยกเลิกออเดอร์">
-  <p>{orderNumber}</p><p>ยืนยันยกเลิกรายการนี้และคืนยอดจองสินค้า?</p>
+ return <PopupDetails className="order-cancel" summaryClassName="order-cancel-trigger" summary="ยกเลิกออเดอร์" title="ยืนยันยกเลิกออเดอร์">
+  <p className="order-cancel-reference">{orderNumber}</p><p>ยืนยันยกเลิกรายการนี้และคืนยอดจองสินค้า?</p>
   {error&&<p role="alert">{error}</p>}
-  {done?<p role="status">ยกเลิกออเดอร์แล้ว</p>:<button disabled={busy} onClick={async()=>{
+  {done?<p role="status">ยกเลิกออเดอร์แล้ว</p>:<button className="order-cancel-confirm" disabled={busy} onClick={async()=>{
    if(sending.current)return;
    sending.current=true;setBusy(true);setError('');requestKey.current||=crypto.randomUUID();
    try{
