@@ -1,4 +1,3 @@
-import {selectedEmployee} from '@/lib/employee-view';
 import {after} from 'next/server';
 import {currentAccount,sameOrigin} from '@/lib/auth';
 import {isEmployeeRole} from '@/lib/accounts';
@@ -14,11 +13,11 @@ export async function POST(request:Request){
   const text=await request.text();if(text.length>20000)throw Error('ข้อมูลมากเกินไป');
   const input=JSON.parse(text);
   if(typeof input.id!=='string'||!input.id||input.id.length>100)throw Error('กรุณาระบุออเดอร์');
-  const selected=actor.role==='owner'?await selectedEmployee(actor):null;
-  const seller=selected?.username??actor.username;
+  const seller=actor.username;
+  const owner=actor.role==='owner';
   const order=await db.orderIntake.findUnique({where:{id:input.id},select:{sellerUsername:true}});
-  if(order?.sellerUsername!==seller)return Response.json({error:'ยกเลิกได้เฉพาะออเดอร์ที่คุณเป็นผู้ขาย'},{status:403});
-  const result=await changeOrder(actor.username,{id:input.id,expectedVersion:input.expectedVersion,requestKey:input.requestKey,action:'CANCEL',reason:'ผู้ขายยกเลิกผ่านหน้ารายการออเดอร์'},undefined,{sellerUsername:seller});
+  if(!owner&&order?.sellerUsername!==seller)return Response.json({error:'ยกเลิกได้เฉพาะออเดอร์ที่คุณเป็นผู้ขาย'},{status:403});
+  const result=await changeOrder(actor.username,{id:input.id,expectedVersion:input.expectedVersion,requestKey:input.requestKey,action:'CANCEL',reason:owner?'เจ้าของระบบยกเลิกผ่านหน้ารายการออเดอร์':'ผู้ขายยกเลิกผ่านหน้ารายการออเดอร์'},undefined,owner?undefined:{sellerUsername:seller});
   after(async()=>{await syncStockReservation(result.id,actor.username).catch(()=>{});});
   return Response.json(result,{headers:{'Cache-Control':'private, no-store'}});
  }catch(error){return Response.json({error:error instanceof Error?error.message:'ยกเลิกออเดอร์ไม่สำเร็จ'},{status:400});}

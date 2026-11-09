@@ -11,7 +11,7 @@ function endpoint({role='employee',username='seller',orderSeller='seller',select
   '@/lib/accounts':{isEmployeeRole:(r:string)=>['employee','sales'].includes(r)},
   '@/lib/employee-view':{selectedEmployee:async()=>selected},
   '@/lib/db':{db:{orderIntake:{findUnique:async()=>orderSeller===null?null:{sellerUsername:orderSeller}}}},
-  '@/lib/order-changes':{changeOrder:async(actor:string,input:any)=>{if(blocked)throw Error('จัดส่งแล้ว');writes.push({actor,input});return {id:input.id};}},
+  '@/lib/order-changes':{changeOrder:async(actor:string,input:any,_read:any,scope:any)=>{if(blocked)throw Error('จัดส่งแล้ว');writes.push({actor,input,scope});return {id:input.id};}},
   '@/lib/stock-flow':{syncStockReservation:async()=>{}},
  };
  const exports:Record<string,any>={};
@@ -21,7 +21,7 @@ function endpoint({role='employee',username='seller',orderSeller='seller',select
 }
 const request=()=>new Request('https://example.test/cancel',{method:'POST',body:JSON.stringify({id:'order',expectedVersion:'version',requestKey:'key',action:'EDIT',sellerUsername:'seller'})});
 test('seller cancellation forces CANCEL and uses authenticated audit identity',async()=>{
- const {post,writes}=endpoint();assert.equal((await post(request())).status,200);assert.equal(writes[0].actor,'seller');assert.equal(writes[0].input.action,'CANCEL');
+ const {post,writes}=endpoint();assert.equal((await post(request())).status,200);assert.equal(writes[0].actor,'seller');assert.equal(writes[0].input.action,'CANCEL');assert.equal(writes[0].scope.sellerUsername,'seller');
 });
 test('another seller cannot cancel an order by forging its seller in the body',async()=>{
  const {post,writes}=endpoint({username:'other'});assert.equal((await post(request())).status,403);assert.equal(writes.length,0);
@@ -29,9 +29,9 @@ test('another seller cannot cancel an order by forging its seller in the body',a
 test('unrelated roles and missing orders are denied',async()=>{
  for(const options of [{role:'viewer'},{orderSeller:null}]){const {post,writes}=endpoint(options);assert.equal((await post(request())).status,403);assert.equal(writes.length,0);}
 });
-test('owner employee preview can cancel only the selected sellers orders and retains owner audit actor',async()=>{
+test('owner can cancel across sellers while retaining the owner audit identity',async()=>{
  const {post,writes}=endpoint({role:'owner',username:'owner',selected:{username:'seller'}});assert.equal((await post(request())).status,200);assert.equal(writes[0].actor,'owner');
- const denied=endpoint({role:'owner',username:'owner',selected:{username:'other'}});assert.equal((await denied.post(request())).status,403);
+ const other=endpoint({role:'owner',username:'owner',selected:{username:'other'}});assert.equal((await other.post(request())).status,200);assert.equal(other.writes[0].actor,'owner');assert.equal(other.writes[0].scope,undefined);
 });
 test('shipment guards from the existing cancellation workflow still apply',async()=>{
  const {post,writes}=endpoint({blocked:true});assert.equal((await post(request())).status,400);assert.equal(writes.length,0);

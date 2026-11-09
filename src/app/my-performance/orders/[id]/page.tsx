@@ -48,7 +48,7 @@ export default async function SharedOrder({params,searchParams}:{params:Promise<
    <p>สร้างออเดอร์ {order.createdAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
    <p>รับออเดอร์ {order.eventAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
    <p>สถานะ {status}</p>
-   {!closed&&order.status!=='RETURNED'&&shipment?.fulfillmentStatus!=='DISPATCHED'&&!shipment?.dispatchedAt&&order.sellerUsername===actor.username&&<CancelOwnOrderButton id={id} version={orderEditVersion(order)} orderNumber={order.orderNumber}/>}
+   {!closed&&order.status!=='RETURNED'&&shipment?.fulfillmentStatus!=='DISPATCHED'&&!shipment?.dispatchedAt&&(actor.role==='owner'||order.sellerUsername===actor.username)&&<CancelOwnOrderButton id={id} version={orderEditVersion(order)} orderNumber={order.orderNumber}/>}
    <OrderCommissionStatus visible={order.sellerUsername===actor.username} payment={order.payment} codReceived={!!receipt&&receipt.amountSatang===shipment?.codSatang} rows={commissions.rows.filter(row=>row.reference===order.orderNumber)}/>
    <OrderShippingDetails copyDetails={{orderNumber:order.orderNumber,seller:order.sellerUsername,createdAt:order.createdAt,status,extraLines:orderCommissionCopyLines({visible:order.sellerUsername===actor.username,payment:order.payment,codReceived:!!receipt&&receipt.amountSatang===shipment?.codSatang,rows:commissions.rows.filter(row=>row.reference===order.orderNumber)})}} data={{recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:amount,items:items.items}} tracking={shipment?.tracking}/>
    <DuplicateOrderNotice matches={duplicates.get(id)??[]} currentOrder={order} baseHref="/my-performance/orders/"/>
