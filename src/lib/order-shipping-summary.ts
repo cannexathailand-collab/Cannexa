@@ -12,3 +12,16 @@ export function shippingSummaryText(data:ShippingSummary){
   'การชำระเงิน '+shippingPaymentLabel(data.payment),
  ].join('\n');
 }
+
+export type OrderCopyDetails={orderNumber:string;seller?:string|null;createdAt?:Date;status?:string;tracking?:string|null;extraLines?:string[]};
+export function orderSummaryText(data:ShippingSummary,details:OrderCopyDetails){
+ return [
+  'เลขออเดอร์ '+details.orderNumber,
+  ...(details.seller!==undefined?['ผู้ขาย '+(details.seller||'ยังไม่ระบุ')]:[]),
+  ...(details.createdAt?['สร้างออเดอร์ '+details.createdAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})]:[]),
+  ...(details.status?['สถานะ '+details.status]:[]),
+  shippingSummaryText(data),
+  'เลขพัสดุ '+(details.tracking||'ยังไม่มีเลขพัสดุ'),
+  ...(details.extraLines??[]),
+ ].join('\n');
+}

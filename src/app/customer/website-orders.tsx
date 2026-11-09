@@ -12,7 +12,7 @@ export async function CustomerWebsiteOrders({customerCode}: {customerCode: strin
         <span>{new Date(order.createdAt).toLocaleString('th-TH', {timeZone: 'Asia/Bangkok'})}</span>
         <strong>{(order.totalSatang / 100).toLocaleString('th-TH', {minimumFractionDigits: 2})} บาท</strong>
       </div>
-      <OrderShippingDetails data={{recipient:order.recipient,phone:order.phone,address:order.address,payment:order.paymentMethod==='TRANSFER'?'โอน':order.paymentMethod,amountSatang:order.totalSatang,items:order.items.map(item=>({code:item.code,name:item.name,quantityMilliG:Math.round(item.grams*item.quantity*1000),description:item.pack+' × '+item.quantity}))}}/>
+      <OrderShippingDetails copyDetails={{orderNumber:order.orderNumber,createdAt:new Date(order.createdAt),status:websiteOrderStatusLabels[order.status]??order.status}} data={{recipient:order.recipient,phone:order.phone,address:order.address,payment:order.paymentMethod==='TRANSFER'?'โอน':order.paymentMethod,amountSatang:order.totalSatang,items:order.items.map(item=>({code:item.code,name:item.name,quantityMilliG:Math.round(item.grams*item.quantity*1000),description:item.pack+' × '+item.quantity}))}}/>
       <p className="portal-muted">ค่าสินค้า {(order.subtotalSatang/100).toLocaleString('th-TH',{minimumFractionDigits:2})} บาท · ค่าจัดส่ง {(order.shippingSatang/100).toLocaleString('th-TH',{minimumFractionDigits:2})} บาท</p>
       {order.bankDetails && <p className="portal-muted">{order.bankDetails.bankName} · {order.bankDetails.accountName} · {order.bankDetails.accountNumber}</p>}
       {order.slipVersion && <p><a href={'/api/customer/website-orders/'+encodeURIComponent(order.id)+'/slip?v='+order.slipVersion} target="_blank" rel="noopener noreferrer">ดูสลิปโอนเงิน</a></p>}

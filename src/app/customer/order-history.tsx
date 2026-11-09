@@ -10,7 +10,7 @@ export function CustomerOrderHistory({history,title='ออเดอร์ขอ
   {history.length?<div className="portal-orders">{history.map(row=><article key={row.order.id} className="portal-order">
    <header><strong>{row.order.orderNumber}</strong><span className="portal-status">{row.status}</span></header>
    <p className="portal-muted">{crmDate(row.order.eventAt)}</p>
-   <OrderShippingDetails data={{recipient:row.order.recipient,phone:row.order.phone,address:row.order.address,payment:row.order.payment,amountSatang:row.amountSatang,items:orderStockItems(row.order.rawText).items}} tracking={row.tracking}/>
+   <OrderShippingDetails copyDetails={{orderNumber:row.order.orderNumber,createdAt:row.order.createdAt,status:row.status}} data={{recipient:row.order.recipient,phone:row.order.phone,address:row.order.address,payment:row.order.payment,amountSatang:row.amountSatang,items:orderStockItems(row.order.rawText).items}} tracking={row.tracking}/>
   </article>)}</div>:<div className="portal-empty">{emptyText}<br/><small>แจ้งรหัสลูกค้านี้กับพนักงานเมื่อสั่งซื้อ เพื่อให้แสดงออเดอร์ที่นี่</small></div>}
  </section>;
 }

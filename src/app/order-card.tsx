@@ -39,7 +39,7 @@ export function OrderCard({order:o,sale,sellerName,groupName,tracking,fulfillmen
   <p>สถานะออเดอร์ / ค่าคอม: {financialStatus(o,sale)}</p>
   {o.status!=='WITHDRAWN'&&<>
    <p>ผู้ขายปัจจุบัน: {sellerName??o.sellerCode??'ยังไม่ระบุ'}</p>
-   <OrderShippingDetails data={{recipient:o.recipient,phone:o.phone,address:o.address,payment:o.payment,amountSatang:total,items:orderStockItems(o.rawText).items}} tracking={tracking}/>
+   <OrderShippingDetails copyDetails={{orderNumber:o.orderNumber,seller:sellerName??o.sellerUsername??o.sellerCode,createdAt:o.createdAt,status:match.label,extraLines:['สถานะออเดอร์ / ค่าคอม '+financialStatus(o,sale)]}} data={{recipient:o.recipient,phone:o.phone,address:o.address,payment:o.payment,amountSatang:total,items:orderStockItems(o.rawText).items}} tracking={tracking}/>
    {Array.isArray(o.issues)&&o.issues.length>0&&<p className="muted">{o.issues.map(String).join(' · ')}</p>}
    {o.payment==='โอน'&&!(fulfillmentStatus==='DISPATCHED'&&dispatchedAt)&&<p>ยอดขายรอยืนยันจากรายงานจัดส่ง</p>}
    {o.status==='RETURNED'&&<p>ต้นทุนพัสดุตีกลับ: รอข้อมูลจากระบบสต็อก</p>}

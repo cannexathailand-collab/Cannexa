@@ -1,7 +1,7 @@
 import {OrderShippingDetails} from '@/app/order-shipping-details';
 import {loadOrderShippingItems} from '@/lib/order-shipping-items';
 import {employeeCommissions} from '@/lib/employee-commissions';
-import {OrderCommissionStatus} from '../../order-commission-status';
+import {OrderCommissionStatus,orderCommissionCopyLines} from '../../order-commission-status';
 import {OrderReviewView} from '@/app/order-review-view';
 import {orderReview} from '@/lib/order-review';
 import {notFound} from 'next/navigation';
@@ -50,7 +50,7 @@ export default async function SharedOrder({params,searchParams}:{params:Promise<
    <p>สถานะ {status}</p>
    {!closed&&order.status!=='RETURNED'&&shipment?.fulfillmentStatus!=='DISPATCHED'&&!shipment?.dispatchedAt&&order.sellerUsername===actor.username&&<CancelOwnOrderButton id={id} version={orderEditVersion(order)} orderNumber={order.orderNumber}/>}
    <OrderCommissionStatus visible={order.sellerUsername===actor.username} payment={order.payment} codReceived={!!receipt&&receipt.amountSatang===shipment?.codSatang} rows={commissions.rows.filter(row=>row.reference===order.orderNumber)}/>
-   <OrderShippingDetails data={{recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:amount,items:items.items}} tracking={shipment?.tracking}/>
+   <OrderShippingDetails copyDetails={{orderNumber:order.orderNumber,seller:order.sellerUsername,createdAt:order.createdAt,status,extraLines:orderCommissionCopyLines({visible:order.sellerUsername===actor.username,payment:order.payment,codReceived:!!receipt&&receipt.amountSatang===shipment?.codSatang,rows:commissions.rows.filter(row=>row.reference===order.orderNumber)})}} data={{recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:amount,items:items.items}} tracking={shipment?.tracking}/>
    <DuplicateOrderNotice matches={duplicates.get(id)??[]} currentOrder={order} baseHref="/my-performance/orders/"/>
   </section>
  </main>;

@@ -1,8 +1,8 @@
 import type {ReactNode} from 'react';
 import {CopyOrderShipping} from './copy-order-shipping';
-import {shippingSummaryText,shippingPaymentLabel,shippingAmountLabel,type ShippingSummary} from '@/lib/order-shipping-summary';
+import {orderSummaryText,type OrderCopyDetails,shippingSummaryText,shippingPaymentLabel,shippingAmountLabel,type ShippingSummary} from '@/lib/order-shipping-summary';
 
-export function OrderShippingDetails({data,tracking,children}:{data:ShippingSummary;tracking?:string|null;children?:ReactNode}){
+export function OrderShippingDetails({data,tracking,children,copyDetails}:{data:ShippingSummary;tracking?:string|null;children?:ReactNode;copyDetails?:Omit<OrderCopyDetails,'tracking'>}){
  return <div className="order-shipping-details">
   <dl className="shipping-contact-facts">
    <div><dt>ชื่อผู้รับ</dt><dd>{data.recipient||'ยังไม่ระบุ'}</dd></div>
@@ -16,6 +16,6 @@ export function OrderShippingDetails({data,tracking,children}:{data:ShippingSumm
    <div><dt>ยอดรวม</dt><dd>{shippingAmountLabel(data.amountSatang)}</dd></div>
    <div><dt>เลขพัสดุ</dt><dd>{tracking||'ยังไม่มีเลขพัสดุ'}</dd></div>
   </dl>
-  <div className="shipping-actions"><CopyOrderShipping text={shippingSummaryText(data)}/>{children}</div>
+  <div className="shipping-actions"><CopyOrderShipping text={copyDetails?orderSummaryText(data,{...copyDetails,tracking}):shippingSummaryText(data)} label={copyDetails?'คัดลอกรายละเอียดออเดอร์':undefined}/>{children}</div>
  </div>;
 }

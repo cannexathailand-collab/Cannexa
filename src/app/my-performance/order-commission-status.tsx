@@ -10,3 +10,11 @@ export function OrderCommissionStatus({visible,payment,codReceived,rows}:{visibl
   {rows.length>0&&<PopupDetails summary="ดูรายละเอียดค่าคอม" title="ค่าคอมของออเดอร์นี้">{rows.map(row=><section key={row.id}><h3>{statusLabels[row.status]}</h3><p>{row.amount===null?'รอคำนวณยอด':money(row.amount)}</p><p>{row.note}</p>{row.paidAt&&<p>จ่ายเมื่อ {row.paidAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>}</section>)}</PopupDetails>}
  </section>;
 }
+
+export function orderCommissionCopyLines({visible,payment,codReceived,rows}:{visible:boolean;payment:string|null;codReceived:boolean;rows:EmployeeCommission[]}){
+ if(!visible)return [];
+ return [
+  ...(payment==='COD'?[codReceived?'COD รับเงินแล้ว':'COD ยังไม่ได้รับเงิน']:[]),
+  ...(rows.length?rows.map(row=>statusLabels[row.status]+(row.amount===null?'':' · '+money(row.amount))+(row.paidAt?' · จ่ายเมื่อ '+row.paidAt.toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok'}):'')) : ['ค่าคอมยังไม่พร้อมคำนวณ']),
+ ];
+}
