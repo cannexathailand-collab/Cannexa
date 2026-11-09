@@ -1,7 +1,7 @@
 import {employeeRoles} from './accounts';
 import {db} from './db';
 export async function loadOrderInbox(){
- const [bots,groups,orders,sellers]=await Promise.all([db.orderBot.findMany({orderBy:{createdAt:'asc'},select:{id:true,name:true,botId:true,active:true}}),db.orderGroup.findMany({where:{purpose:'ORDER'},orderBy:{lastSeenAt:'desc'}}),db.orderIntake.findMany({where:{status:{notIn:['WITHDRAWN','CANCELLED']}},orderBy:{createdAt:'desc'},take:100}),db.userAccount.findMany({where:{role:{in:employeeRoles},active:true,affiliateId:{not:null}},select:{username:true,affiliateId:true},orderBy:{username:'asc'}})]);
+ const [bots,groups,orders,sellers]=await Promise.all([db.orderBot.findMany({orderBy:{createdAt:'asc'},select:{id:true,name:true,botId:true,active:true,receiveOrders:true}}),db.orderGroup.findMany({where:{purpose:'ORDER'},orderBy:{lastSeenAt:'desc'}}),db.orderIntake.findMany({where:{status:{notIn:['WITHDRAWN','CANCELLED']}},orderBy:{createdAt:'desc'},take:100}),db.userAccount.findMany({where:{role:{in:employeeRoles},active:true,affiliateId:{not:null}},select:{username:true,affiliateId:true},orderBy:{username:'asc'}})]);
  const ids=orders.map(o=>o.id);
  const [sales,shipments]=await Promise.all([db.salesOrder.findMany({where:{orderId:{in:ids}},select:{orderId:true,commissionSatang:true,status:true,paymentMethod:true}}),db.shipment.findMany({where:{orderId:{in:ids}},select:{orderId:true,tracking:true,fulfillmentStatus:true,dispatchedAt:true}})]);
  const saleByOrder=new Map(sales.map(s=>[s.orderId,s])),shipmentByOrder=new Map(shipments.map(s=>[s.orderId,s]));

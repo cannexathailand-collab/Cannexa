@@ -17,6 +17,13 @@ export async function POST(req:Request){
    const bot=await tx.orderBot.upsert({where:{botId},create:{name,botId,encrypted},update:{name,encrypted,active:true}});
    await tx.auditLog.create({data:{actor,action:"ORDER_BOT_SAVED",entityId:bot.id,details:{name}}});
   });
+ }else if(action==="intake"){
+  const id=String(f.get("id")??""),receiveOrders=f.get("receiveOrders")==="on";
+  if(!id||!await db.orderBot.findUnique({where:{id}}))return new Response("Invalid bot",{status:400});
+  await transaction(async tx=>{
+   await tx.orderBot.update({where:{id},data:{receiveOrders}});
+   await tx.auditLog.create({data:{actor,action:"ORDER_BOT_INTAKE_UPDATED",entityId:id,details:{receiveOrders}}});
+  });
  }else if(action==="group"){
   const id=String(f.get("id")??""),name=String(f.get("name")??"").trim(),enabled=f.get("enabled")==="on";
   if(!id||!name||name.length>100||!await db.orderGroup.findUnique({where:{id}}))return new Response("Invalid group",{status:400});

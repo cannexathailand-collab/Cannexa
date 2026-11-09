@@ -392,6 +392,7 @@ model OrderMessageTemplate {
 }
 
 model OrderBot {
+ receiveOrders Boolean @default(true)
  id String @id @default(cuid())
  name String
  botId String @unique

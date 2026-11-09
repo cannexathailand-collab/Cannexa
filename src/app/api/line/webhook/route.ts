@@ -21,10 +21,19 @@ export async function POST(req:NextRequest){
  const raw=await req.text();if(Buffer.byteLength(raw)>1024*1024)return new Response("Too large",{status:413});
  if(!validSignature(raw,req.headers.get("x-line-signature")??"",connection.settings.messagingSecret))return new Response("Invalid signature",{status:401});
  let body:unknown;try{body=JSON.parse(raw);}catch{return new Response("Invalid JSON",{status:400});}const parsed=payload.safeParse(body);if(!parsed.success||parsed.data.destination!==connection.settings.botId)return new Response("Invalid payload",{status:400});
- const intakeBot=parsed.data.events.some(e=>e.source.type==="group")?await db.orderBot.findUnique({where:{botId:connection.settings.botId},select:{active:true,encrypted:true}}):null;
+ const intakeBot=parsed.data.events.some(e=>e.source.type==="group")?await db.orderBot.findUnique({where:{botId:connection.settings.botId},select:{active:true,encrypted:true,receiveOrders:true}}):null;
  const orders:string[]=[];
  for(const e of parsed.data.events){
-  if(intakeBot?.active){const received=await receiveOrderEvent(connection.settings.botId,e);if(received)orders.push(received.id);await receiveExpenseEvent(connection.settings.botId,e);await replyExpenseConfirmation(connection.settings.botId,e,unseal(intakeBot.encrypted).accessToken);await replyOrderConfirmation(connection.settings.botId,e,unseal(intakeBot.encrypted).accessToken);}
+  if(intakeBot?.active){
+   const accessToken=unseal(intakeBot.encrypted).accessToken;
+   if(intakeBot.receiveOrders){
+    const received=await receiveOrderEvent(connection.settings.botId,e);
+    if(received)orders.push(received.id);
+    await replyOrderConfirmation(connection.settings.botId,e,accessToken);
+   }
+   await receiveExpenseEvent(connection.settings.botId,e);
+   await replyExpenseConfirmation(connection.settings.botId,e,accessToken);
+  }
   if(e.source.type==='user'&&e.source.userId&&e.type==='message'&&e.message?.type==='text'&&['รหัสลูกค้า','ทดสอบรหัส'].includes(e.message.text?.trim()??'')){
    const key=userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?e.source.userId:connection.settings.botId+':'+e.source.userId);
    await replyCustomerCode({key,eventId:e.webhookEventId,replyToken:e.replyToken,unblocked:false,accessToken:connection.settings.accessToken,requested:true});

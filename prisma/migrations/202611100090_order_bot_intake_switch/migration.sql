@@ -1,0 +1,1 @@
+ALTER TABLE "OrderBot" ADD COLUMN "receiveOrders" BOOLEAN NOT NULL DEFAULT true;

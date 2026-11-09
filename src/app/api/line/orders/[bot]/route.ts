@@ -22,7 +22,15 @@ export async function POST(req:Request,{params}:{params:Promise<{bot:string}>}){
  let body:unknown;try{body=JSON.parse(raw);}catch{return new Response("Invalid JSON",{status:400});}
  const parsed=payload.safeParse(body);if(!parsed.success||parsed.data.destination!==connection.botId)return new Response("Invalid payload",{status:400});
  const orders:string[]=[];
- for(const e of parsed.data.events){const received=await receiveOrderEvent(connection.botId,e);if(received)orders.push(received.id);await receiveExpenseEvent(connection.botId,e);await replyExpenseConfirmation(connection.botId,e,settings.accessToken);await replyOrderConfirmation(connection.botId,e,settings.accessToken);}
+ for(const e of parsed.data.events){
+  if(connection.receiveOrders){
+   const received=await receiveOrderEvent(connection.botId,e);
+   if(received)orders.push(received.id);
+   await replyOrderConfirmation(connection.botId,e,settings.accessToken);
+  }
+  await receiveExpenseEvent(connection.botId,e);
+  await replyExpenseConfirmation(connection.botId,e,settings.accessToken);
+ }
  after(async()=>{for(const id of orders)await queueStockOrder(id).catch(()=>{});await processPendingReservations(2).catch(()=>{});await processPendingStockDispatches('line-order',1).catch(()=>{});});
  return Response.json({ok:true});
 }
