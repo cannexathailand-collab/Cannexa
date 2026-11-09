@@ -140,3 +140,8 @@ dialog.stock-modal{position:fixed;inset:0;margin:auto;width:min(560px,calc(100vw
 .performance-page .employee-nav-short {white-space:pre-line;}
 
 .employee-order-search{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin:20px 0;}.employee-order-search label{flex:1;min-width:220px;margin:0;}.customer .employee-order-search button{width:auto;margin:0;min-height:44px;}
+
+
+.employee-order-dashboard .commission-metric[aria-current="page"]{border-color:#247a54;box-shadow:inset 0 0 0 1px #247a54;}
+
+.order-commission-status{margin:12px 0;}.order-commission-status p{margin:4px 0;}.order-commission-status>p{padding:10px 12px;border-radius:10px;}.order-commission-status .commission-paid{background:#e5f4e9;color:#205b38;}.order-commission-status .commission-pending{background:#fff4cf;color:#77580c;}.order-commission-status .commission-waiting{background:#e8f2fc;color:#295578;}.order-commission-status .commission-cod-waiting{background:#ffecd9;color:#854a1d;}
