@@ -55,7 +55,7 @@ test('store navigation contains inventory and shipping tasks without finance or 
  const code=ts.transpileModule(readFileSync('src/app/admin/layout.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
  vm.runInNewContext(code,{exports,require:(id:string)=>{assert.ok(id in mocks,id);return mocks[id];}});
  const html=renderToStaticMarkup(await exports.default({children:React.createElement('p',{},'stock workspace')}));
- for(const href of ['/admin/stock','/admin/stock/history','/admin/store-orders','/admin/orders/upload'])assert.ok(html.includes('href="'+href+'"'));
+ for(const href of ['/admin/stock','/admin/stock/history','/admin/stock/returns','/admin/store-orders','/admin/orders/upload'])assert.ok(html.includes('href="'+href+'"'));
  for(const href of ['/admin/users','/admin/accounting','/admin/reviews','/admin/income'])assert.ok(!html.includes('href="'+href+'"'));
 });
 

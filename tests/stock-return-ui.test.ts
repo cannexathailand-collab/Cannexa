@@ -22,7 +22,7 @@ async function requestContext<T>(role:string,requestOrigin:string,run:()=>Promis
 }
 const formRequest=(fields:Record<string,string>)=>new Request(origin+'/api/admin/stock/returns',{method:'POST',body:new URLSearchParams(fields)});
 
-test('return actions require an authenticated approver and matching origin before stock work',async t=>{
+test('return actions require an authenticated stock operator and matching origin before stock work',async t=>{
  environment(t);let calls=0,role='viewer';
  replace(t,db,'$transaction',async()=>{calls++;throw Error('must not process');});
  replace(t,db.userAccount,'findUnique',async()=>({username:'reviewer',role,active:true,version:'v1'}));
@@ -31,6 +31,8 @@ test('return actions require an authenticated approver and matching origin befor
  assert.equal((await requestContext('viewer',origin,()=>POST(formRequest({tracking:'TRACK0001',action:'retry'})))).status,403);
  role='admin';
  assert.equal((await requestContext('admin','https://other.test',()=>POST(formRequest({tracking:'TRACK0001',action:'retry'})))).status,403);
+ role='store';
+ assert.equal((await requestContext('store','https://other.test',()=>POST(formRequest({tracking:'TRACK0001',action:'retry'})))).status,403);
  assert.equal(calls,0);
 });
 
@@ -84,6 +86,10 @@ test('return review shows exact order details, full-receipt confirmation and unk
  const checkbox=html.match(/<input[^>]*name="receivedAll"[^>]*>/)?.[0];assert.ok(checkbox);assert.match(checkbox,/required=""/);assert.match(html,/ยืนยันรับคืนครบ/);assert.match(html,/ลองรับคืนอีกครั้ง/);
  assert.match(html,/ยังจับคู่เลขพัสดุนี้กับออเดอร์เดิมไม่ได้/);assert.doesNotMatch(html,/href="[^"]*UNKNOWN1/);
  assert.match(html,/href="\/admin\/orders\/order1\/review"/);
+ const storeHtml=renderToStaticMarkup(await StockReturnStatus({returnPath:'/admin/stock/returns',orderBaseHref:'/admin/store-orders/',orderSuffix:''}));
+ assert.match(storeHtml,/href="\/admin\/store-orders\/order1"/);
+ assert.match(storeHtml,/name="returnTo" value="\/admin\/stock\/returns"/);
+ assert.doesNotMatch(storeHtml,/href="\/admin\/orders\/order1\/review"/);
  assert.match(html,/อีเมลตีกลับที่ต้องตรวจรายละเอียด/);assert.match(html,/carrier@example.test/);assert.match(html,/Unknown return layout/);assert.match(html,/ไม่พบเลขพัสดุที่ยืนยันได้/);
 });
 
@@ -106,4 +112,16 @@ test('return history uses terminal receipt dates and frozen credits, with no cre
  const html=renderToStaticMarkup(await StockReturnHistory({day:'2026-11-06'}));
  assert.match(html,/ORDER-1/);assert.match(html,/CG2.*500.*G/);assert.match(html,/-54.*446/);assert.match(html,/-฿750\.00/);
  assert.match(html,/ไม่มีสต๊อกที่ต้องเพิ่มคืน/);assert.match(html,/ไม่มีรายการปรับต้นทุน/);
+});
+
+
+test('store staff can confirm full receipt and return only to an allowed stock page',async t=>{
+ environment(t);let confirmations=0;
+ replace(t,db,'$transaction',async()=>{confirmations++;throw Error('test receipt processing');});
+ replace(t,db.userAccount,'findUnique',async()=>({username:'reviewer',role:'store',active:true,version:'v1'}));
+ const {POST}=await import('../src/app/api/admin/stock/returns/route');
+ const response=await requestContext('store',origin,()=>POST(formRequest({tracking:'TRACK0001',action:'confirm',receivedAll:'yes',returnTo:'/admin/stock/returns'})));
+ assert.equal(response.status,303);
+ assert.equal(response.headers.get('location'),origin+'/admin/stock/returns?returnResult=failed#stock-returns');
+ assert.equal(confirmations,1);
 });

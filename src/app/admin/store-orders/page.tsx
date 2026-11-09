@@ -21,7 +21,7 @@ export default async function StoreOrders({searchParams}:{searchParams:Promise<{
  const names=new Map(products.map(product=>[product.code,product.name]));
  const link=(change:Record<string,string>)=>'/admin/store-orders?'+new URLSearchParams({q:data.query,page:String(data.page),status,...change});
  const labels={ALL:'ออเดอร์ทั้งหมด',WAITING:'เตรียมจัดส่ง',SHIPPED:'จัดส่งแล้ว',REVIEW:'ต้องตรวจสอบ',RETURNED:'ตีกลับ'};
- return <><header className="intro"><div><h1>ออเดอร์เตรียมจัดส่ง</h1><p>ออเดอร์ของผู้ขายทุกคน · รอบวันที่ {data.currentRound} · เวลาตัดรอบ {data.closeTime} น.</p></div><Link className="button" href="/admin/orders/upload">อัปโหลดรายการจัดส่ง</Link></header>
+ return <><header className="intro"><div><h1>ออเดอร์เตรียมจัดส่ง</h1><p>ออเดอร์ของผู้ขายทุกคน · รอบวันที่ {data.currentRound} · เวลาตัดรอบ {data.closeTime} น.</p></div><div className="actions"><Link className="button secondary" href="/admin/stock/returns">รับสินค้าตีกลับ</Link><Link className="button" href="/admin/orders/upload">อัปโหลดรายการจัดส่ง</Link></div></header>
  <form className="form-grid store-order-search" method="get"><label>ค้นหาออเดอร์<input name="q" defaultValue={data.query} placeholder="รหัสลูกค้า เบอร์โทร หรือเลขพัสดุ"/></label><button>ค้นหา</button></form>
  <nav className="actions" aria-label="สถานะออเดอร์สโตร์">{Object.entries(labels).map(([key,label])=><Link key={key} className="button secondary" aria-current={status===key?'page':undefined} href={link({status:key})}>{label} {data.counts[key as keyof typeof data.counts]}</Link>)}</nav>
  <h2>{labels[status as keyof typeof labels]} · {rows.length} รายการ</h2>

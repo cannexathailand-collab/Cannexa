@@ -54,7 +54,7 @@ export default async function StockHistory({searchParams}:{searchParams:Promise<
   </section>
   {backup&&baseline?.status==='APPLIED'&&<p className="muted"><a href={STOCK_SHEET_URL+'#gid='+backup.sheetId} target="_blank" rel="noreferrer">ยอดก่อนเริ่มรอบจำนวนรอจ่าย</a> · เก็บข้อมูลเดิมก่อนเปลี่ยนระบบ</p>}
   <StockDispatchHistory orderBaseHref={actor.role==='store'?'/admin/store-orders/':'/admin/orders/'} orderSuffix={actor.role==='store'?'':'/review'} day={stockHistoryDate(params.round,day)} historyDay={day} page={params.dispatchPage}/>
-  <StockReturnHistory orderLinks={actor.role!=='store'} day={day} page={params.returnPage}/>
+  <StockReturnHistory orderBaseHref={actor.role==='store'?'/admin/store-orders/':'/admin/orders/'} orderSuffix={actor.role==='store'?'':'/review'} day={day} page={params.returnPage}/>
   <section className="card"><h2>การเก็บประวัติ</h2>
    <p>เก็บอัตโนมัติหลังสิ้นวันตามเวลาไทย{config&&<> เริ่มวันที่ {dateLabel(config.startDay)}</>} และเก็บยอดก่อนรายการแก้ไขแรกของวันใหม่ เพื่อไม่ให้ยอดวันใหม่ทับวันก่อน</p>
    <p className="muted small">แสดงเวลาที่อ่านข้อมูลจริงทุกครั้ง การแก้ไขโดยตรงใน Google Sheets ก่อนระบบบันทึกอาจรวมอยู่ในยอดนี้ วันที่ไม่มีข้อมูลจะไม่สร้างยอดย้อนหลังขึ้นเอง</p>
