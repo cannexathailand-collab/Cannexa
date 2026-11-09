@@ -17,19 +17,19 @@ export function StockUpdateButton(props:Details&{enabled:boolean}){
   <button type="button" className="secondary" disabled={!props.enabled} onClick={()=>{setDraft({...props,prices:props.prices.map(p=>({...p}))});setRequestKey(crypto.randomUUID());setQuantity('');setRemove(false);setError('');dialog.current?.showModal();}}>แก้ไข / อัปเดต</button>
   <dialog className="stock-modal" ref={dialog} onCancel={e=>{if(busy)e.preventDefault();}}>
    <h2>อัพเดต {draft.code}</h2>
-   <form key={requestKey} className="form-grid" onSubmit={async e=>{
+   <form key={requestKey} className="form-grid" autoComplete="off" onSubmit={async e=>{
     e.preventDefault();if(busy)return;
     const f=new FormData(e.currentTarget);
     const confirmation='ยืนยันอัพเดต '+draft.code+(added>0?(remove?' และลดจำนวน ':' และรับสินค้าเพิ่ม ')+quantityText(added):'')+'?';
     if(!window.confirm(confirmation))return;
     setBusy(true);setError('');
     try{
-     const response=await fetch('/api/admin/stock/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestKey,code:draft.code,expectedFingerprint:draft.fingerprint,name:f.get('name'),cost:f.get('cost'),quantity:added,removeQuantity:remove?true:undefined,prices:draft.prices.map(p=>({columnIndex:p.columnIndex,pack:p.pack,price:f.get('price'+p.columnIndex)}))})});
+     const response=await fetch('/api/admin/stock/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestKey,code:draft.code,expectedFingerprint:draft.fingerprint,name:f.get('stock-product-title'),cost:f.get('cost'),quantity:added,removeQuantity:remove?true:undefined,prices:draft.prices.map(p=>({columnIndex:p.columnIndex,pack:p.pack,price:f.get('price'+p.columnIndex)}))})});
      const data=await response.json();if(!response.ok){setError(data.error??'บันทึกไม่ได้');return;}
      dialog.current?.close();router.refresh();
     }catch{setError('เชื่อมต่อขัดข้อง ลองบันทึกชุดเดิมได้โดยไม่บันทึกซ้ำ');}finally{setBusy(false);}
    }}>
-    <label>ชื่อสินค้า<input name="name" maxLength={200} defaultValue={draft.name??''} disabled={busy} placeholder="ยังไม่มีชื่อ"/></label>
+    <label>ชื่อสินค้า<input name="stock-product-title" autoComplete="off" aria-autocomplete="none" maxLength={200} defaultValue={draft.name??''} disabled={busy} placeholder="ยังไม่มีชื่อ"/></label>
     <label>ต้นทุน (บาท/G)<input name="cost" type="number" min="0" max="21474836.47" step="0.01" required={draft.costSatang!==null} defaultValue={draft.costSatang===null?'':draft.costSatang/100} disabled={busy} placeholder="ต้นทุนว่าง"/></label>
     <label>ปรับจำนวนสินค้า<select value={remove?'REMOVE':'ADD'} onChange={e=>setRemove(e.target.value==='REMOVE')} disabled={busy}><option value="ADD">เพิ่มจำนวน</option><option value="REMOVE">ลดจำนวน</option></select></label>
     <label>{remove?'จำนวนที่ลด (G)':'จำนวนรับเพิ่ม (G)'}<input name="quantity" type="number" min="0" max="999999999" step="0.001" value={quantity} onChange={e=>setQuantity(e.target.value)} disabled={busy} placeholder="0"/></label>
