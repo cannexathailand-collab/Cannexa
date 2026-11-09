@@ -26,6 +26,7 @@ function matches(row:any,where:any):boolean{
    if(op==='notIn')return !value.includes(actual);
    if(op==='not')return actual!==value;
    if(op==='gte')return actual>=value;
+   if(op==='lt')return actual<value;
    if(op==='some')return actual.some((entry:any)=>matches(entry,value));
    throw Error('Unhandled isolated query operator: '+op);
   });
@@ -116,7 +117,7 @@ test('LINE and Gmail flow persists sales once, rereads exact revenue, and preser
  assert.equal((await salesReport(range)).summary.revenueSatang,100000);
  await Promise.all([importGmailReports('test',['cod']),importGmailReports('test',['cod'])]);assert.equal((await db.codReceipt.findMany()).length,1);await matchShipments('test');
  persistedCod=await db.salesOrder.findUnique({where:{orderId:codOrder.id}});assert.ok(persistedCod);assert.equal(persistedCod.revenueSatang,256000);assert.equal(+persistedCod.recognizedAt!,+shipmentAt);assert.equal(persistedCod.commissionSatang,25600);
- let report=await salesReport(range);assert.equal(report.summary.count,2);assert.equal(report.summary.revenueSatang,356000);assert.equal(h.creates.get('salesOrder'),2);
+ let report=await salesReport(range);assert.equal(report.summary.count,2);assert.equal(report.summary.revenueSatang,356000);assert.equal(report.income.codSatang,256000);assert.equal(h.creates.get('salesOrder'),2);
  const persistedIds=(await db.salesOrder.findMany()).map(s=>s.id).sort(),recognitionAudits=(await db.auditLog.findMany()).filter(a=>a.action==='SALES_RECOGNITION_CHANGED');assert.equal(recognitionAudits.length,2);
  assert.equal((await importGmailReports('test',['shipment','cod'])).imported,0);
  assert.equal((await importGmailReports('test',['shipment-repeat','cod-repeat'])).imported,2);await matchShipments('test');assert.equal((await confirmReportedShipments('test')).confirmed,0);
