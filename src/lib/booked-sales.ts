@@ -89,11 +89,11 @@ export function analyzeBookedSales(data:Data,input:SalesFilters={},now=new Date(
   waitingCodCount:waitingCod.length,waitingCodSatang:totals(waitingCod).revenueSatang,detail,detailRows:details[detail],payment,seller:input.seller??'',
   sellerOptions:[...new Set(data.orders.flatMap(order=>order.sellerUsername?[order.sellerUsername]:[]))].sort()};
 }
-export async function bookedSalesReport(input:SalesFilters={}){
+export async function bookedSalesReport(input:SalesFilters={},now=new Date()){
  if(input.demo==='1'){
-  const now=new Date(),sample=demoSalesRows(now);
+  const sample=demoSalesRows(now);
   const offset=+dayStart(orderRoundClosingDay(now,720))-+dayStart(bangkokDay(now))-3600000;
-  return analyzeBookedSales({orders:sample.map(row=>({id:row.orderId,orderNumber:row.order!.orderNumber,eventAt:new Date(+row.createdAt+offset),rawText:null,status:row.order!.status,payment:row.order!.payment,sellerUsername:row.order!.sellerUsername,affiliateId:row.affiliateId,recipient:null,customer:row.customer??null})),sales:sample,shipments:sample.flatMap(row=>row.shipment?[row.shipment]:[]),receipts:sample.flatMap(row=>row.receipt?[row.receipt]:[]),affiliates:sample.flatMap(row=>row.affiliate?[row.affiliate]:[])},input);
+  return analyzeBookedSales({orders:sample.map(row=>({id:row.orderId,orderNumber:row.order!.orderNumber,eventAt:new Date(+row.createdAt+offset),rawText:null,status:row.order!.status,payment:row.order!.payment,sellerUsername:row.order!.sellerUsername,affiliateId:row.affiliateId,recipient:null,customer:row.customer??null})),sales:sample,shipments:sample.flatMap(row=>row.shipment?[row.shipment]:[]),receipts:sample.flatMap(row=>row.receipt?[row.receipt]:[]),affiliates:sample.flatMap(row=>row.affiliate?[row.affiliate]:[])},input,now);
  }
  const stock=await readStockSheet().catch(()=>null);
  const unitCosts=stock?.products.map(product=>({code:product.code,costSatang:product.costSatang}))??[];
@@ -113,6 +113,6 @@ export async function bookedSalesReport(input:SalesFilters={}){
  if(!items.length||!items.every(item=>item&&typeof item==='object'&&!Array.isArray(item)&&typeof item.costSatang==='number'&&Number.isSafeInteger(item.costSatang)))return [];
  return [{orderId:row.orderId,costSatang:items.reduce<number>((sum,item)=>sum+(item as {costSatang:number}).costSatang,0)}];
  });
- return {...analyzeBookedSales({orders,sales,shipments,receipts,affiliates,websiteOrders,unitCosts,recordedCosts},input,new Date(),settings.closeMinutes),roundSettings:settings};
+ return {...analyzeBookedSales({orders,sales,shipments,receipts,affiliates,websiteOrders,unitCosts,recordedCosts},input,now,settings.closeMinutes),roundSettings:settings};
  },{isolationLevel:'RepeatableRead',timeout:20000});
 }

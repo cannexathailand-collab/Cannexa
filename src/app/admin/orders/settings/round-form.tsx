@@ -12,12 +12,12 @@ export function OrderRoundForm({initial,hideBackLink=false}:{initial:{closeTime:
   try{
    const response=await fetch('/api/admin/orders/round-settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({closeTime:time,expectedVersion:version})});
    const result=await response.json();if(!response.ok)throw Error(result.error);
-   setVersion(result.version);setMessage('บันทึกเวลาปิดรอบ '+result.closeTime+' น. แล้ว');router.refresh();
+   setVersion(result.version);setMessage('บันทึกเวลาตัดรอบ '+result.closeTime+' น. แล้ว');router.refresh();
   }catch(error){setMessage(error instanceof Error?error.message:'บันทึกไม่สำเร็จ');}finally{setBusy(false);}
  }}>
-  <label>เวลาปิดรอบ (เวลาไทย)<input type="time" value={time} onChange={event=>setTime(event.target.value)} required disabled={busy||!ready}/></label>
+  <label>เวลาตัดรอบ (เวลาไทย)<input type="time" value={time} onChange={event=>setTime(event.target.value)} required disabled={busy||!ready}/></label>
   <p className="muted">เวลานี้ใช้แบ่งรายการออเดอร์ทุกวัน รวมถึงรายการย้อนหลัง ระบบใช้วันที่สิ้นสุดรอบเป็นชื่อรอบ</p>
   {message&&<p role="status">{message}</p>}
-  <div className="actions"><button disabled={busy||!ready}>{busy?'กำลังบันทึก…':'บันทึกเวลาปิดรอบ'}</button>{!hideBackLink&&<Link className="button secondary" href="/admin/orders/list">กลับรายการออเดอร์</Link>}</div>
+  <div className="actions"><button disabled={busy||!ready}>{busy?'กำลังบันทึก…':'บันทึกเวลาตัดรอบ'}</button>{!hideBackLink&&<Link className="button secondary" href="/admin/orders/list">กลับรายการออเดอร์</Link>}</div>
  </form>;
 }

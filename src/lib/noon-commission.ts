@@ -1,14 +1,15 @@
+import {loadOrderRoundSettings} from './order-round-settings';
+import {orderRoundBounds,orderRoundClosingDay} from './order-round';
 import {db} from './db';
-import {bangkokDay,dayStart} from './sales-dates';
 import {mockMode} from './config';
 import {hasActualDispatch} from './sales-recognition';
-export function noonCommissionWindow(at=new Date()){
- const noon=new Date(+dayStart(bangkokDay(at))+12*3600000),start=new Date(+noon-(at<noon?86400000:0));
- return {start,end:new Date(+start+86400000)};
+export function noonCommissionWindow(at=new Date(),closeMinutes=720){
+ return orderRoundBounds(orderRoundClosingDay(at,closeMinutes),closeMinutes);
 }
 // A display-only total for the reply. It never settles, clears, or rewrites commission balances.
-export async function pendingCommissionThisRound(affiliateId:string,at=new Date()){
- const {start,end}=noonCommissionWindow(at),time={gte:start,lt:end,lte:at};
+export async function pendingCommissionThisRound(affiliateId:string,at=new Date(),closeMinutes?:number){
+ const cutoff=closeMinutes??(await loadOrderRoundSettings()).closeMinutes;
+ const {start,end}=noonCommissionWindow(at,cutoff),time={gte:start,lt:end,lte:at};
  const [friends,sales,extras]=await Promise.all([
   db.commission.findMany({where:{status:'Approved',updatedAt:time,conversion:{affiliateId,source:mockMode()?'MOCK':'LINE',status:'VERIFIED_NEW_FRIEND'}},select:{amountSatang:true}}),
   db.salesOrder.findMany({where:{affiliateId,status:'PENDING',commissionSatang:{not:null},commissionReadyAt:time}}),

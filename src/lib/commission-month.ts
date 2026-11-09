@@ -6,8 +6,8 @@ export function commissionMonth(date: Date) {
  return formatter.format(date);
 }
 
-export function commissionPeriod<T extends {conversion: {verifiedAt: Date | null; createdAt: Date}}>(rows: T[], requested?: string) {
- const current = commissionMonth(new Date());
+export function commissionPeriod<T extends {conversion: {verifiedAt: Date | null; createdAt: Date}}>(rows: T[], requested?: string, now=new Date()) {
+ const current = commissionMonth(now);
  const monthOf = (row: T) => commissionMonth(row.conversion.verifiedAt ?? row.conversion.createdAt);
  const years = [...new Set([current, ...rows.map(monthOf)].map(month => month.slice(0, 4)))].sort().reverse();
  const months = years.flatMap(year => Array.from({length: 12}, (_, index) => year + "-" + String(index + 1).padStart(2, "0")));

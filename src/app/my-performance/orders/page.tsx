@@ -8,11 +8,11 @@ import {EmployeeNav} from '../employee-nav';
 const money=(n:number)=>(n/100).toLocaleString('th-TH',{style:'currency',currency:'THB'});
 export default async function EmployeeOrdersPage({searchParams}:{searchParams:Promise<EmployeeOrderFilters>}){
  const a=await requireEmployeePage();
- if(!a.affiliateId)return <main className="center-page performance-page"><section className="customer"><h1>ออเดอร์จาก LINE</h1><EmployeeNav active="orders"/><p>{a.role==='owner'?'เลือกรายชื่อพนักงานด้านบนเพื่อดูข้อมูล':'ยังไม่ได้ผูกบัญชีกับ Affiliate'}</p></section></main>;
+ if(!a.affiliateId)return <main className="center-page performance-page"><section className="customer"><h1>รายการออเดอร์</h1><EmployeeNav active="orders"/><p>{a.role==='owner'?'เลือกรายชื่อพนักงานด้านบนเพื่อดูข้อมูล':'ยังไม่ได้ผูกบัญชีกับ Affiliate'}</p></section></main>;
  const input=await searchParams,data=await employeeOrderList(a.affiliateId,a.username,input);
  const href=(values:EmployeeOrderFilters)=>'/my-performance/orders?'+new URLSearchParams({...data.filters,month:data.month,page:'1',...values}).toString();
  return <main className="center-page performance-page"><section className="customer employee-orders-page">
-  <h1>ออเดอร์จาก LINE</h1><p className="muted">ค้นหาและติดตามออเดอร์ของ {a.username}</p><EmployeeNav active="orders"/>
+  <h1>รายการออเดอร์</h1><p className="muted">ค้นหาและติดตามออเดอร์ของ {a.username}</p><EmployeeNav active="orders"/>
   <div className="employee-order-stats">{(['ALL','REVIEW','WAITING','COD'] as const).map(s=><Link key={s} className={data.filters.status===s?'selected':''} href={href({status:s})}><span>{s==='ALL'?'ออเดอร์ทั้งหมด':orderStates[s]}</span><strong>{data.counts[s]}</strong><small>ดูรายการ →</small></Link>)}</div>
   <form method="get" className="employee-order-filters">
    <label className="order-search">ค้นหา<input name="q" defaultValue={data.filters.q} placeholder="เลขออเดอร์ ชื่อ เบอร์โทร หรือเลขพัสดุ"/></label>

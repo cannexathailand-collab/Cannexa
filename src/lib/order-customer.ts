@@ -10,5 +10,5 @@ export async function resolveOrderCustomer(tx:Prisma.TransactionClient,input:{co
   return tx.customer.findUnique({where:{code:canonicalCustomerCode(input.code)}});
  }
  const identityKey=customerIdentity(input.name,input.phone);
- return tx.customer.upsert({where:{identityKey},create:{identityKey,name:input.name,phone:contactPhones(input.phone).join(' / '),referrerId:input.sellerId},update:{}});
+ return tx.customer.upsert({where:{identityKey},create:{identityKey,name:input.name,phone:contactPhones(input.phone).join(' / ')},update:{}});
 }

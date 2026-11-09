@@ -23,7 +23,7 @@ export async function createDraftCustomer(input:{name:string;phone:string;addres
  return transaction(async tx=>{
   for(const number of contactPhones(phone).sort())await userLock(tx,'draft-customer-phone:'+number);
   const found=await matchingCustomerPhones(tx,phone);if(found.length)return {created:false,customers:publicRows(found)};
-  const row=await tx.customer.create({data:{name,phone,address:address||null,identityKey:customerIdentity(name,phone),referrerId:actor.affiliateId}});
+  const row=await tx.customer.create({data:{name,phone,address:address||null,identityKey:customerIdentity(name,phone)}});
   await tx.auditLog.create({data:{actor:actor.username,action:'DRAFT_CUSTOMER_CREATED',entityId:row.code,details:{source:'order-draft'}}});
   return {created:true,customer:{customerCode:displayCustomerCode(row.code),recipient:row.name??'',phone:row.phone??'',address:row.address??''}};
  });

@@ -19,9 +19,9 @@ test('unknown explicit customer code stays unresolved instead of creating a cust
  assert.equal(await resolveOrderCustomer(tx,{code:'C0002',name:'Buyer',phone:'0812345678',sellerId:'seller'}),null);
 });
 
-test('orders without a customer code retain contact-based customer resolution',async()=>{
+test('orders without a customer code resolve contact without assigning the seller as referrer',async()=>{
  let query:unknown;
  const tx={customer:{upsert:async(input:unknown)=>{query=input;return {code:'CUS-00000003'};}}} as unknown as Prisma.TransactionClient;
  await resolveOrderCustomer(tx,{name:'Buyer',phone:'0812345678',sellerId:'seller'});
- assert.deepEqual(query,{where:{identityKey:customerIdentity('Buyer','0812345678')},create:{identityKey:customerIdentity('Buyer','0812345678'),name:'Buyer',phone:'0812345678',referrerId:'seller'},update:{}});
+ assert.deepEqual(query,{where:{identityKey:customerIdentity('Buyer','0812345678')},create:{identityKey:customerIdentity('Buyer','0812345678'),name:'Buyer',phone:'0812345678'},update:{}});
 });

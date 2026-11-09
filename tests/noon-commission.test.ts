@@ -4,3 +4,9 @@ test('noon cycle stays within the latest Bangkok noon and resets exactly at noon
  const at=noonCommissionWindow(new Date('2026-11-07T05:00:00Z'));assert.equal(at.start.toISOString(),'2026-11-07T05:00:00.000Z');assert.equal(at.end.toISOString(),'2026-11-08T05:00:00.000Z');
  assert.equal(+at.end-+at.start,86400000);
 });
+test('configured employee commission window follows the shared cutoff',()=>{
+ const before=noonCommissionWindow(new Date('2026-12-31T07:29:59Z'),870);
+ const after=noonCommissionWindow(new Date('2026-12-31T07:30:00Z'),870);
+ assert.equal(before.end.toISOString(),'2026-12-31T07:30:00.000Z');
+ assert.equal(after.start.toISOString(),'2026-12-31T07:30:00.000Z');
+});

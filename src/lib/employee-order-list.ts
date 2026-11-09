@@ -1,3 +1,6 @@
+import {loadOrderRoundSettings} from './order-round-settings';
+import {orderRoundClosingDay} from './order-round';
+import {dayStart} from './sales-dates';
 import {loadDuplicateOrderReviews} from './order-duplicates';
 import {db} from './db';
 import {commissionPeriod,commissionMonth} from './commission-month';
@@ -5,10 +8,13 @@ import {orderState,orderStates} from './order-management';
 import {quotedTotal} from './shipment-matching';
 export type EmployeeOrderFilters={month?:string;q?:string;status?:string;payment?:string;sort?:string;page?:string};
 export async function employeeOrderList(affiliateId:string,username:string,input:EmployeeOrderFilters={}){
+ const settings=await loadOrderRoundSettings();
+ const currentRound=orderRoundClosingDay(new Date(),settings.closeMinutes);
+ const roundDate=(date:Date)=>dayStart(orderRoundClosingDay(date,settings.closeMinutes));
  const duplicateReviews=await loadDuplicateOrderReviews(username,affiliateId);
  const all=await db.orderIntake.findMany({where:{affiliateId,sellerUsername:username},orderBy:[{createdAt:'desc'},{id:'asc'}]});
- const {month,months}=commissionPeriod(all.map(r=>({conversion:{createdAt:r.createdAt,verifiedAt:null}})),input.month);
- const orders=all.filter(r=>commissionMonth(r.createdAt)===month),ids=orders.map(r=>r.id);
+ const {month,months}=commissionPeriod(all.map(r=>({conversion:{createdAt:roundDate(r.eventAt),verifiedAt:null}})),input.month,dayStart(currentRound));
+ const orders=all.filter(r=>commissionMonth(roundDate(r.eventAt))===month),ids=orders.map(r=>r.id);
  const [shipments,sales,extras]=await Promise.all([db.shipment.findMany({where:{orderId:{in:ids}}}),db.salesOrder.findMany({where:{orderId:{in:ids}}}),db.additionalCommission.findMany({where:{affiliateId,orderId:{in:ids}}})]);
  const receipts=await db.codReceipt.findMany({where:{tracking:{in:shipments.map(r=>r.tracking)}}});
  const shipping=new Map(shipments.map(r=>[r.orderId,r])),saleMap=new Map(sales.map(r=>[r.orderId,r])),extraMap=new Map(extras.map(r=>[r.orderId,r])),receiptMap=new Map(receipts.map(r=>[r.tracking,r]));
