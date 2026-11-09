@@ -30,14 +30,14 @@ export default async function Income({searchParams}:{searchParams:Promise<Filter
  return <>
   <div className="intro"><div><div className="eyebrow">บัญชี</div><h1>รายรับ</h1><p>{range.from===today&&range.to===today?'วันนี้ · ':''}{dayStart(range.from).toLocaleDateString('th-TH',{dateStyle:'medium'})}{range.to!==range.from&&' ถึง '+dayStart(range.to).toLocaleDateString('th-TH',{dateStyle:'medium'})}</p></div><Link className="button secondary" href={'/admin/sales?'+query}>ดูยอดขาย</Link></div>
   {demo&&<p className="notice">ข้อมูลทดสอบ</p>}
-  <details className="card"><summary>เปลี่ยนวันที่หรือผู้ขาย</summary><p>COD ใช้วันรับเงินตามอีเมล ส่วนยอดโอนใช้วันจัดส่งตามรายงานยอดโอนเดิม</p>
+  <section className="card"><p>COD ใช้วันรับเงินตามอีเมล ส่วนยอดโอนใช้วันจัดส่งตามรายงานยอดโอนเดิม</p>
    <AutoFilterForm action="/admin/income">{demo&&<input type="hidden" name="demo" value="1"/>}
     <label>ตั้งแต่<input type="date" name="from" defaultValue={range.from} required/></label>
     <label>ถึง<input type="date" name="to" defaultValue={range.to} required/></label>
     <label>ประเภท<select name="payment" defaultValue={data.payment}><option value="">ทั้งหมด</option><option value="TRANSFER">โอน</option><option value="COD">COD</option></select></label>
     <label>ผู้ขาย<select name="seller" defaultValue={data.seller}><option value="">ทั้งหมด</option>{data.sellerOptions.map(seller=><option key={seller}>{seller}</option>)}</select></label>
    </AutoFilterForm>
-  </details>
+  </section>
   <section className="card"><h2>รายรับแต่ละวัน</h2><div className="table-wrap"><table className="income-daily-table"><thead><tr><th>วันที่</th><th>ยอดโอน</th><th>COD รับแล้ว</th><th>รายรับรวม</th></tr></thead><tbody>{days.map(day=><tr key={day.day}><td><Link href={href('ALL').replace('#income-entries','&day='+day.day+'#income-entries')}>{dayStart(day.day).toLocaleDateString('th-TH',{day:'numeric',month:'short'})}{day.day===today?' · วันนี้':''}</Link><small className="order-meta">{day.count} รายการ</small></td><td>{money(day.transferSatang)}</td><td>{money(day.codSatang)}</td><td><strong>{money(day.transferSatang+day.codSatang)}</strong></td></tr>)}</tbody><tfoot><tr><th>รวม<small className="order-meta">{income.count} รายการ</small></th><td>{money(income.transferSatang)}</td><td>{money(income.codSatang)}</td><td><strong>{money(income.amountSatang)}</strong></td></tr></tfoot></table></div></section>
   {income.unmatchedCount>0&&<p className="small"><Link href={href('UNMATCHED')}>รับเงินแล้ว · รอจับคู่ออเดอร์ {income.unmatchedCount.toLocaleString('th-TH')} รายการ →</Link></p>}
   {showEntries?<section className="card" id="income-entries"><div className="intro"><h2>{labels[view]}{selectedDay?' · '+dayStart(selectedDay).toLocaleDateString('th-TH',{dateStyle:'medium'}):''}</h2><Link href={'/admin/income?'+query}>ปิดรายการ</Link></div><p>พบ {views[view].length.toLocaleString('th-TH')} รายการ</p>
