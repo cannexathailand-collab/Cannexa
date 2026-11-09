@@ -10,6 +10,9 @@ test('rejected order history shows reason, telephone and sale total including ol
  assert.ok(event.summary.includes('เบอร์ผู้รับ: 0812345678'));
  assert.ok(event.summary.some(line=>line.includes('1,250')));
  assert.deepEqual(presentAudit(log({reasons:['ไม่มีรหัสลูกค้า']},'ORDER_REJECTED')).summary,['ไม่มีรหัสลูกค้า']);
+ const shipment=presentAudit(log({phone:'0812345678',tracking:'TESTTRACK123',amountSatang:125000,reasons:['สินค้าไม่พอ']},'ORDER_REJECTED_SHIPMENT_FOUND'));
+ assert.equal(shipment.title,'พบเลขพัสดุตรงกับประวัติปฏิเสธ รอตรวจสอบ');
+ assert.ok(shipment.summary.some(line=>line.includes('TESTTRACK123')));
 });
 test('payment history displays each paid item and the account used',()=>{
  const event=presentAudit(log({salesIds:['a','b'],amountSatang:13200}),new Map([['sale:a',[{label:'ออเดอร์แรก',amountSatang:6600}]],['sale:b',[{label:'ออเดอร์ที่สอง',amountSatang:6600}]]]));

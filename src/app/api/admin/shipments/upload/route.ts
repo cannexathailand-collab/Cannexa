@@ -3,6 +3,7 @@ import {admin,sameOrigin} from '@/lib/auth';
 import {parseManualShipmentFile} from '@/lib/manual-shipment-file';
 import {previewManualShipments,importManualShipments} from '@/lib/manual-shipments';
 import {enqueueStockDispatches} from '@/lib/stock-dispatch-worker';
+import {recordRejectedShipmentMatches} from '@/lib/rejected-shipments';
 
 export const maxDuration=60;
 export async function POST(request:Request){
@@ -14,7 +15,9 @@ export async function POST(request:Request){
    const form=await request.formData(),file=form.get('file');
    if(!(file instanceof File))throw Error('กรุณาเลือกไฟล์ Excel หรือ CSV');
    const rows=await parseManualShipmentFile(Buffer.from(await file.arrayBuffer()),file.name);
-   return Response.json({rows:await previewManualShipments(rows)},{headers:{'Cache-Control':'private, no-store'}});
+   const preview=await previewManualShipments(rows);
+   await recordRejectedShipmentMatches(actor,file.name,preview);
+   return Response.json({rows:preview},{headers:{'Cache-Control':'private, no-store'}});
   }
   const text=await request.text();if(text.length>200000)throw Error('ข้อมูลนำเข้ามีขนาดใหญ่เกินไป');
   const result=await importManualShipments(actor,JSON.parse(text));

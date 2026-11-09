@@ -10,8 +10,9 @@ test('order management keeps return and cancelled states ahead of stale shipment
  assert.equal(orderState({status:'WAITING_SHIPMENT',payment:'โอน',issues:[]}),'WAITING');
 });
 test('order export uses all filtered rows and quotes formula-like names',()=>{
- const csv=orderListCsv({all:[{order:{orderNumber:'O1',eventAt:new Date('2026-11-07T02:00Z'),recipient:'=SUM(A1)',phone:'081',sellerCode:'A',payment:'COD'},state:'WAITING',amountSatang:12345,shipment:null}]} as any);
+ const csv=orderListCsv({all:[{order:{orderNumber:'O1',eventAt:new Date('2026-11-07T02:00Z'),recipient:'=SUM(A1)',phone:'081',sellerCode:'A',payment:'COD'},teamName:'Happy Farm',state:'WAITING',amountSatang:12345,shipment:null}]} as any);
  assert.ok(csv.includes('123.45'));assert.ok(csv.includes("'=SUM(A1)"));assert.equal(csv.trim().split('\r\n').length,2);
+ assert.ok(csv.includes('ทีม / บ้าน'));assert.ok(csv.includes('Happy Farm'));
 });
 
 test('order pages represent separate noon-to-noon Bangkok rounds',()=>{

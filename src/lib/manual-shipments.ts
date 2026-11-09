@@ -6,6 +6,7 @@ import {parseDispatchTime} from './sales-dates';
 import {reconcileSalesRecognition} from './sales-recognition';
 import type {ManualShipmentRow} from './manual-shipment-file';
 import {parseOrderAddress} from './order-parser';
+import {matchingRejectedOrders} from './rejected-shipments';
 
 const eligible=['WAITING_SHIPMENT','TRANSFER_RECORDED','CLAIM_WAITING_COST','MATCHED_SHIPMENT_WAITING_COD','COD_AMOUNT_MISMATCH'];
 export function manualShipmentMatches(row:Pick<ManualShipmentRow,'phone'|'amountSatang'>,order:{phone:string|null;rawText:string|null}){
@@ -22,26 +23,28 @@ export function assignManualShipmentOrders<T extends {existingOrderId:string|nul
 }
 export async function previewManualShipments(rows:ManualShipmentRow[]){
  if(rows.some(row=>row.amountSatang===undefined))throw Error('ไฟล์ต้องมีคอลัมน์ยอดเงิน เพื่อจับคู่ด้วยเบอร์โทรและยอดขาย');
- const [orders,shipments]=await Promise.all([
+ const [orders,shipments,rejections]=await Promise.all([
   db.orderIntake.findMany({orderBy:[{eventAt:'asc'},{id:'asc'}],select:{id:true,orderNumber:true,recipient:true,phone:true,payment:true,eventAt:true,rawText:true,address:true,status:true,affiliateId:true}}),
   db.shipment.findMany({select:{tracking:true,orderId:true}}),
+  db.auditLog.findMany({where:{action:'ORDER_REJECTED'},orderBy:{createdAt:'desc'},select:{id:true,createdAt:true,details:true}}),
  ]);
  return assignManualShipmentOrders(rows.map(row=>{
   const existing=shipments.find(shipment=>shipment.tracking===row.tracking);
+  const rejectedOrders=matchingRejectedOrders(row,rejections);
   const phoneOrders=orders.filter(order=>!!order.phone&&phonesMatch(order.phone,row.phone));
   const amountOrders=phoneOrders.filter(order=>manualShipmentMatches(row,order));
   const readyOrders=amountOrders.filter(order=>eligible.includes(order.status)&&order.affiliateId);
   const candidates=readyOrders.filter(order=>!shipments.some(shipment=>shipment.orderId===order.id&&shipment.tracking!==row.tracking)).map(({rawText,status,affiliateId,...order})=>({...order,eventAt:order.eventAt.toISOString(),amountSatang:quotedTotal(rawText??''),addressMatches:!!row.address&&compatibleAddress(parseOrderAddress(rawText??'')??order.address??'',row.address)}));
   let matchMessage='';
   if(existing?.orderId)matchMessage='เลขพัสดุนี้ผูกออเดอร์แล้ว';
-  else if(!phoneOrders.length)matchMessage='ไม่พบเบอร์โทรนี้ในออเดอร์ของระบบ';
+  else if(!phoneOrders.length)matchMessage=rejectedOrders.length?'พบประวัติปฏิเสธที่เบอร์โทรและยอดขายตรงกัน':'ไม่พบเบอร์โทรนี้ในออเดอร์ของระบบ';
   else if(!amountOrders.length){
    const totals=[...new Set(phoneOrders.map(order=>quotedTotal(order.rawText??'')).filter(total=>total!==null))];
    matchMessage='พบเบอร์โทร แต่ยอดขายไม่ตรง'+(totals.length?' · ยอดในระบบ '+totals.map(total=>(total/100).toLocaleString('th-TH')+' บาท').join(', '):' · ออเดอร์ไม่มีข้อมูลยอดขายที่อ่านได้');
   }
   else if(!readyOrders.length)matchMessage='พบเบอร์และยอดตรงกัน แต่ออเดอร์ไม่อยู่ในสถานะที่นำเข้าส่งได้';
   else if(!candidates.length)matchMessage='ออเดอร์ที่เบอร์และยอดตรงกันผูกกับเลขพัสดุอื่นแล้ว';
-  return {...row,candidates,existingOrderId:existing?.orderId??null,matchMessage};
+  return {...row,candidates,existingOrderId:existing?.orderId??null,matchMessage,rejectedOrders};
  }));
 }
 const input=z.object({requestKey:z.uuid(),filename:z.string().min(1).max(250),dispatchedAt:z.string(),confirmed:z.literal(true),rows:z.array(z.object({tracking:z.string().regex(/^[A-Z0-9-]{8,50}$/),recipient:z.string().max(200),phone:z.string().min(1).max(100),orderId:z.string().min(1).max(100),payment:z.enum(['COD','โอน']).optional(),amountSatang:z.number().int().nonnegative().max(2147483647).optional()})).min(1).max(500)});

@@ -1,9 +1,10 @@
 'use client';
 import {useRef,useState} from 'react';
 import Link from 'next/link';
+import type {RejectedOrderMatch} from '@/lib/rejected-shipments';
 
 type Candidate={id:string;orderNumber:string;recipient:string|null;phone:string|null;payment:string|null;eventAt:string;amountSatang:number|null;address:string|null;addressMatches:boolean};
-type Row={tracking:string;recipient:string;phone:string;address?:string;payment?:'COD'|'โอน';amountSatang?:number;candidates:Candidate[];existingOrderId:string|null;selectedOrderId:string|null;matchMessage?:string};
+type Row={tracking:string;recipient:string;phone:string;address?:string;payment?:'COD'|'โอน';amountSatang?:number;candidates:Candidate[];existingOrderId:string|null;selectedOrderId:string|null;matchMessage?:string;rejectedOrders?:RejectedOrderMatch[]};
 const localNow=()=>new Date(Date.now()+7*3600000).toISOString().slice(0,16);
 export function ShipmentUpload(){
  const [rows,setRows]=useState<Row[]>([]),[selected,setSelected]=useState<Record<string,string>>({});
@@ -52,6 +53,11 @@ export function ShipmentUpload(){
      </select>
      {selected[row.tracking]&&selected[row.tracking]!=='SKIP'&&<p className="muted small">{row.candidates.find(order=>order.id===selected[row.tracking])?.address}</p>}
      {row.matchMessage&&<p className="muted">{row.matchMessage}</p>}
+     {!!row.rejectedOrders?.length&&<div className="notice">
+      <strong>พบประวัติปฏิเสธที่เบอร์และยอดตรงกัน</strong>
+      {row.rejectedOrders.map(rejected=><p key={rejected.id}>{new Date(rejected.at).toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})} · {rejected.reasons.join(' · ')}</p>)}
+      <p>เก็บเบอร์โทรและเลขพัสดุนี้ในประวัติแล้ว กรุณาตรวจสอบการจัดส่งกับแอดมิน</p>
+     </div>}
     </td>
    </tr>)}</tbody></table></div>
    <label>วันเวลาที่ส่งพัสดุจริง<input type="datetime-local" value={date} disabled={busy||retrying} onChange={event=>setDate(event.target.value)}/></label>

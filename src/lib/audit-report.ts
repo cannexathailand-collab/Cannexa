@@ -10,7 +10,7 @@ const fields:Record<string,string>={bankName:'ธนาคาร',accountName:'�
 const value=(key:string,v:unknown)=>typeof v==='boolean'?(v?'เปิด':'ปิด'):typeof v==='number'&&key.endsWith('Satang')?money(v):typeof v==='number'&&key.endsWith('Bps')?(v/100)+'%':v==='REVENUE'?'ยอดขาย':v==='GROSS_PROFIT'?'กำไรขั้นต้นหลังหักสินค้าและค่าส่ง':v==='PROFIT'?'กำไรหลังหักสินค้า':String(v??'—');
 export function presentAudit(log:AuditLog,itemLookup=new Map<string,AuditItem[]>(),references=new Map<string,string>()){
  const d=object(log.details),summary:string[]=[],items:AuditItem[]=[];if(log.action==='STOCK_DAY_CLOSED'){summary.push('ประจำวันที่ '+d.day,'จำนวนสินค้า '+d.count+' รายการ');}const paid=['COMMISSION_PAID_BATCH','COMMISSION_PAID'].includes(log.action);
- if(log.action==='ORDER_REJECTED'){
+ if(['ORDER_REJECTED','ORDER_REJECTED_SHIPMENT_FOUND'].includes(log.action)){
   summary.push(...strings(d.reasons));
   if(typeof d.phone==='string')summary.push('เบอร์ผู้รับ: '+d.phone);
   if(amount(d.amountSatang)!==null)summary.push('ยอดขายในข้อความ: '+money(d.amountSatang));
@@ -24,7 +24,8 @@ export function presentAudit(log:AuditLog,itemLookup=new Map<string,AuditItem[]>
   if(typeof d.name==='string')summary.push('ชื่อ: '+d.name);if(typeof d.description==='string')summary.push('รายการ: '+d.description);if(typeof d.startMonth==='string')summary.push('เริ่มเดือน: '+d.startMonth);if(typeof d.status==='string')summary.push('สถานะ: '+({DISPATCHED:'จัดส่งจริงแล้ว',RETURNED:'ตีกลับ',CANCELLED:'ยกเลิก'}[d.status as string]??d.status));if(typeof d.tracking==='string')summary.push('เลขพัสดุ: '+d.tracking);if(typeof d.updatedParcels==='number')summary.push('พัสดุ '+d.updatedParcels+' รายการ');if(typeof d.rows==='number')summary.push('ข้อมูล '+d.rows+' รายการ');if(Array.isArray(d.months))summary.push('งวด: '+strings(d.months).join(', '));if(amount(d.amountSatang)!==null&&!items.length)summary.push((log.action==='RECURRING_EXPENSE_RECORDED'?'งวดละ ':'จำนวนเงิน ')+money(d.amountSatang));if(d.recordedEntriesPreserved===true||d.keepEarlierHistory===true)summary.push('เก็บรายการที่บันทึกแล้วไว้');}
  if(log.action==='STOCK_PRODUCT_UPDATED'){const before=object(d.before),after=object(d.after),prices=(v:unknown)=>new Map((Array.isArray(v)?v:[]).map(raw=>{const row=object(raw);return [String(row.pack),amount(row.priceSatang)] as const;})),old=prices(before.salePrices),next=prices(after.salePrices);for(const pack of new Set([...old.keys(),...next.keys()]))if(old.get(pack)!==next.get(pack))summary.push('ราคา '+pack+': '+(old.get(pack)===null||old.get(pack)===undefined?'ยังไม่มีราคา':money(old.get(pack)!))+' → '+(next.get(pack)===null||next.get(pack)===undefined?'ยังไม่มีราคา':money(next.get(pack)!)));}
  const reference=references.get(log.entityId);if(reference&&!items.some(i=>i.label.includes(reference)))summary.unshift(reference);
- return {id:log.id,at:log.createdAt,title:log.action==='ORDER_REJECTED'?'ปฏิเสธการรับออเดอร์':titles[log.action]??'บันทึกการดำเนินการ',actor:actors[log.actor]??('บัญชี '+log.actor),summary,items,action:log.action,entityId:log.entityId,raw:log.details};
+ const title=log.action==='ORDER_REJECTED'?'ปฏิเสธการรับออเดอร์':log.action==='ORDER_REJECTED_SHIPMENT_FOUND'?'พบเลขพัสดุตรงกับประวัติปฏิเสธ รอตรวจสอบ':titles[log.action]??'บันทึกการดำเนินการ';
+ return {id:log.id,at:log.createdAt,title,actor:actors[log.actor]??('บัญชี '+log.actor),summary,items,action:log.action,entityId:log.entityId,raw:log.details};
 }
 export type AuditFilters={from?:string;to?:string;type?:string};
 export async function auditReport(filters:AuditFilters={}){
