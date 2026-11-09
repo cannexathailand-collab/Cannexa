@@ -3,13 +3,13 @@ import {useRef,useState} from 'react';
 import Link from 'next/link';
 import {crmFilterFields} from '@/lib/crm-customer-filters';
 type Params=Record<string,string|undefined>;
-const allowed=['from','to','view',...crmFilterFields.flatMap(([key])=>[key+'Min',key+'Max'])];
+const allowed=['from','to','view','inactive',...crmFilterFields.flatMap(([key])=>[key+'Min',key+'Max'])];
 export function CrmFiltersForm({params}:{params:Params}){
  const dialog=useRef<HTMLDialogElement>(null);
  const [q,setQ]=useState(params.q??''),[sort,setSort]=useState(params.sort??'frequencyDesc');
  const initial=()=>crmFilterFields.filter(([key])=>params[key+'Min']||params[key+'Max']).map(([key])=>key);
  const [fields,setFields]=useState<string[]>(initial),[next,setNext]=useState('');
- const active=initial().length+(params.from||params.to?1:0);
+ const active=initial().length+(params.from||params.to?1:0)+(params.inactive==='3'?1:0);
  return <>
  <form action="/admin/crm" className="crm-toolbar">
   <label className="crm-search">ค้นหาลูกค้า<input name="q" value={q} onChange={e=>setQ(e.target.value)} placeholder="รหัส ชื่อ เบอร์ หรือผู้แนะนำ"/></label>
@@ -22,7 +22,7 @@ export function CrmFiltersForm({params}:{params:Params}){
  <dialog ref={dialog} className="stock-modal crm-filter-dialog" onCancel={()=>dialog.current?.querySelector('form')?.reset()}>
   <h2>ตัวกรองลูกค้า</h2><p className="muted">เลือกเฉพาะเงื่อนไขที่ต้องการ</p>
   <form action="/admin/crm">
-   <input type="hidden" name="q" value={q}/><input type="hidden" name="sort" value={sort}/><input type="hidden" name="view" value={params.view??'day'}/>
+   <input type="hidden" name="q" value={q}/>{params.inactive&&<input type="hidden" name="inactive" value={params.inactive}/>}<input type="hidden" name="sort" value={sort}/><input type="hidden" name="view" value={params.view??'day'}/>
    <div className="crm-date-row"><label>วันที่สั่งซื้อตั้งแต่<input type="date" name="from" defaultValue={params.from??''}/></label><label>ถึงวันที่<input type="date" name="to" defaultValue={params.to??''}/></label></div>
    {fields.map(key=><div className="crm-filter-row" key={key}><strong>{crmFilterFields.find(([field])=>field===key)?.[1]}</strong><label>ขั้นต่ำ<input type="number" name={key+'Min'} step="any" defaultValue={params[key+'Min']??''}/></label><label>สูงสุด<input type="number" name={key+'Max'} step="any" defaultValue={params[key+'Max']??''}/></label><button type="button" className="secondary" aria-label={'ลบตัวกรอง '+crmFilterFields.find(([field])=>field===key)?.[1]} onClick={()=>setFields(fields.filter(field=>field!==key))}>ลบ</button></div>)}
    {fields.length<crmFilterFields.length&&<div className="crm-add-filter"><label>เพิ่มเงื่อนไข<select value={next} onChange={e=>setNext(e.target.value)}><option value="">เลือกตัวกรอง</option>{crmFilterFields.filter(([key])=>!fields.includes(key)).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label><button type="button" className="secondary" disabled={!next} onClick={()=>{setFields([...fields,next]);setNext('');}}>เพิ่ม</button></div>}
