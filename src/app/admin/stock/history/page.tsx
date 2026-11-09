@@ -1,3 +1,4 @@
+import {PopupDetails} from '@/app/popup-details';
 import {stockAvailableQuantity} from '@/lib/stock-available';
 import {compareStockCodes} from '@/lib/stock-sort';
 import {StockDispatchHistory} from '@/app/stock-dispatch-history';
@@ -37,7 +38,7 @@ export default async function StockHistory({searchParams}:{searchParams:Promise<
     <label>ตัวกรอง<select name="filter" defaultValue={filter}>{Object.entries(stockFilterLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
     <div className="actions"><button>ดูประวัติ</button></div>
    </form>
-   {recent.length>0&&<details><summary>วันที่มีประวัติ ({recent.length} วันล่าสุด)</summary><div className="actions" style={{flexWrap:'wrap',marginTop:12}}>{recent.map(item=><Link key={item.day} href={'/admin/stock/history?day='+item.day} className="button secondary">{dateLabel(item.day)}</Link>)}</div></details>}
+   {recent.length>0&&<PopupDetails summary={<> วันที่มีประวัติ ({recent.length} วันล่าสุด) </>}><div className="actions" style={{flexWrap:'wrap',marginTop:12}}>{recent.map(item=><Link key={item.day} href={'/admin/stock/history?day='+item.day} className="button secondary">{dateLabel(item.day)}</Link>)}</div></PopupDetails>}
   </section>
   {params.status==='busy'&&<p className="notice" role="status">มีการแก้ไขสต๊อกอยู่ รอสักครู่แล้วลองอีกครั้ง</p>}
   {params.status==='failed'&&<p className="notice" role="status">ยังส่งประวัติไป Google Sheets ไม่ครบ ข้อมูลที่บันทึกแล้วจะถูกใช้ต่อเมื่อกดลองใหม่</p>}

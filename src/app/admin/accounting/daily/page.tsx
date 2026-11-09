@@ -1,3 +1,4 @@
+import {PopupDetails} from '@/app/popup-details';
 import Link from 'next/link';
 import {IncomeRow} from '@/app/income-row';
 import {approvers} from '@/lib/accounts';
@@ -38,12 +39,12 @@ export default async function DailyAccounting({searchParams}:{searchParams:Promi
   {selectedDay?days.filter(([day])=>day===selectedDay).map(([day,rows])=>{
    const cost=rows.filter(row=>row.kind==='PRODUCT_COST').reduce((sum,row)=>sum+row.expenseSatang,0),income=rows.reduce((n,r)=>n+r.incomeSatang,0),expense=rows.reduce((n,r)=>n+r.expenseSatang,0),opening=rows[0].balanceSatang-rows[0].incomeSatang+rows[0].expenseSatang;
    const groups=journalGroups(rows),transfer=groups.find(group=>group.key==='TRANSFER')?.incomeSatang??0,cod=groups.find(group=>group.key==='COD')?.incomeSatang??0;
-   return <details open className="card accounting-day" id="day-detail" key={day}>
-    <summary><span className="accounting-day-heading"><span><strong>{dayStart(day).toLocaleDateString('th-TH',{dateStyle:'medium',timeZone:'Asia/Bangkok'})}</strong><small>{rows.length} รายการ · กดดูหมวดรายการ</small></span><strong style={profitColors(income-expense)}>สุทธิ {money(income-expense)}</strong></span>
-    <span className="accounting-day-totals">{[['รายรับ',income],['ต้นทุนสินค้า',cost],['รายจ่ายอื่น',expense-cost]].map(([label,value])=><span key={label}><small>{label}</small><strong>{money(Number(value))}</strong>{label==='รายรับ'&&<span className="accounting-income-split"><Link href={incomeHref('TRANSFER',day)}>รายรับจากยอดโอน<strong>{money(transfer)}</strong><small>ดูรายการ →</small></Link><Link href={incomeHref('COD',day)}>รายรับจาก COD<strong>{money(cod)}</strong><small>ดูรายการ →</small></Link></span>}</span>)}</span></summary>
-    {groups.map(group=><details className="accounting-group" key={group.key}><summary><span>{groupLabels[group.key]??group.key} <small>({group.entries.length} รายการ)</small></span><strong>{money(group.incomeSatang-group.expenseSatang)}</strong></summary><ul>{group.entries.map(entry=><li key={entry.id}><div>{entry.description}<small>สุทธิสะสมของวัน {money(entry.balanceSatang-opening)}</small></div><strong>{money(entry.incomeSatang-entry.expenseSatang)}</strong></li>)}</ul></details>)}
+   return <PopupDetails open className="card accounting-day" id="day-detail" key={day} summary={<> <span className="accounting-day-heading"><span><strong>{dayStart(day).toLocaleDateString('th-TH',{dateStyle:'medium',timeZone:'Asia/Bangkok'})}</strong><small>{rows.length} รายการ · กดดูหมวดรายการ</small></span><strong style={profitColors(income-expense)}>สุทธิ {money(income-expense)}</strong></span>
+    <span className="accounting-day-totals">{[['รายรับ',income],['ต้นทุนสินค้า',cost],['รายจ่ายอื่น',expense-cost]].map(([label,value])=><span key={label}><small>{label}</small><strong>{money(Number(value))}</strong>{label==='รายรับ'&&<span className="accounting-income-split"><Link href={incomeHref('TRANSFER',day)}>รายรับจากยอดโอน<strong>{money(transfer)}</strong><small>ดูรายการ →</small></Link><Link href={incomeHref('COD',day)}>รายรับจาก COD<strong>{money(cod)}</strong><small>ดูรายการ →</small></Link></span>}</span>)}</span> </>}>
+
+    {groups.map(group=><PopupDetails className="accounting-group" key={group.key} summary={<> <span>{groupLabels[group.key]??group.key} <small>({group.entries.length} รายการ)</small></span><strong>{money(group.incomeSatang-group.expenseSatang)}</strong> </>}><ul>{group.entries.map(entry=><li key={entry.id}><div>{entry.description}<small>สุทธิสะสมของวัน {money(entry.balanceSatang-opening)}</small></div><strong>{money(entry.incomeSatang-entry.expenseSatang)}</strong></li>)}</ul></PopupDetails>)}
     <a className="button secondary" href={'/api/admin/accounting/export?'+new URLSearchParams({from:day,to:day,view:'day',scope:'journal'})}>ส่งออก CSV วันนี้</a>
-   </details>;
+   </PopupDetails>;
   }):null}
  </>;
 }

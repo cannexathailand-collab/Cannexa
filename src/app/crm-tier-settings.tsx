@@ -1,4 +1,5 @@
 'use client';
+import {PopupDetails} from '@/app/popup-details';
 import {useState} from 'react';
 import type {TierSettings} from '@/lib/crm-tiers';
 import {resolveTierRules,tierKeys,tierNames,tierMetrics,type TierRule} from '@/lib/crm-tier-rules';
@@ -7,8 +8,8 @@ function TierEditor({initial,editable,active}:{initial:TierRule;editable:boolean
  const [rule,setRule]=useState(initial),[values,setValues]=useState(initial.conditions.map(c=>String(c.value)));
  const [required,setRequired]=useState({monthlySpend:String(initial.required.monthlySpend),monthlyProfit:String(initial.required.monthlyProfit),membershipDays:String(initial.required.membershipDays),monthlyPurchases:String(initial.required.monthlyPurchases)});
  const update=(index:number,patch:Partial<TierRule['conditions'][number]>)=>setRule({...rule,conditions:rule.conditions.map((c,i)=>i===index?{...c,...patch}:c)});
- return <details className="card" open={active||undefined}>
-  <summary><strong>{tierNames[rule.tier]}</strong> · {rule.enabled?'เกณฑ์บังคับ 4 ข้อ · เกณฑ์เสริม '+rule.conditions.length+' ข้อ':'ปิดระดับนี้'}</summary>
+ return <PopupDetails className="card" open={active||undefined} summary={<> <strong>{tierNames[rule.tier]}</strong> · {rule.enabled?'เกณฑ์บังคับ 4 ข้อ · เกณฑ์เสริม '+rule.conditions.length+' ข้อ':'ปิดระดับนี้'} </>}>
+
   <form action="/api/admin/crm/tiers" method="post">
    <input type="hidden" name="rule" value={JSON.stringify({...rule,required:{monthlySpend:Number(required.monthlySpend),monthlyProfit:Number(required.monthlyProfit),membershipDays:Number(required.membershipDays),monthlyPurchases:Number(required.monthlyPurchases)},conditions:rule.conditions.map((c,i)=>({...c,value:Number(values[i])}))})}/>
    <fieldset disabled={!editable} style={{border:0,padding:0,margin:0}}>
@@ -30,7 +31,7 @@ function TierEditor({initial,editable,active}:{initial:TierRule;editable:boolean
     <div className="actions"><button type="button" className="secondary" disabled={rule.conditions.length>=10} onClick={()=>{setRule({...rule,conditions:[...rule.conditions,{metric:'spend',operator:'gte',value:0}]});setValues([...values,'']);}}>เพิ่มเกณฑ์เสริม</button><button type="submit">บันทึก {tierNames[rule.tier]}</button></div>
    </fieldset>
   </form>
- </details>;
+ </PopupDetails>;
 }
 export function CrmTierSettings({settings,editable,activeTier}:{settings:TierSettings;editable:boolean;expanded?:boolean;activeTier?:string}){
  const rules=resolveTierRules(settings);

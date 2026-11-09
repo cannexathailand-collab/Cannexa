@@ -1,3 +1,4 @@
+import {PopupDetails} from '@/app/popup-details';
 import Link from 'next/link';
 import {displayCustomerCode} from '@/lib/customer-code';
 import type {CSSProperties} from 'react';
@@ -45,7 +46,7 @@ export function OrderCard({order:o,sale,sellerName,groupName,tracking,fulfillmen
    {!!sale&&<p>ค่าคอมยอดขาย: {sale.status==='CANCELLED'?'ยกเลิกแล้ว ฿0.00':sale.status==='PAID'?'฿'+((sale.commissionSatang??0)/100).toFixed(2)+' จ่ายแล้ว':sale.status==='WAITING_COD'?'รอรับเงิน COD · ยังไม่บันทึกค่าคอม':sale.commissionSatang===null?'รอต้นทุน':'฿'+(sale.commissionSatang/100).toFixed(2)+' รอจ่าย'}</p>}
    {reviewHref&&(needsOrderReview(o,sale,tracking)||!!tracking&&!dispatchedAt&&!closed)&&<p><Link className="button secondary" href={reviewHref}>ตรวจสอบ</Link></p>}
    <p className="small muted">ตอบยืนยัน: {o.replyStatus==='SENT'?'ส่งแล้ว':o.replyStatus==='FAILED'?'ส่งไม่สำเร็จ':o.replyStatus==='NOT_CONFIGURED'?'ยังไม่มี Access Token':'ยังไม่ส่ง'}</p>
-   <details><summary>ดูข้อความต้นฉบับ</summary><p className="muted">รหัสผู้ขายที่ส่งมา: {o.sellerCode} (เก็บตามข้อความเดิม)</p><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{o.rawText}</pre></details>
+   <PopupDetails summary={<> ดูข้อความต้นฉบับ </>}><p className="muted">รหัสผู้ขายที่ส่งมา: {o.sellerCode} (เก็บตามข้อความเดิม)</p><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{o.rawText}</pre></PopupDetails>
   </>}
  </article>;
 }

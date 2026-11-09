@@ -1,3 +1,4 @@
+import {PopupDetails} from '@/app/popup-details';
 import {approvers} from "@/lib/accounts";
 import {requireAdminPage} from "@/lib/auth";
 import {commissionReport} from "@/lib/commission-report";
@@ -36,7 +37,7 @@ export default async function Reviews({searchParams}: {searchParams: Promise<{mo
      <div><h3>ค่าคอมยอดขาย</h3><span>รอจ่าย <strong>{total(pending.filter(item=>item.kind==="SALE"))}</strong></span><small>จ่ายแล้ว {total(items.filter(item=>item.kind==="SALE"&&item.status==="Paid"))}</small></div>
      <div className="commission-special"><h3>ค่าคอมพิเศษ</h3><span>จ่ายแล้ว <strong>{total(items.filter(item=>item.kind==='SPECIAL'))}</strong></span><small>บันทึกเพิ่มตามจำนวนเงินที่จ่ายจริง</small><SpecialCommissionButton affiliateId={id} name={name} requestKey={randomUUID()} today={bangkokDay(new Date())}/></div>
     </div>
-    {!!items.filter(item=>item.kind==='SPECIAL').length&&<details><summary>ประวัติค่าคอมพิเศษเดือนนี้</summary>{items.filter(item=>item.kind==='SPECIAL').map(item=><p key={item.id}>{item.conversion.verifiedAt?.toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok'})} · {item.description} · {money(item.amountSatang)}</p>)}</details>}
+    {!!items.filter(item=>item.kind==='SPECIAL').length&&<PopupDetails summary={<> ประวัติค่าคอมพิเศษเดือนนี้ </>}>{items.filter(item=>item.kind==='SPECIAL').map(item=><p key={item.id}>{item.conversion.verifiedAt?.toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok'})} · {item.description} · {money(item.amountSatang)}</p>)}</PopupDetails>}
     {pending.length > 0 && <form action="/api/admin/review" method="post">
      <input type="hidden" name="month" value={month}/>
      {pending.map(item => <input key={item.id} type="hidden" name="commissionId" value={item.id}/>)}

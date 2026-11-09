@@ -1,3 +1,4 @@
+import {PopupDetails} from '@/app/popup-details';
 import Link from 'next/link';
 import {db} from '@/lib/db';
 import {canonicalCustomerCode,displayCustomerCode} from '@/lib/customer-code';
@@ -33,7 +34,7 @@ export async function OwnerCustomerView({params}:{params:{q?:string;customer?:st
   <section className="portal-section">
    <h1>Customer · โหมดเจ้าของระบบ</h1>
    <p className="portal-muted">เลือกลูกค้าเพื่อดูข้อมูลแบบอ่านอย่างเดียวและทดลองตะกร้า</p>
-   <details open={!selected}><summary>{selected?'เปลี่ยนลูกค้า':'เลือกลูกค้า'}</summary>
+   <PopupDetails open={!selected} summary={<> {selected?'เปลี่ยนลูกค้า':'เลือกลูกค้า'} </>}>
    <form action="/customer" className="portal-profile" method="get">
     <label>ค้นหารหัสลูกค้า ชื่อ หรือเบอร์โทร<input name="q" defaultValue={query} maxLength={100}/></label>
     <button>ค้นหาลูกค้า</button>
@@ -43,7 +44,7 @@ export async function OwnerCustomerView({params}:{params:{q?:string;customer?:st
    </Link>)}</div>
    {!customers.length&&<p>ไม่พบลูกค้าที่ค้นหา</p>}
    {!query&&customers.length===30&&<p className="portal-muted">แสดง 30 รายการแรก พิมพ์ค้นหาเพื่อเลือกลูกค้าที่ต้องการ</p>}
-   </details>
+   </PopupDetails>
    {selectedCode&&!selected&&<p role="alert">ไม่พบรหัสลูกค้าที่เลือก</p>}
    {!selectedCode&&<p>กรุณาเลือกลูกค้าจากรายการ</p>}
   </section>

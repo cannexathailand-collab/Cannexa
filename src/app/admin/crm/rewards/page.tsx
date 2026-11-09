@@ -1,3 +1,4 @@
+import {PopupDetails} from '@/app/popup-details';
 import {randomUUID} from 'node:crypto';
 import {requireAdminPage} from '@/lib/auth';
 import {managers,approvers} from '@/lib/accounts';
@@ -19,7 +20,7 @@ export default async function RewardsPage(){
  return <>
   <h1>ของรางวัล Green Coin</h1>
   <p>ตั้งค่ารายการที่แสดงในหน้า Customer และจัดการรายการแลก</p>
-  {editable&&<details className="reward-create" open={!rewards.length}><summary>เพิ่มของรางวัล</summary><RewardEditor requestKey={randomUUID()} editable={editable}/></details>}
+  {editable&&<PopupDetails className="reward-create" open={!rewards.length} summary={<> เพิ่มของรางวัล </>}><RewardEditor requestKey={randomUUID()} editable={editable}/></PopupDetails>}
   <section><h2>รายการของรางวัล</h2>{!rewards.length&&<p>ยังไม่มีของรางวัล</p>}<div className="reward-admin-cards">{rewards.map(reward=><RewardEditor key={reward.id} reward={{...reward,updatedAt:reward.updatedAt.toISOString(),endsOn:reward.expiresAt?bangkokDay(new Date(+reward.expiresAt-1)):'',expiryLabel:reward.expiresAt?'แลกได้ถึง '+crmDate(new Date(+reward.expiresAt-1)):'ไม่กำหนดวันสิ้นสุด',expired:!!reward.expiresAt&&reward.expiresAt<=new Date()}} requestKey={reward.requestKey} editable={editable}/>)}</div></section>
   <section className="card"><h2>รายการแลกล่าสุด</h2>{!redemptions.length&&<p>ยังไม่มีรายการแลก</p>}<div className="reward-admin-list">{redemptions.map(row=><article key={row.id}><header><strong>{row.rewardName}</strong><span className="pill">{statuses[row.status]??row.status}</span></header><p>{row.points.toLocaleString('th-TH')} Green Coin · {crmDate(row.createdAt)}</p><p>{row.recipient} · {displayCustomerCode(row.customerCode)} · {row.phone}</p><p>{row.address}</p>{editable&&row.status==='PENDING'&&<RedemptionActions id={row.id}/>}</article>)}</div></section>
  </>;
