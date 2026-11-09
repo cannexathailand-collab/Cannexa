@@ -9,5 +9,6 @@ export function orderRejectionReasons(order:{customerCode?:string|null;address?:
  return reasons;
 }
 export function orderRejectionText(reasons:string[]){
- return 'บันทึกไม่สำเร็จ: '+reasons.join(' · ')+'\nกรุณาแก้ไขข้อมูลแล้วส่งออเดอร์ใหม่';
+ const incompleteStock=reasons.some(reason=>/^สินค้า \S+ (?:หมดสำหรับขาย|ไม่พอ)/.test(reason));
+ return 'บันทึกไม่สำเร็จ: '+(incompleteStock?'สินค้าไม่ครบ · ':'')+reasons.join(' · ')+'\nกรุณาแก้ไขข้อมูลแล้วส่งออเดอร์ใหม่';
 }

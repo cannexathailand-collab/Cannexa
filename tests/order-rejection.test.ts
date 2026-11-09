@@ -36,17 +36,25 @@ test('rejection identifies missing postal codes and combines all blocking reason
  assert.deepEqual(orderRejectionReasons({customerCode:'C0001',address:'85000, Mueang Ranong, Ranong',phone:'+66 81 234 5678'}),[]);
  assert.deepEqual(orderRejectionReasons({customerCode:'C0001',address:'Bangkok 10200',phone:'081234567'}),['เบอร์โทรไม่ครบ 10 หลัก']);
  assert.match(orderRejectionText(['รหัสไปรษณีย์ไม่ครบ 5 หลัก']),/^บันทึกไม่สำเร็จ: รหัสไปรษณีย์ไม่ครบ 5 หลัก/);
+ assert.match(orderRejectionText(['สินค้า NT18 ไม่พอ · จำนวนที่จำหน่ายได้ 23 กรัม · สั่ง 30 กรัม']),/^บันทึกไม่สำเร็จ: สินค้าไม่ครบ · สินค้า NT18 ไม่พอ/);
+ assert.match(orderRejectionText(['สินค้า NT18 หมดสำหรับขาย · จำนวนที่จำหน่ายได้ 0 กรัม']),/^บันทึกไม่สำเร็จ: สินค้าไม่ครบ/);
+ assert.doesNotMatch(orderRejectionText(['ยังตรวจสอบจำนวนสินค้า NT18 ไม่ได้']),/สินค้าไม่ครบ/);
 });
 
 test('stock rejection retains matching details when the LINE reply fails',async t=>{
  const restore:Array<()=>void>=[];const patch=(obj:any,key:string,value:any)=>{const old=obj[key];obj[key]=value;restore.push(()=>obj[key]=old);};t.after(()=>restore.reverse().forEach(fn=>fn()));
- let audit:any={details:{status:'READY',reasons:['สินค้าไม่พอ']}};
+ let audit:any={details:{status:'READY',reasons:['สินค้า NT18 ไม่พอ']}};
+ let sentText='';
  const update=async({data}:any)=>Object.assign(audit,data);
  const tx={$queryRawUnsafe:async()=>[],orderMessageWithdrawal:{findUnique:async()=>null},orderIntake:{findFirst:async()=>null},auditLog:{findUnique:async()=>audit,update}};
  patch(db,'$transaction',async(fn:any)=>fn(tx));
  patch(db.orderGroup,'findUnique',async()=>({enabled:true,purpose:'ORDER'}));
  patch(db.auditLog,'update',update);
- patch(globalThis,'fetch',async()=>{throw Error('network unavailable');});
+ patch(globalThis,'fetch',async(_url:any,options:any)=>{
+  sentText=JSON.parse(options.body).messages[0].text;
+  throw Error('network unavailable');
+ });
  await replyRejectedOrder('bot',{...event,message:{...event.message!,text:event.message!.text+'\nรหัสลูกค้า: C0001'}},'fake-token');
- assert.deepEqual(audit.details,{status:'DELIVERY_UNCONFIRMED',reasons:['สินค้าไม่พอ'],phone:'0812345678',amountSatang:125000,eventAt:new Date(event.timestamp).toISOString()});
+ assert.match(sentText,/^บันทึกไม่สำเร็จ: สินค้าไม่ครบ · สินค้า NT18 ไม่พอ/);
+ assert.deepEqual(audit.details,{status:'DELIVERY_UNCONFIRMED',reasons:['สินค้า NT18 ไม่พอ'],phone:'0812345678',amountSatang:125000,eventAt:new Date(event.timestamp).toISOString()});
 });
