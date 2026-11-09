@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import {stockOperators} from '@/lib/accounts';
-import {requireAdminPage} from '@/lib/auth';
+import {requireStockPage} from '@/lib/store-view';
 import {employeeOrderDashboard} from '@/lib/employee-order-dashboard';
 import {orderMatchesState} from '@/lib/order-management';
 import {loadDuplicateOrderReviews} from '@/lib/order-duplicates';
 import {DuplicateOrderNotice} from '@/app/duplicate-order-notice';
 export default async function StoreOrders({searchParams}:{searchParams:Promise<{q?:string;page?:string;status?:string}>}){
- await requireAdminPage(stockOperators);
+ await requireStockPage(stockOperators);
  const input=await searchParams;
  const [data,duplicates]=await Promise.all([employeeOrderDashboard(input),loadDuplicateOrderReviews()]);
  const status=['ALL','WAITING','SHIPPED','REVIEW','RETURNED'].includes(input.status??'')?input.status!:'WAITING';

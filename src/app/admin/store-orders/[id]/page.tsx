@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import {notFound} from 'next/navigation';
 import {stockOperators} from '@/lib/accounts';
-import {requireAdminPage} from '@/lib/auth';
+import {requireStockPage} from '@/lib/store-view';
 import {db} from '@/lib/db';
 import {orderStockItems} from '@/lib/order-stock-items';
 export default async function StoreOrder({params}:{params:Promise<{id:string}>}){
- await requireAdminPage(stockOperators);
+ await requireStockPage(stockOperators);
  const {id}=await params;
  const order=await db.orderIntake.findUnique({where:{id},select:{orderNumber:true,recipient:true,phone:true,address:true,rawText:true,sellerUsername:true,createdAt:true,payment:true}});
  if(!order)notFound();

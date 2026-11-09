@@ -4,7 +4,7 @@ import {compareStockCodes} from '@/lib/stock-sort';
 import {StockDispatchHistory} from '@/app/stock-dispatch-history';
 import {StockReturnHistory} from '@/app/stock-return-history';
 import Link from 'next/link';
-import {requireAdminPage} from '@/lib/auth';
+import {requireStockPage} from '@/lib/store-view';
 import {stockOperators} from '@/lib/accounts';
 import {db} from '@/lib/db';
 import {STOCK_SHEET_URL} from '@/lib/stock-google';
@@ -16,7 +16,7 @@ import type {StockRow} from '@/lib/stock-import';
 const number=(v:number|null)=>v===null?'—':v.toLocaleString('th-TH',{maximumFractionDigits:3});
 const dateLabel=(day:string)=>dayStart(day).toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric',timeZone:'Asia/Bangkok'});
 export default async function StockHistory({searchParams}:{searchParams:Promise<{day?:string;round?:string;q?:string;filter?:string;status?:string;dispatchPage?:string;returnPage?:string}>}){
- const actor=await requireAdminPage(stockOperators),params=await searchParams;
+ const actor=await requireStockPage(stockOperators),params=await searchParams;
  const [config,recent,pending]=await Promise.all([
   db.stockHistoryConfig.findUnique({where:{id:'active'}}),
   db.stockDailySnapshot.findMany({orderBy:{day:'desc'},take:31,select:{day:true}}),

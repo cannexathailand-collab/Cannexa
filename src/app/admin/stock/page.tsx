@@ -14,7 +14,7 @@ import {stockPriceColumns,type StockPriceColumn} from '@/lib/stock-price-columns
 import {StockDispatchStatus} from '@/app/stock-dispatch-status';
 import {stockDeleteFingerprint} from '@/lib/stock-delete';
 import {randomUUID} from 'node:crypto';
-import {requireAdminPage} from '@/lib/auth';
+import {requireStockPage} from '@/lib/store-view';
 import {stockOperators} from '@/lib/accounts';
 import {db} from '@/lib/db';
 import {readStockSheet} from '@/lib/stock-google';
@@ -22,7 +22,7 @@ import type {StockRow,StockPrice} from '@/lib/stock-import';
 import {StockAddForm} from '@/app/stock-add-form';
 const number=(n:number|null)=>n===null?'—':n.toLocaleString('th-TH',{maximumFractionDigits:3});
 export default async function Stock({searchParams}:{searchParams:Promise<{q?:string;status?:string;filter?:string;activityDay?:string;activityPage?:string}>}){
- const actor=await requireAdminPage(stockOperators),filters=await searchParams;
+ const actor=await requireStockPage(stockOperators),filters=await searchParams;
  const canEdit=actor.role==='owner'||actor.role==='store';
  const q=(filters.q??'').trim().slice(0,100),filter=stockFilter(filters.filter);
  const connection=await db.stockSheetsConnection.findUnique({where:{id:'active'},select:{email:true,systemPrimary:true}});
