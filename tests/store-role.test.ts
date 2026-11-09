@@ -1,3 +1,4 @@
+import {z} from 'zod';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -7,7 +8,7 @@ import {roles,office,managers,approvers,stockOperators,stockEditors,home,isEmplo
 function loadRoute(file:string,role:string){
  const exports:any={};
  const mocks:Record<string,unknown>={
-  'next/server':{after:()=>{}},
+  'next/server':{after:()=>{}},'zod':{z},'@/lib/stock-code':{stockCode:z.string()},'@/lib/stock-delete':{},'@/lib/stock-delete-batch':{stockDeleteBatchInput:{safeParse:()=>({success:false})}},
   '@/lib/accounts':{stockOperators,stockEditors},
   '@/lib/auth':{admin:async(allowed=['owner'])=>{if(!allowed.includes(role))throw Error('FORBIDDEN');return 'test-store';},sameOrigin:async()=>{}},
   '@/lib/stock-product-update':{stockProductUpdateInput:{safeParse:()=>({success:false})}},
@@ -32,7 +33,7 @@ test('store role has stock-only groups and its own landing page',()=>{
  assert.ok(stockOperators.includes('store'));assert.ok(stockEditors.includes('store'));
  assert.equal(stockEditors.includes('admin'),false);
 });
-for(const file of ['src/app/api/admin/stock/route.ts','src/app/api/admin/stock/update/route.ts','src/app/api/admin/stock/cost/route.ts','src/app/api/admin/shipments/upload/route.ts']){
+for(const file of ['src/app/api/admin/stock/route.ts','src/app/api/admin/stock/update/route.ts','src/app/api/admin/stock/cost/route.ts','src/app/api/admin/shipments/upload/route.ts','src/app/api/admin/stock/delete/route.ts','src/app/api/admin/stock/delete-batch/route.ts']){
  test('store can access stock workflow while unrelated staff are denied: '+file,async()=>{
   const request=()=>new Request('https://example.test/api',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
   assert.equal((await loadRoute(file,'store').POST(request())).status,400);
