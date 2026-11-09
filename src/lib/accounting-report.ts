@@ -4,13 +4,18 @@ import {expenseReport} from './expense-report';
 import {accountingRange,summarizeAccounting,type AccountingFilters} from './accounting-summary';
 import {dayStart,shiftDay} from './sales-dates';
 import {accountingJournal} from './accounting-journal';
+import {loadOrderRoundSettings} from './order-round-settings';
+import {orderRoundBounds} from './order-round';
 
 export async function accountingReport(input:AccountingFilters={}){
  const range=accountingRange(input);
+ const settings=await loadOrderRoundSettings();
+ const roundStart=orderRoundBounds(range.from,settings.closeMinutes).start,roundEnd=orderRoundBounds(range.to,settings.closeMinutes).end;
+ const roundOrders=await db.orderIntake.findMany({where:{eventAt:{gte:roundStart,lt:roundEnd}},select:{id:true}});
  const [sales,expenses,pendingExpenses,pendingStock]=await Promise.all([
   salesReport(range),expenseReport(range),
   db.expense.count({where:{status:{in:['PENDING','NEEDS_REVIEW']},eventAt:{gte:dayStart(range.from),lt:dayStart(shiftDay(range.to,1))}}}),
-  db.stockDispatch.count({where:{status:{in:['PENDING','NEEDS_REVIEW','WAITING_COST','HISTORY_SAVED']},dispatchedAt:{gte:dayStart(range.from),lt:dayStart(shiftDay(range.to,1))}}})
+  db.stockDispatch.count({where:{status:{in:['PENDING','NEEDS_REVIEW','WAITING_COST','HISTORY_SAVED']},orderId:{in:roundOrders.map(order=>order.id)}}})
  ]);
  const ids=sales.summary.rows.map(s=>s.orderId);
  const posted=await db.stockDispatch.findMany({where:{orderId:{in:ids},status:'POSTED'},select:{orderId:true}});

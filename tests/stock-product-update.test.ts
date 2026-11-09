@@ -26,6 +26,14 @@ test('receiving initializes a blank opening balance at zero while preserving rec
  assert.equal(plan.after.receivedQuantity,35);assert.equal(plan.after.remainingQuantity,25);
  assert.equal(source.products[0].issuedQuantity,10);
 });
+
+test('reducing quantity preserves formulas and rejects a negative resulting balance',()=>{
+ const {source,input}=setup();
+ const reduced=stockProductUpdatePlan({...input,quantity:25,removeQuantity:true},source,'=E3-F3');
+ assert.equal(reduced.after.receivedQuantity,175);assert.equal(reduced.after.remainingQuantity,165);
+ assert.ok(!reduced.requests.some((request:any)=>request.updateCells.start.columnIndex===6));
+ assert.throws(()=>stockProductUpdatePlan({...input,quantity:191,removeQuantity:true},source),/REDUCTION_EXCEEDS_BALANCE/);
+});
 test('stale edits and changed package mappings are blocked, known costs cannot be cleared, missing cost may remain pending',()=>{const {source,input}=setup();assert.throws(()=>stockProductUpdatePlan({...input,expectedFingerprint:'0'.repeat(64)},source),/PRODUCT_CHANGED/);assert.throws(()=>stockProductUpdatePlan({...input,cost:null},source),/COST_REQUIRED/);assert.throws(()=>stockProductUpdatePlan({...input,prices:input.prices.map(p=>({...p,pack:'5G'}))},source),/PACKAGE_CHANGED/);const rows=rowsForTest();rows[2][3]='';const missing=setup(rows);assert.equal(stockProductUpdatePlan({...missing.input,cost:null},missing.source).after.costSatang,null);});
 
 test('retries created before quantity support keep the original request fingerprint',async t=>{

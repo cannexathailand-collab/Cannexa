@@ -45,3 +45,9 @@ test('managed sheet protection restricts editing to the service account',()=>{
  assert.deepEqual(requests[0].addProtectedRange?.protectedRange.editors.users,['service@example.com']);
  assert.equal(requests[1].updateProtectedRange?.protectedRange.protectedRangeId,5);
 });
+
+test('existing whole-sheet warning protection is upgraded without adding a duplicate',()=>{
+ const requests=stockReadOnlyProtectionRequests([{properties:{sheetId:3},protectedRanges:[{protectedRangeId:9,description:'Old archive',warningOnly:true,range:{sheetId:3}}]}],[3],'service@example.com');
+ assert.equal(requests.length,1);assert.equal(requests[0].updateProtectedRange?.protectedRange.protectedRangeId,9);
+ assert.equal(requests[0].updateProtectedRange?.protectedRange.warningOnly,false);
+});

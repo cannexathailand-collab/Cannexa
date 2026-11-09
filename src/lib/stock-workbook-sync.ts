@@ -15,7 +15,10 @@ function range(sheet:WorkbookSheet){
 
 export function stockReadOnlyProtectionRequests(sheets:any[],managedIds:number[],email:string){
  return sheets.filter(sheet=>managedIds.includes(sheet.properties.sheetId)).map(sheet=>{
-  const existing=sheet.protectedRanges?.find((range:any)=>range.description==='Cannexa: managed by system');
+  const existing=sheet.protectedRanges?.find((range:any)=>range.description==='Cannexa: managed by system')??sheet.protectedRanges?.find((protection:any)=>{
+   const range=protection.range;
+   return range?.sheetId===sheet.properties.sheetId&&range.startRowIndex===undefined&&range.endRowIndex===undefined&&range.startColumnIndex===undefined&&range.endColumnIndex===undefined;
+  });
   const protection={range:{sheetId:sheet.properties.sheetId},description:'Cannexa: managed by system',warningOnly:false,editors:{users:[email],groups:[],domainUsersCanEdit:false},unprotectedRanges:[]};
   return existing?{updateProtectedRange:{protectedRange:{...protection,protectedRangeId:existing.protectedRangeId},fields:'range,description,warningOnly,editors,unprotectedRanges'}}:{addProtectedRange:{protectedRange:protection}};
  });

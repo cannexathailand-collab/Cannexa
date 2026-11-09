@@ -8,7 +8,7 @@ export type AccountingRange={from:string;to:string};
 export type RevenueDay={day:string;count:number;revenueSatang:number;transferSatang:number;codSatang:number};
 export type AccountingRow=RevenueDay&{productCostSatang:number;lineSatang:number;recurringSatang:number;freightSatang:number;commissionSatang:number;expenseSatang:number;profitSatang:number};
 export const accountingKinds:Record<ExpenseEntry['kind'],string>={PRODUCT_COST:'ต้นทุนสินค้า',LINE:'รายจ่ายจาก LINE',RECURRING:'รายจ่ายประจำ',FREIGHT:'ค่าส่งและค่าธรรมเนียม',FRIEND:'ค่าคอมเพิ่มเพื่อน',SALE:'ค่าคอมยอดขาย',SPECIAL:'ค่าคอมพิเศษ'};
-export const accountingBasis='ยอดขายตามเกณฑ์หน้ายอดขาย; ต้นทุนตามวันที่จัดส่งและรับคืน; รายจ่าย LINE และค่าคอมตามวันที่จ่าย; รายจ่ายประจำตามวันที่ลงรายการ; ค่าขนส่งตามวันที่เรียกเก็บ ยอดย้อนหลังอาจเปลี่ยนเมื่อได้รับข้อมูลเพิ่มหรือแก้สถานะออเดอร์';
+export const accountingBasis='ยอดขายตามเกณฑ์หน้ายอดขาย ต้นทุนสินค้าตามรอบออเดอร์และการรับคืนตามวันที่รับคืน รายจ่าย LINE และค่าคอมตามวันที่จ่าย รายจ่ายประจำตามวันที่ลงรายการ ค่าขนส่งตามวันที่เรียกเก็บ ยอดย้อนหลังอาจเปลี่ยนเมื่อได้รับข้อมูลเพิ่มหรือแก้สถานะออเดอร์';
 export function accountingRange(input:AccountingFilters,now=new Date()){
  const range=salesRange(input,now);
  if((+dayStart(range.to)-+dayStart(range.from))/DAY_MS>365)throw Error('INVALID_ACCOUNTING_RANGE');
