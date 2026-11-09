@@ -1,3 +1,4 @@
+import {sortStockPackages} from '@/lib/stock-price-columns';
 import {employeeRoles} from '@/lib/accounts';
 import Link from 'next/link';
 import {after} from 'next/server';
@@ -15,7 +16,7 @@ export default async function EmployeeStockPage({searchParams}:{searchParams:Pro
  const rows=data.rows.filter(p=>(!search||(p.code+' '+(p.name??'')).normalize('NFKC').toUpperCase().includes(search))&&(status==='all'||status==='available'&&p.available!==null&&p.available>0||status==='empty'&&p.available!==null&&p.available<=0||status==='unknown'&&p.available===null));
  const rank=(p:typeof rows[number])=>{const code=p.code.normalize('NFKC').toUpperCase(),name=(p.name??'').normalize('NFKC').toUpperCase();return code===search?0:code.startsWith(search)?1:name.startsWith(search)?2:code.includes(search)?3:4;};
  if(search)rows.sort((a,b)=>rank(a)-rank(b));
- const packs=[...new Set(data.rows.flatMap(product=>product.prices.map(price=>price.pack)))];
+ const packs=sortStockPackages([...new Set(data.rows.flatMap(product=>product.prices.map(price=>price.pack)))]);
  const counts={all:data.rows.length,available:data.rows.filter(p=>p.available!==null&&p.available>0).length,empty:data.rows.filter(p=>p.available!==null&&p.available<=0).length};
  return <main className="center-page performance-page"><section className="customer employee-orders-page employee-stock-page">
   <h1>สต๊อกสินค้า</h1><p className="muted">ตรวจสอบสินค้าพร้อมขายและราคาขาย · ดูข้อมูลเท่านั้น</p><EmployeeNav active="stock"/>
