@@ -22,8 +22,28 @@ export function estimatedOrderCosts(orders:{id:string;orderNumber:string;rawText
 }
 
 export type GroupedExpenseEntry=ExpenseEntry&{details?:ExpenseEntry[]};
+
+export const expenseGroupLabels:Record<ExpenseEntry['kind'],string>={
+ PRODUCT_COST:'ต้นทุนสินค้ารวมประจำวัน',
+ LINE:'รายจ่ายจาก LINE รวมประจำวัน',
+ RECURRING:'รายจ่ายประจำรวมประจำวัน',
+ FREIGHT:'ค่าส่งและค่าธรรมเนียมรวมประจำวัน',
+ FRIEND:'ค่าคอมเพิ่มเพื่อนรวมประจำวัน',
+ SALE:'ค่าคอมยอดขายรวมประจำวัน',
+ SPECIAL:'ค่าคอมพิเศษรวมประจำวัน',
+};
+export function groupExpensesByDay(entries:ExpenseEntry[],kinds:ExpenseEntry['kind'][]=Object.keys(expenseGroupLabels) as ExpenseEntry['kind'][]):GroupedExpenseEntry[]{
+ const selected=new Set(kinds);
+ const groups=Map.groupBy(entries.filter(entry=>selected.has(entry.kind)),entry=>bangkokDay(entry.date)+':'+entry.kind);
+ const summaries=[...groups.values()].map((details):GroupedExpenseEntry=>{
+  const first=details[0],day=bangkokDay(first.date);
+  return {id:first.kind==='PRODUCT_COST'?'product-cost-day:'+day:'expense-day:'+day+':'+first.kind,
+   kind:first.kind,date:dayStart(day),description:expenseGroupLabels[first.kind],
+   amountSatang:details.reduce((sum,entry)=>sum+entry.amountSatang,0),recipient:null,bankName:null,bankAccount:null,
+   estimated:details.some(entry=>entry.estimated),details};
+ });
+ return [...entries.filter(entry=>!selected.has(entry.kind)),...summaries].sort((a,b)=>+b.date-+a.date||a.id.localeCompare(b.id));
+}
 export function groupProductCostExpenses(entries:ExpenseEntry[]):GroupedExpenseEntry[]{
- const groups=Map.groupBy(entries.filter(entry=>entry.kind==='PRODUCT_COST'),entry=>bangkokDay(entry.date));
- const costs=[...groups].map(([day,details]):GroupedExpenseEntry=>({id:'product-cost-day:'+day,kind:'PRODUCT_COST',date:dayStart(day),description:'ต้นทุนสินค้ารวมประจำวัน',amountSatang:details.reduce((sum,entry)=>sum+entry.amountSatang,0),recipient:null,bankName:null,bankAccount:null,estimated:details.some(entry=>entry.estimated),details}));
- return [...entries.filter(entry=>entry.kind!=='PRODUCT_COST'),...costs].sort((a,b)=>+b.date-+a.date||a.id.localeCompare(b.id));
+ return groupExpensesByDay(entries,['PRODUCT_COST']);
 }

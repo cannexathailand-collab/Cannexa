@@ -20,13 +20,13 @@ export async function CommissionPanel({affiliateId,username,filters}:{affiliateI
  return <section className="employee-commissions" aria-label="รายละเอียดค่าคอมมิชชัน">
   {reviews.length>0&&<div className="employee-task-alert" role="status"><div><strong>มีงานค้าง {reviews.length} ออเดอร์ที่ต้องติดตาม</strong><p>รวมรายการค้างจากเดือนก่อน เปิดดูสาเหตุและสิ่งที่ต้องทำต่อ</p></div><Link href="/my-performance/tasks">ดูงานค้าง →</Link></div>}
   <div className="commission-summary-grid">
-   <article className="commission-metric"><span>ค่าคอมรอจ่ายทั้งหมด</span><strong>{money(data.pending)}</strong><small>ทุกรอบที่คำนวณแล้วและยังไม่จ่าย</small></article>
+   <article className="commission-metric tone-income"><span>ค่าคอมรอจ่ายทั้งหมด</span><strong>{money(data.pending)}</strong><small>ทุกรอบที่คำนวณแล้วและยังไม่จ่าย</small></article>
    <article className="commission-metric"><span>ค่าคอมจ่ายแล้วทั้งหมด</span><strong>{money(data.paid)}</strong><small>รวมค่าคอมพิเศษที่บันทึกจ่ายแล้ว</small></article>
    <article className="commission-metric"><span>รอคำนวณ / ตรวจสอบ</span><strong>{data.waiting.toLocaleString('th-TH')} <em>รายการ</em></strong><small>ยังไม่รวมในยอดรอจ่าย</small></article>
    <a className="commission-metric review-metric" href="#employee-review-orders"><span>รายการต้องตรวจสอบ</span><strong>{reviews.length.toLocaleString('th-TH')} <em>ออเดอร์</em></strong><small>ดูเหตุผลและเปิดตรวจสอบออเดอร์ →</small></a>
   </div>
   <div className="commission-section-title"><h2>ค่าคอมแต่ละประเภท</h2><p>ยอดรวมตลอดทั้งหมด แยกรอจ่ายและจ่ายแล้ว</p></div>
-  <div className="commission-category-grid">{data.categories.map(c=><article className="commission-category" key={c.kind}>
+  <div className="commission-category-grid">{data.categories.map(c=><article className="commission-category tone-income" key={c.kind}>
    <h3>{commissionKinds[c.kind]}</h3><span>รอจ่าย</span><strong>{money(c.pending)}</strong><p>จ่ายแล้ว <b>{money(c.paid)}</b></p><small>{c.waiting?`รอคำนวณ / ตรวจสอบ ${c.waiting} รายการ`:`ทั้งหมด ${c.count} รายการ`}</small>
    <Link href={href({kind:c.kind,status:'ALL',commissionMonth:'ALL'})}>ดูรายละเอียด <span aria-hidden="true">→</span></Link>
   </article>)}</div>

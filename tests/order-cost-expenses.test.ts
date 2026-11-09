@@ -25,3 +25,24 @@ test('product cost display combines a day while keeping original entries and cre
  const entries=[{...base,id:'a',description:'ต้นทุน A',amountSatang:10000},{...base,id:'b',description:'ต้นทุน B',amountSatang:5000,estimated:true},{...base,id:'credit',description:'คืนต้นทุน',amountSatang:-2000},{...base,id:'other',kind:'LINE' as const,description:'รายจ่ายอื่น',amountSatang:300}];
  const grouped=groupProductCostExpenses(entries);assert.equal(grouped.length,2);const cost=grouped.find(row=>row.kind==='PRODUCT_COST')!;assert.equal(cost.amountSatang,13000);assert.equal(cost.details?.length,3);assert.equal(cost.estimated,true);assert.equal(entries.length,4);assert.equal(grouped.reduce((sum,row)=>sum+row.amountSatang,0),13300);
 });
+
+test('daily expense groups combine each category without losing amounts or source records',async()=>{
+ const {groupExpensesByDay}=await import('../src/lib/stock-cost-expenses');
+ const base={date,recipient:null,bankName:null,bankAccount:null};
+ const entries=[
+  {...base,id:'line-a',kind:'LINE' as const,description:'ค่าไฟ',amountSatang:10000,rawText:'หลักฐานเดิม'},
+  {...base,id:'line-b',kind:'LINE' as const,description:'ค่าน้ำมัน',amountSatang:5000},
+  {...base,id:'freight',kind:'FREIGHT' as const,description:'ค่าส่ง',amountSatang:2000,tracking:'TRACK'},
+  {...base,id:'next-day',kind:'LINE' as const,date:new Date(+date+86400000),description:'ค่าไฟ',amountSatang:3000},
+ ];
+ const groups=groupExpensesByDay(entries);
+ assert.equal(groups.length,3);
+ const line=groups.find(group=>group.details?.some(entry=>entry.id==='line-a'))!;
+ assert.equal(line.amountSatang,15000);
+ assert.equal(line.details?.length,2);
+ assert.equal(line.details?.[0].rawText,'หลักฐานเดิม');
+ assert.equal(groups.find(group=>group.kind==='FREIGHT')?.details?.[0].tracking,'TRACK');
+ assert.equal(groups.reduce((sum,group)=>sum+group.amountSatang,0),20000);
+ assert.equal(groups.flatMap(group=>group.details??[]).length,entries.length);
+ assert.equal(entries.length,4);
+});

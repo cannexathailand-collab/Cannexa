@@ -16,8 +16,8 @@ export function AffiliatePerformanceTable({rows}:{rows:AffiliatePerformance[]}){
    <th>ค่าคอมพิเศษ</th><th>รายละเอียด</th>
   </tr></thead><tbody>{rows.map(r=><Fragment key={r.id}>
    <tr className={open===r.id?'is-expanded':''}><td><strong>{r.name}</strong><small>{r.code}</small></td>
-    {view==='sales'?<><td>{money(r.referredRevenueSatang)}<small>{r.referredCount} ออเดอร์</small></td><td>{money(r.closedRevenueSatang)}<small>{r.closedCount} ออเดอร์</small></td><td>{r.approved} คน</td><td className="affiliate-total">{money(r.totalCommissionSatang)}</td></>:<><td>{r.clicks}</td><td>{r.logins}</td><td>{r.approved}</td><td>{money(r.commissionSatang)}</td></>}
-    <td>{money(r.specialCommissionSatang)}<small>จ่ายแล้ว</small></td>
+    {view==='sales'?<><td className="tone-income">{money(r.referredRevenueSatang)}<small>{r.referredCount} ออเดอร์</small></td><td className="tone-income">{money(r.closedRevenueSatang)}<small>{r.closedCount} ออเดอร์</small></td><td>{r.approved} คน</td><td className="affiliate-total tone-expense">{money(r.totalCommissionSatang)}</td></>:<><td>{r.clicks}</td><td>{r.logins}</td><td>{r.approved}</td><td className="tone-expense">{money(r.commissionSatang)}</td></>}
+    <td className="tone-expense">{money(r.specialCommissionSatang)}<small>จ่ายแล้ว</small></td>
     <td><button type="button" className="affiliate-detail-button" aria-expanded={open===r.id} aria-controls={'affiliate-details-'+r.id} aria-label={(open===r.id?'ปิด':'ดู')+'รายละเอียด '+r.name} onClick={()=>setOpen(open===r.id?null:r.id)}>{open===r.id?'ปิด ↑':'ดูเพิ่ม ↓'}</button></td>
    </tr>
    {open===r.id&&<tr id={'affiliate-details-'+r.id}><td colSpan={7} className="affiliate-detail-cell"><div className="affiliate-detail-grid">

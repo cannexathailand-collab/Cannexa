@@ -8,7 +8,7 @@ export function SpecialCommissionButton({affiliateId,name,requestKey,today}:{aff
  <form action="/api/admin/review/special" method="post"><input type="hidden" name="affiliateId" value={affiliateId}/><input type="hidden" name="requestKey" value={requestKey}/>
  <div className="special-payment-fields"><label>จำนวนเงิน (บาท)<input name="amount" type="number" min="0.01" max="21474836.47" step="0.01" required value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0.00"/></label><label>วันที่จ่าย<input name="day" type="date" required min="2000-01-01" max={today} defaultValue={today}/></label></div>
  <label>เหตุผล / หมายเหตุ<textarea name="reason" required maxLength={500} rows={3} placeholder="เช่น โบนัสผลงานประจำเดือน"/></label>
- <div className="special-payment-total"><span>ยอดที่จะบันทึก</span><strong>฿{Math.max(0,Number(amount)||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
+ <div className="special-payment-total tone-expense"><span>ยอดที่จะบันทึก</span><strong>฿{Math.max(0,Number(amount)||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
  <label className="special-confirm"><input name="confirmed" type="checkbox" value="paid" required/> ยืนยันว่าจ่ายเงินจำนวนนี้ให้ {name} แล้ว</label>
  <div className="special-dialog-actions"><button type="button" className="secondary" onClick={()=>dialog.current?.close()}>ยกเลิก</button><button type="submit">ยืนยันบันทึกจ่ายแล้ว</button></div></form></dialog></>;
 }

@@ -1,6 +1,7 @@
 import "./globals.css";
 import "./workspace-ui.css";
 import "./popup-details.css";
+import "./financial-tones.css";
 import type {Metadata} from "next";
 import {Suspense} from "react";
 import {LiveUpdates} from "./live-updates";
