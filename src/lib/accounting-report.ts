@@ -23,6 +23,8 @@ export async function accountingReport(input:AccountingFilters={}){
  const missingCosts=ids.filter(id=>!postedIds.has(id)).length;
  const summary=summarizeAccounting(range,sales.income.daily.map(day=>({...day,revenueSatang:day.transferSatang+day.codSatang})),expenses.entries,input.view);
  const notices:string[]=[];
+ if(expenses.estimatedCostCount)notices.push('ต้นทุน '+expenses.estimatedCostCount+' ออเดอร์เป็นประมาณการก่อนจัดส่ง เมื่อบันทึกต้นทุนจริงจะใช้รายการเดิมแทนโดยไม่คิดซ้ำ');
+ if(expenses.missingOrderCostCount)notices.push('ยังคำนวณต้นทุนของ '+expenses.missingOrderCostCount+' ออเดอร์ไม่ได้ เพราะข้อมูลสินค้าหรือต้นทุนยังไม่ครบ');
  if(sales.income.unmatchedCount)notices.push('รับเงิน COD แล้ว '+sales.income.unmatchedCount+' รายการยังรอจับคู่ออเดอร์ โดยนับรายรับตามวันในรายงานอีเมล');
  if(missingCosts)notices.push('ยอดขาย '+missingCosts+' ออเดอร์ยังไม่มีต้นทุนสินค้าบันทึกสำเร็จ กำไรยังไม่ครบ');
  if(pendingStock)notices.push('รายการตัดสต๊อก '+pendingStock+' ออเดอร์ยังประมวลผลต้นทุนไม่สำเร็จ');
