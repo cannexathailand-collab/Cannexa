@@ -26,6 +26,9 @@ export function presentStockActivity(log:AuditLog){
   if(!d.name&&d.snapshot.name)event.summary.push('ชื่อ: '+d.snapshot.name);
   event.summary.push('ต้นทุนก่อนลบ: '+cost(d.snapshot.costSatang));
  }
+ if(log.action==='STOCK_PRODUCT_UPDATED'&&d.before&&d.after&&'receivedQuantity'in d.after){
+  event.summary.push('จำนวนรับ: '+quantity(d.before.receivedQuantity)+' → '+quantity(d.after.receivedQuantity),'คงเหลือ: '+quantity(d.before.remainingQuantity)+' → '+quantity(d.after.remainingQuantity));
+ }
  if(['STOCK_RESERVED','STOCK_RESERVATION_RELEASED','STOCK_ALREADY_COUNTED','STOCK_PENDING_RESTORED'].includes(log.action)){event.summary.push('ออเดอร์: '+d.orderNumber);if(Array.isArray(d.items))for(const i of d.items)event.summary.push(i.code+' · '+quantity(i.quantityMilliG/1000));}
  return event;
 }
