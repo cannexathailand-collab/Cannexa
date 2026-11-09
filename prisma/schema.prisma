@@ -518,6 +518,7 @@ model ManualShipmentImport {
 }
 
 model CodReceipt {
+ recipient String?
  tracking String @id
  importId String
  amountSatang Int

@@ -3,7 +3,7 @@ import {demoSalesRows} from "./sales-demo";
 import {db} from "./db";
 import {hasActualDispatch} from "./sales-recognition";
 import {bangkokDay,dayStart,salesRange,shiftDay,shiftMonth,compareRevenue} from "./sales-dates";
-type OrderInfo=Pick<OrderIntake,"id"|"orderNumber"|"sellerUsername"|"sellerCode"|"payment"|"status">;
+type OrderInfo=Pick<OrderIntake,"id"|"orderNumber"|"sellerUsername"|"sellerCode"|"payment"|"status">&{recipient?:string|null};
 type AffiliateInfo={id:string;name:string;code:string};
 export type SaleCustomer={code:string;legacy:boolean;referrerId:string|null;referrer:{name:string;code:string}|null;metaFbc:string|null};
 export type SaleRow=SalesOrder&{order:OrderInfo|null;affiliate:AffiliateInfo|null;shipment:Shipment|null;receipt:CodReceipt|null;customer?:SaleCustomer|null};
@@ -11,8 +11,8 @@ export function salesSources(rows:SaleRow[]){
  const source=(s:SaleRow)=>!s.customer?{key:'unknown',name:'ยังไม่ระบุแหล่งที่มา'}:s.customer.legacy?{key:'legacy',name:'ลูกค้าเก่า'}:s.customer.metaFbc||s.customer.referrer?.code==='meta-ad'?{key:'meta',name:'Meta'}:s.customer.referrerId?{key:'affiliate:'+s.customer.referrerId,name:(s.customer.referrer?.name??'Affiliate')+' · '+(s.customer.referrer?.code??'')}:{key:'unknown',name:'ยังไม่ระบุแหล่งที่มา'};
  return [...Map.groupBy(rows,s=>source(s).key)].map(([key,items])=>({key,name:source(items[0]).name,customers:new Set(items.flatMap(s=>s.customer?[s.customer.code]:[])).size,unknownCustomerOrders:items.filter(s=>!s.customer).length,orders:items.length,revenueSatang:items.reduce((n,s)=>n+s.revenueSatang,0)})).sort((a,b)=>b.revenueSatang-a.revenueSatang);
 }
-export type IncomeReceipt=CodReceipt&{order?:{id:string;orderNumber:string;sellerUsername:string|null;affiliateId:string|null}|null};
-export type IncomeRow={id:string;date:Date;method:'TRANSFER'|'COD';amountSatang:number;orderId:string|null;orderNumber:string|null;tracking:string|null;seller:string|null};
+export type IncomeReceipt=Omit<CodReceipt,'recipient'>&{recipient?:string|null;order?:{id:string;orderNumber:string;sellerUsername:string|null;affiliateId:string|null}|null};
+export type IncomeRow={recipient?:string|null;id:string;date:Date;method:'TRANSFER'|'COD';amountSatang:number;orderId:string|null;orderNumber:string|null;tracking:string|null;seller:string|null};
 export type SalesFilters={from?:string;to?:string;month?:string;payment?:string;seller?:string;affiliateId?:string;demo?:string;detail?:string};
 export function isRecognizedSale(s:SaleRow){
  return !!s.order&&!!s.shipment&&hasActualDispatch(s.shipment)&&!!s.recognizedAt&&s.recognizedAt.getTime()===s.shipment.dispatchedAt!.getTime()&&s.shipment.orderId===s.orderId&&s.tracking===s.shipment.tracking&&s.revenueSatang>0&&["PENDING","PAID","WAITING_COST"].includes(s.status)&&s.order.payment!=="เคลม"&&!['RETURNED','CANCELLED','WITHDRAWN'].includes(s.order.status)&&(s.paymentMethod==="TRANSFER"&&s.order.payment==="โอน"||(s.paymentMethod==="COD"&&s.order.payment==="COD"&&s.receipt?.tracking===s.tracking&&s.receipt.amountSatang===s.revenueSatang&&s.shipment.codSatang===s.revenueSatang));
@@ -37,7 +37,7 @@ export function analyzeSales(rows:SaleRow[],input:SalesFilters={},now=new Date()
  const orderTotals={count:orderRows.length,amountSatang:summary.revenueSatang+waitingCodSatang,transferCount,codCount:paidCodCount+waitingCod.length,codSatang:summary.codSatang+waitingCodSatang,paidCodCount};
  const receiptRows=incomeReceipts??rows.flatMap(s=>s.receipt?[{...s.receipt,order:s.order?{id:s.order.id,orderNumber:s.order.orderNumber,sellerUsername:s.order.sellerUsername,affiliateId:s.affiliateId}:null}]:[]);
  const receipts=[...new Map(receiptRows.map(receipt=>[receipt.tracking,receipt])).values()].filter(receipt=>receipt.amountSatang>0&&bangkokDay(receipt.reportAt)>=range.from&&bangkokDay(receipt.reportAt)<=range.to&&payment!=='TRANSFER'&&(!input.seller||receipt.order?.sellerUsername===input.seller)&&(!input.affiliateId||receipt.order?.affiliateId===input.affiliateId));
- const incomeRows:IncomeRow[]=[...summary.rows.filter(s=>s.paymentMethod==='TRANSFER').map(s=>({id:s.id,date:s.shipment!.dispatchedAt!,method:'TRANSFER' as const,amountSatang:s.revenueSatang,orderId:s.orderId,orderNumber:s.order!.orderNumber,tracking:s.tracking,seller:s.order!.sellerUsername})),...receipts.map(receipt=>({id:'receipt:'+receipt.tracking,date:receipt.reportAt,method:'COD' as const,amountSatang:receipt.amountSatang,orderId:receipt.order?.id??null,orderNumber:receipt.order?.orderNumber??null,tracking:receipt.tracking,seller:receipt.order?.sellerUsername??null}))].sort((a,b)=>+b.date-+a.date);
+ const incomeRows:IncomeRow[]=[...summary.rows.filter(s=>s.paymentMethod==='TRANSFER').map(s=>({id:s.id,date:s.shipment!.dispatchedAt!,method:'TRANSFER' as const,amountSatang:s.revenueSatang,orderId:s.orderId,orderNumber:s.order!.orderNumber,tracking:s.tracking,recipient:s.order!.recipient??null,seller:s.order!.sellerUsername})),...receipts.map(receipt=>({id:'receipt:'+receipt.tracking,recipient:receipt.recipient??null,date:receipt.reportAt,method:'COD' as const,amountSatang:receipt.amountSatang,orderId:receipt.order?.id??null,orderNumber:receipt.order?.orderNumber??null,tracking:receipt.tracking,seller:receipt.order?.sellerUsername??null}))].sort((a,b)=>+b.date-+a.date);
  const incomeByDay=new Map<string,{transferSatang:number;codSatang:number;count:number}>();
  for(const row of incomeRows){const day=bangkokDay(row.date),totals=incomeByDay.get(day)??{transferSatang:0,codSatang:0,count:0};if(row.method==='TRANSFER')totals.transferSatang+=row.amountSatang;else totals.codSatang+=row.amountSatang;totals.count++;incomeByDay.set(day,totals);}
  const incomeDaily=[];for(let day=range.from;day<=range.to;day=shiftDay(day,1))incomeDaily.push({day,...(incomeByDay.get(day)??{transferSatang:0,codSatang:0,count:0})});
@@ -50,7 +50,7 @@ export function analyzeSales(rows:SaleRow[],input:SalesFilters={},now=new Date()
 export async function loadSalesRows(){
  const sales=await db.salesOrder.findMany({where:{status:{in:["PENDING","PAID","WAITING_COST","WAITING_COD"]}},orderBy:[{recognizedAt:{sort:"desc",nulls:"last"}},{createdAt:"desc"}]});
  const ids=sales.map(s=>s.orderId);
- const [orders,affiliates,shipments,receipts]=await Promise.all([db.orderIntake.findMany({where:{id:{in:ids}},select:{id:true,orderNumber:true,sellerUsername:true,sellerCode:true,payment:true,status:true,customerCode:true}}),db.affiliate.findMany({where:{id:{in:[...new Set(sales.map(s=>s.affiliateId))]}},select:{id:true,name:true,code:true}}),db.shipment.findMany({where:{orderId:{in:ids}}}),db.codReceipt.findMany({where:{tracking:{in:sales.flatMap(s=>s.tracking?[s.tracking]:[])}}})]);
+ const [orders,affiliates,shipments,receipts]=await Promise.all([db.orderIntake.findMany({where:{id:{in:ids}},select:{id:true,orderNumber:true,sellerUsername:true,sellerCode:true,payment:true,status:true,customerCode:true,recipient:true}}),db.affiliate.findMany({where:{id:{in:[...new Set(sales.map(s=>s.affiliateId))]}},select:{id:true,name:true,code:true}}),db.shipment.findMany({where:{orderId:{in:ids}}}),db.codReceipt.findMany({where:{tracking:{in:sales.flatMap(s=>s.tracking?[s.tracking]:[])}}})]);
  const codes=orders.flatMap(o=>o.customerCode?[o.customerCode]:[]),customers=codes.length?await db.customer.findMany({where:{code:{in:codes}},select:{code:true,legacy:true,referrerId:true,metaFbc:true,referrer:{select:{name:true,code:true}}}}):[],byCustomer=new Map(customers.map(c=>[c.code,c]));
  const byOrder=new Map(orders.map(o=>[o.id,o])),byAffiliate=new Map(affiliates.map(a=>[a.id,a])),byShipment=new Map(shipments.map(s=>[s.orderId,s])),byReceipt=new Map(receipts.map(r=>[r.tracking,r]));
  const rows=sales.map(s=>({...s,customer:byCustomer.get(byOrder.get(s.orderId)?.customerCode??'')??null,order:byOrder.get(s.orderId)??null,affiliate:byAffiliate.get(s.affiliateId)??null,shipment:byShipment.get(s.orderId)??null,receipt:s.tracking?byReceipt.get(s.tracking)??null:null}));
@@ -60,8 +60,8 @@ export async function salesReport(input?:string|SalesFilters){
  if(typeof input!=="string"&&input?.demo==="1")return analyzeSales(demoSalesRows(),input);
  const filters=typeof input==='string'?{month:input}:input??{},now=new Date(),range=salesRange(filters,now);
  const [rows,receipts]=await Promise.all([loadSalesRows(),db.codReceipt.findMany({where:{reportAt:{gte:dayStart(range.from),lt:dayStart(shiftDay(range.to,1))}}})]);
- const shipments=await db.shipment.findMany({where:{tracking:{in:receipts.map(receipt=>receipt.tracking)}},select:{tracking:true,orderId:true}});
- const orders=await db.orderIntake.findMany({where:{id:{in:shipments.flatMap(shipment=>shipment.orderId?[shipment.orderId]:[])}},select:{id:true,orderNumber:true,sellerUsername:true,affiliateId:true}});
- const byOrder=new Map(orders.map(order=>[order.id,order])),byTracking=new Map(shipments.map(shipment=>[shipment.tracking,shipment.orderId]));
- return analyzeSales(rows,filters,now,receipts.map(receipt=>({...receipt,order:byOrder.get(byTracking.get(receipt.tracking)??'')??null})));
+ const shipments=await db.shipment.findMany({where:{tracking:{in:receipts.map(receipt=>receipt.tracking)}},select:{tracking:true,orderId:true,recipient:true}});
+ const orders=await db.orderIntake.findMany({where:{id:{in:shipments.flatMap(shipment=>shipment.orderId?[shipment.orderId]:[])}},select:{id:true,orderNumber:true,sellerUsername:true,affiliateId:true,recipient:true}});
+ const byOrder=new Map(orders.map(order=>[order.id,order])),byTracking=new Map(shipments.map(shipment=>[shipment.tracking,shipment]));
+ return analyzeSales(rows,filters,now,receipts.map(receipt=>({...receipt,recipient:receipt.recipient??byTracking.get(receipt.tracking)?.recipient??null,order:byOrder.get(byTracking.get(receipt.tracking)?.orderId??'')??null})));
 }

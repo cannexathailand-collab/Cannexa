@@ -93,3 +93,5 @@ test('a receipt waiting for an order keeps its original income date after matchi
  assert.deepEqual(report.income.daily,[{day:'2026-11-06',transferSatang:10000,codSatang:0,count:1},{day:'2026-11-07',transferSatang:0,codSatang:0,count:0},{day:'2026-11-08',transferSatang:0,codSatang:10000,count:1}]);
  assert.equal(report.income.daily.reduce((sum,day)=>sum+day.transferSatang+day.codSatang,0),report.income.amountSatang);
  });
+
+test('unmatched COD income keeps the recipient name from the email report',()=>{const receipt={tracking:'NAME',importId:'email',recipient:'ผู้รับตัวอย่าง',amountSatang:20000,reportAt:new Date('2026-11-08T03:00:00Z'),order:null};const report=analyzeSales([],{from:'2026-11-08',to:'2026-11-08'},new Date(),[receipt]);assert.equal(report.income.rows[0].recipient,'ผู้รับตัวอย่าง');assert.equal(report.income.rows[0].orderId,null);});
