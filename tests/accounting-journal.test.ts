@@ -1,4 +1,4 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {accountingJournal} from '../src/lib/accounting-journal';import type {SaleRow} from '../src/lib/sales-report';import type {ExpenseEntry} from '../src/lib/expense-report';
+import {test} from 'node:test';import assert from 'node:assert/strict';import {accountingJournal,journalGroups} from '../src/lib/accounting-journal';import type {SaleRow} from '../src/lib/sales-report';import type {ExpenseEntry} from '../src/lib/expense-report';
 test('journal records one sale, separate commissions, and a return credit with exact running net',()=>{
  const date=new Date('2026-11-07T01:00Z');const sales=[{id:'sale',recognizedAt:date,revenueSatang:100000,paymentMethod:'TRANSFER',order:{orderNumber:'ORDER'}}] as SaleRow[];
  const expenses=[{id:'a',kind:'SALE',date:new Date(+date+1000),description:'ผู้แนะนำ',amountSatang:5000},{id:'b',kind:'SALE',date:new Date(+date+2000),description:'ผู้ปิด',amountSatang:3000},{id:'refund',kind:'PRODUCT_COST',date:new Date(+date+3000),description:'คืนต้นทุน',amountSatang:-1000}] as ExpenseEntry[];
@@ -11,3 +11,11 @@ test('income journal uses the received date and separates product cost from othe
  assert.equal(rows.find(row=>row.kind==='PRODUCT_COST')?.expenseSatang,30000);
  assert.equal(rows.at(-1)?.balanceSatang,65000);
 });
+
+ test('daily journal grouping consolidates matching categories without changing totals',()=>{
+ const date=new Date('2026-11-09T01:00Z');
+ const rows=accountingJournal([{id:'a',date,method:'COD',amountSatang:10000,orderId:null,orderNumber:null,tracking:'a',seller:null},{id:'b',date,method:'COD',amountSatang:20000,orderId:null,orderNumber:null,tracking:'b',seller:null},{id:'c',date,method:'TRANSFER',amountSatang:5000,orderId:'c',orderNumber:'C',tracking:null,seller:null}],[{id:'cost',kind:'PRODUCT_COST',date,description:'ต้นทุน',amountSatang:3000}] as ExpenseEntry[]);
+ const groups=journalGroups(rows);
+ assert.equal(groups.length,3);assert.equal(groups.find(group=>group.key==='COD')?.entries.length,2);assert.equal(groups.find(group=>group.key==='COD')?.incomeSatang,30000);
+ assert.equal(groups.reduce((sum,group)=>sum+group.incomeSatang-group.expenseSatang,0),32000);
+ });
