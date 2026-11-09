@@ -34,6 +34,8 @@ export function OrderDraftBuilder({seller,initialTemplates,canManage=false,direc
  const successDialog=useRef<HTMLDialogElement>(null);
  const [team,setTeam]=useState(''),[directSaving,setDirectSaving]=useState(false),[directSaved,setDirectSaved]=useState<{orderId:string;orderNumber:string}|null>(null);
  const directRequest=useRef<{fingerprint:string;key:string}|null>(null),directSending=useRef(false);
+ const [slip,setSlip]=useState(''),[slipName,setSlipName]=useState(''),[readingSlip,setReadingSlip]=useState(false);
+ const slipReader=useRef<FileReader|null>(null);
  useEffect(()=>{if(resultVisible&&ready&&!busy&&!resultDialog.current?.open)resultDialog.current?.showModal();else if(!resultVisible)resultDialog.current?.close();},[resultVisible,ready,busy]);
  const dataIssues=[...orderDraftIssues(draft,{requireCustomerCode:false}),...Object.values(parseIssues),...(directOrders&&draft.payment==='เคลม'?['เลือกชำระเงินเป็น COD หรือโอน']:[]),...(lookupIssue?[lookupIssue]:[]),...(addressComparison&&!addressChoice?['เลือกที่อยู่จัดส่งจากสองรายการก่อนคัดลอก']:[])];
  const customerPromptReady=!draft.customerCode&&dataIssues.length===0;
@@ -60,7 +62,7 @@ export function OrderDraftBuilder({seller,initialTemplates,canManage=false,direc
  },[ready,busy,customerPromptReady,draft.phone,identityRequest]);
  const formatIssues=dataIssues.filter(issue=>issue?.includes('เบอร์โทร')||issue?.includes('ไปรษณีย์'));
  const selected=templates.find(t=>t.id===templateId)??templates[0],preview=renderOrderDraft(selected?.body??defaultOrderTemplate,draft),issues=[...dataIssues,...(!draft.customerCode?['ต้องมีรหัสลูกค้าก่อนคัดลอกข้อความ']:[])];
- function field(key:keyof OrderDraft,value:string){setDraft(d=>({...d,[key]:value,...(key==='customerCode'?{points:''}:{})}));setParseIssues(previous=>{const next={...previous};delete next[key];return next;});setCopied(false);if(key==='customerCode')setLookupIssue('');if(key==='address'&&addressComparison)setAddressChoice('custom');if(key==='phone'&&!draft.customerCode){setCustomerOptions([]);setIdentityStatus('idle');}}
+ function field(key:keyof OrderDraft,value:string){if(key==='payment'&&value!=='โอน')readSlip();setDraft(d=>({...d,[key]:value,...(key==='customerCode'?{points:''}:{})}));setParseIssues(previous=>{const next={...previous};delete next[key];return next;});setCopied(false);if(key==='customerCode')setLookupIssue('');if(key==='address'&&addressComparison)setAddressChoice('custom');if(key==='phone'&&!draft.customerCode){setCustomerOptions([]);setIdentityStatus('idle');}}
  async function writeClipboard(text=preview,customerCode=draft.customerCode){if(!customerCode.trim()||dataIssues.length){setNotice('ต้องมีรหัสลูกค้าที่ถูกต้องและข้อมูลครบก่อนคัดลอกข้อความ');return false;}try{await navigator.clipboard.writeText(text);setCopied(true);return true;}catch{setNotice('คัดลอกอัตโนมัติไม่ได้ เปิดข้อความด้านล่างแล้วเลือกคัดลอกได้');return false;}}
  function dismissCustomer(){setIdentityStatus('dismissed');customerDialog.current?.close();}
  function openCustomer(){
@@ -71,10 +73,11 @@ export function OrderDraftBuilder({seller,initialTemplates,canManage=false,direc
  }
  async function copy(){if(!draft.customerCode){setNotice('ต้องมีรหัสลูกค้าก่อนคัดลอกข้อความ');return;}await writeClipboard();}
  async function submitDirectOrder(){
-  if(!directOrders||directSending.current||issues.length||!team)return;
+  if(!directOrders||directSending.current||readingSlip||issues.length||!team)return;
+  if(draft.payment==='โอน'&&!slip){setNotice('กรุณาแนบรูปหลักฐานการโอนเงิน');return;}
   const stock=orderStockItems('สินค้า\n'+draft.products),amountSatang=moneySatang(draft.amount);
   if(stock.issues.length||amountSatang===null){setNotice(stock.issues.join(' · ')||'กรุณาตรวจยอดเงิน');return;}
-  const payload={groupId:team,sellerCode:draft.seller,customerCode:draft.customerCode,recipient:draft.recipient,phone:draft.phone,address:draft.address,payment:draft.payment,amountSatang,items:stock.items.map(item=>({code:item.code,grams:item.quantityMilliG/1000}))};
+  const payload={groupId:team,sellerCode:draft.seller,customerCode:draft.customerCode,recipient:draft.recipient,phone:draft.phone,address:draft.address,payment:draft.payment,amountSatang,items:stock.items.map(item=>({code:item.code,grams:item.quantityMilliG/1000})),...(draft.payment==='โอน'?{slip}:{})};
   const fingerprint=JSON.stringify(payload);
   if(directRequest.current?.fingerprint!==fingerprint)directRequest.current={fingerprint,key:crypto.randomUUID()};
   directSending.current=true;setDirectSaving(true);setNotice('');
@@ -83,6 +86,23 @@ export function OrderDraftBuilder({seller,initialTemplates,canManage=false,direc
    const result=await response.json();if(!response.ok){directRequest.current=null;throw Error(result.error);}
    setDirectSaved(result);setNotice('บันทึกออเดอร์ '+result.orderNumber+' แล้ว'+(result.status==='NEEDS_REVIEW'?' · มีข้อมูลที่ต้องตรวจสอบ':''));
   }catch(error){setNotice(error instanceof Error?error.message:'ยังยืนยันผลไม่ได้ กรุณาลองบันทึกอีกครั้ง');}finally{directSending.current=false;setDirectSaving(false);}
+ }
+ function readSlip(file?:File){
+  slipReader.current?.abort();slipReader.current=null;setSlip('');setSlipName('');setReadingSlip(false);
+  if(!file)return;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>2*1024*1024){setNotice('รูปสลิปต้องเป็น JPG, PNG หรือ WebP ขนาดไม่เกิน 2 MB');return;}
+  const reader=new FileReader();slipReader.current=reader;setReadingSlip(true);
+  reader.onload=async()=>{
+   try{
+    if(typeof reader.result!=='string')throw Error();
+    const image=new Image();image.src=reader.result;await image.decode();
+    if(slipReader.current!==reader)return;
+    setSlip(reader.result);setSlipName(file.name);
+   }catch{if(slipReader.current===reader)setNotice('อ่านรูปสลิปไม่ได้ กรุณาเลือกไฟล์ใหม่');}
+   finally{if(slipReader.current===reader)setReadingSlip(false);}
+  };
+  reader.onerror=()=>{if(slipReader.current===reader){setNotice('อ่านรูปสลิปไม่ได้ กรุณาเลือกไฟล์ใหม่');setReadingSlip(false);}};
+  reader.readAsDataURL(file);
  }
  async function useCustomer(code:string){setIdentityBusy(true);setIdentityError('');try{
   const {response,data}=await draftRequest('/api/order-drafts/customer',{code});if(!response.ok){setIdentityError(data.error);return;}
@@ -103,7 +123,7 @@ export function OrderDraftBuilder({seller,initialTemplates,canManage=false,direc
  }catch(error){setIdentityError((error instanceof Error?error.message:'ยังยืนยันผลการสร้างไม่ได้')+' ระบบจะตรวจลูกค้าเดิมก่อนทำรายการซ้ำ');}finally{setIdentityBusy(false);}}
  async function analyze(){
   setBusy(true);setCopied(false);setCreationResult(null);setNotice('');setLookupIssue('');setAddressComparison(null);setAddressChoice('');setCustomerOptions([]);setIdentityStatus('idle');setIdentityError('');
-  setDirectSaved(null);directRequest.current=null;
+  setDirectSaved(null);directRequest.current=null;readSlip();
   const analysis=analyzeOrderDraft(source),parsed=analysis.fields,next={...emptyOrderDraft,...parsed,seller:directOrders?parsed.seller||draft.seller:seller,points:''};delete analysis.issues.points;setParseIssues(analysis.issues);if(!parsed.customerCode&&!analysis.issues.customerCode&&lookup.trim())parsed.customerCode=lookup.trim().toUpperCase();next.customerCode=parsed.customerCode??'';let info=directOrders?'จัดข้อมูลแล้ว ตรวจรายละเอียดและเลือกทีมก่อนบันทึกออเดอร์':'จัดข้อมูลแล้ว ตรวจคอลัมน์ด้านล่างก่อนคัดลอก';
   if(parsed.customerCode){try{const {response,data}=await draftRequest('/api/order-drafts/customer',{code:parsed.customerCode});if(response.ok){requireCustomerCode(data);next.customerCode=data.customerCode;next.points=customerPoints(data.points);next.recipient=analysis.issues.recipient?'':parsed.recipient||data.recipient;next.phone=analysis.issues.phone?'':parsed.phone||data.phone;next.address=analysis.issues.address?'':parsed.address||data.address;if(differentDraftAddress(parsed.address??'',data.address??''))setAddressComparison({incoming:parsed.address!,stored:data.address});info='จัดข้อมูลและเติมข้อมูลจากรหัสลูกค้าแล้ว ตรวจที่อยู่ สินค้า และยอดเงินสำหรับครั้งนี้';}else{setLookupIssue(data.error);info=data.error;}}catch(error){const message=error instanceof Error?error.message:'ยังตรวจรหัสลูกค้าไม่ได้';setLookupIssue(message);info=message;}}
   setDraft(next);setReady(true);setResultVisible(true);setNotice(info);setIdentityRequest(value=>value+1);setBusy(false);
@@ -125,10 +145,15 @@ export function OrderDraftBuilder({seller,initialTemplates,canManage=false,direc
    {formatIssues.length>0&&<div className="draft-format-alert" role="alert"><strong>กรุณาตรวจสอบข้อมูล</strong><ul>{formatIssues.map(issue=><li key={issue}>{issue}</li>)}</ul></div>}
    {addressComparison&&<fieldset className="draft-address-compare"><legend>ที่อยู่ในข้อความต่างจากข้อมูลเดิม</legend><p>ลูกค้าอาจส่งไปที่อยู่ใหม่ โปรดเลือกที่อยู่สำหรับออเดอร์นี้</p><div>{([['incoming','ใช้ที่อยู่จากข้อความลูกค้า',addressComparison.incoming],['stored','ใช้ที่อยู่ที่บันทึกไว้',addressComparison.stored]] as const).map(([choice,label,address])=><label key={choice} className={addressChoice===choice?'selected':''}><span><input type="radio" name="address-choice" checked={addressChoice===choice} onChange={()=>{setAddressChoice(choice);setDraft(d=>({...d,address}));setCopied(false);}}/>{label}</span><pre>{address}</pre></label>)}</div>{addressChoice==='custom'&&<p>ใช้ที่อยู่ที่คุณแก้ไขในคอลัมน์ด้านล่าง</p>}<small>การเลือกนี้ใช้เฉพาะข้อความส่งงาน ไม่เปลี่ยนที่อยู่เดิมในระบบ</small></fieldset>}
    <table><thead><tr><th>หัวข้อ</th><th>ข้อมูลสำหรับส่งงาน <span>แก้ไขได้</span></th></tr></thead><tbody>{columns.map(key=><tr key={key} className={!draft[key]&&key!=='points'?'draft-missing':''}><th scope="row">{draftFields[key]}{key==='customerCode'&&<small>จำเป็น</small>}</th><td>{key==='payment'?<select aria-label={draftFields[key]} disabled={directSaving||!!directSaved} value={draft[key]} onChange={e=>field(key,e.target.value)}><option value="">เลือกวิธีชำระเงิน</option><option>COD</option><option>โอน</option>{!directOrders&&<option>เคลม</option>}</select>:key==='address'||key==='products'?<textarea aria-label={draftFields[key]} disabled={directSaving||!!directSaved} rows={key==='address'?3:2} value={draft[key]} onChange={e=>field(key,e.target.value)} maxLength={2000}/>:<input aria-label={draftFields[key]} disabled={directSaving||!!directSaved} list={directOrders&&key==='seller'?'direct-order-sellers':undefined} readOnly={key==='points'||key==='customerCode'} placeholder={key==='points'?'รอดึงข้อมูลลูกค้า':undefined} type={key==='amount'?'number':key==='phone'?'tel':'text'} inputMode={key==='amount'?'decimal':undefined} min={key==='amount'?'0':undefined} step={key==='amount'?'0.01':undefined} value={draft[key]} onChange={e=>field(key,e.target.value)} maxLength={key==='amount'?undefined:200}/>}</td></tr>)}</tbody></table>
+   {directOrders&&draft.payment==='โอน'&&<div style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap',marginTop:16}}>
+    <label style={{flex:1,minWidth:180}}>แนบรูปหลักฐานการโอนเงิน<input type="file" accept="image/jpeg,image/png,image/webp" disabled={directSaving||!!directSaved} onChange={event=>readSlip(event.target.files?.[0])}/><small>JPG, PNG หรือ WebP ไม่เกิน 2 MB</small></label>
+    {slip&&<img src={slip} alt="ตัวอย่างหลักฐานการโอนเงิน" style={{width:90,height:90,objectFit:'contain',border:'1px solid #dce7df',borderRadius:8}}/>}
+    {slipName&&<small>{slipName}</small>}
+   </div>}
    {issues.length>0&&<p className="draft-validation">{issues.join(' · ')}</p>}
    <details className="draft-copy-preview"><summary>{directOrders?'ดูข้อมูลออเดอร์ที่แยกได้':'ดูข้อความที่จะคัดลอก'}</summary><pre>{preview}</pre></details>
    <p className="small muted">{directOrders?'ตรวจชื่อ เบอร์ ที่อยู่ สินค้า และยอดเงินก่อนกดบันทึกออเดอร์':'คัดลอกแล้วนำไปวางในกลุ่มส่งงาน ยังไม่บันทึกเป็นออเดอร์จนกว่าจะส่งให้บอทตามปกติ'}</p>
-  </section><footer className="draft-result-footer"><span role="status">{dataIssues.length?dataIssues[0]:identityBusy?'กำลังค้นหาลูกค้า…':!draft.customerCode?identityStatus==='error'?'ค้นหาไม่สำเร็จ กดสร้างรหัสลูกค้าเพื่อลองใหม่':'ยังไม่มีรหัสลูกค้า กดสร้างรหัสลูกค้า':directOrders?'พร้อมบันทึกออเดอร์':'พร้อมนำไปวางในกลุ่มส่งงาน'}</span><div className="draft-result-actions"><button type="button" className="secondary" disabled={!!draft.customerCode&&!lookupIssue||identityBusy} title={draft.customerCode&&!lookupIssue?'มีรหัสลูกค้าแล้ว':undefined} onClick={openCustomer}>สร้างรหัสลูกค้า</button><button type="button" disabled={issues.length>0||identityBusy||!!directOrders&&(!team||directSaving||!!directSaved)} onClick={directOrders?submitDirectOrder:copy}>{directOrders?(directSaving?'กำลังบันทึก…':directSaved?'บันทึกแล้ว':'บันทึกออเดอร์'):(copied?'คัดลอกแล้ว ✓':'คัดลอกข้อความ')}</button>{directSaved&&<Link className="button" href={'/admin/orders/list/'+directSaved.orderId}>เปิดออเดอร์</Link>}</div></footer></dialog>}
+  </section><footer className="draft-result-footer"><span role="status">{dataIssues.length?dataIssues[0]:identityBusy?'กำลังค้นหาลูกค้า…':!draft.customerCode?identityStatus==='error'?'ค้นหาไม่สำเร็จ กดสร้างรหัสลูกค้าเพื่อลองใหม่':'ยังไม่มีรหัสลูกค้า กดสร้างรหัสลูกค้า':directOrders?'พร้อมบันทึกออเดอร์':'พร้อมนำไปวางในกลุ่มส่งงาน'}</span><div className="draft-result-actions"><button type="button" className="secondary" disabled={!!draft.customerCode&&!lookupIssue||identityBusy} title={draft.customerCode&&!lookupIssue?'มีรหัสลูกค้าแล้ว':undefined} onClick={openCustomer}>สร้างรหัสลูกค้า</button><button type="button" disabled={issues.length>0||identityBusy||!!directOrders&&(!team||directSaving||readingSlip||!!directSaved||draft.payment==='โอน'&&!slip)} onClick={directOrders?submitDirectOrder:copy}>{directOrders?(directSaving?'กำลังบันทึก…':directSaved?'บันทึกแล้ว':'บันทึกออเดอร์'):(copied?'คัดลอกแล้ว ✓':'คัดลอกข้อความ')}</button>{directSaved&&<Link className="button" href={'/admin/orders/list/'+directSaved.orderId}>เปิดออเดอร์</Link>}</div></footer></dialog>}
   {ready&&<dialog ref={customerDialog} className="draft-customer-dialog" aria-labelledby="draft-customer-title" onCancel={e=>{e.preventDefault();if(!identityBusy)dismissCustomer();}}>
    <header><h2 id="draft-customer-title">{customerOptions.length?'เลือกลูกค้าที่ตรงกัน':'สร้างรหัสลูกค้าใหม่หรือไม่?'}</h2><button type="button" className="secondary" disabled={identityBusy} aria-label="ปิดคำถามรหัสลูกค้า" onClick={dismissCustomer}>ปิด ×</button></header>
    {identityError&&<p className="draft-notice" role="alert">{identityError}</p>}

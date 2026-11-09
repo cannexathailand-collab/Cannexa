@@ -401,6 +401,7 @@ model OrderBot {
 }
 
 model OrderIntake {
+ paymentSlip OrderPaymentSlip?
  id String @id @default(cuid())
  loyaltySnapshot Json?
  customerCode String?
@@ -433,6 +434,15 @@ model OrderIntake {
  @@index([groupKey, createdAt])
  @@index([customerCode])
  @@index([sellerUsername, createdAt])
+}
+
+model OrderPaymentSlip {
+ orderId String @id
+ order OrderIntake @relation(fields:[orderId],references:[id],onDelete:Cascade)
+ data Bytes
+ mime String
+ version String
+ createdAt DateTime @default(now())
 }
 
 model OrderMessageWithdrawal {

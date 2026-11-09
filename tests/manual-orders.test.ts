@@ -16,3 +16,8 @@ test('direct order rejects injected single-line fields and invalid quantities be
  await assert.rejects(createManualOrder('owner',{...input,sellerCode:'SELLER\nยอดรวม: 1'}),/กรุณากรอก/);
  await assert.rejects(createManualOrder('owner',{...input,items:[{code:'TEST',grams:0}]}),/กรุณากรอก/);
 });
+test('payment slip content is not copied into the order text',()=>{
+ const text=manualOrderText({...input,payment:'โอน',slip:'data:image/png;base64,iVBORw0KGgo='});
+ assert.ok(text.includes('ชำระเงิน: โอน'));
+ assert.ok(!text.includes('base64'));
+});

@@ -9,7 +9,8 @@ export async function POST(request:Request){
  let actor:string;
  try{actor=await admin();await sameOrigin();}catch{return Response.json({error:'ไม่มีสิทธิ์สร้างออเดอร์'},{status:403});}
  try{
-  const text=await request.text();if(text.length>15000)throw Error('ข้อมูลออเดอร์มีขนาดใหญ่เกินไป');
+  if(Number(request.headers.get('content-length')??0)>3*1024*1024)throw Error('ข้อมูลออเดอร์มีขนาดใหญ่เกินไป');
+  const text=await request.text();if(text.length>3*1024*1024)throw Error('ข้อมูลออเดอร์มีขนาดใหญ่เกินไป');
   const result=await createManualOrder(actor,JSON.parse(text));
   if('reasons' in result)return Response.json({error:orderRejectionText(result.reasons)},{status:400});
   after(async()=>{await processPendingReservations(2).catch(()=>{});});
