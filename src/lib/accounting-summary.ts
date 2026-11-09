@@ -3,7 +3,7 @@ import type {ExpenseEntry} from './expense-report';
 import {csvCell} from './policy';
 import type {JournalRow} from './accounting-journal';
 
-export type AccountingFilters={from?:string;to?:string;month?:string;view?:string};
+export type AccountingFilters={from?:string;to?:string;month?:string;view?:string;incomeType?:string;incomeDay?:string};
 export type AccountingRange={from:string;to:string};
 export type RevenueDay={day:string;count:number;revenueSatang:number;transferSatang:number;codSatang:number};
 export type AccountingRow=RevenueDay&{productCostSatang:number;lineSatang:number;recurringSatang:number;freightSatang:number;commissionSatang:number;expenseSatang:number;profitSatang:number};
