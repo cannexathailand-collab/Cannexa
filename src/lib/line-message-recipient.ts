@@ -22,7 +22,10 @@ export function decryptLineRecipient(encrypted:string,botId:string,lineUserKey:s
  return Buffer.concat([cipher.update(data.subarray(28)),cipher.final()]).toString('utf8');
 }
 
-export async function saveLineMessageRecipient(lineUserKey:string,botId:string,userId:string){
+export async function saveLineMessageRecipient(lineUserKey:string,botId:string,userId:string,observation:{friendFlag?:boolean|null;at?:Date;messageAt?:Date}={}){
  const encryptedUserId=encryptLineRecipient(userId,botId,lineUserKey);
  await db.lineMessageRecipient.upsert({where:{lineUserKey},create:{lineUserKey,botId,encryptedUserId},update:{botId,encryptedUserId}});
+ const at=observation.at??new Date();
+ if(typeof observation.friendFlag==='boolean')await db.lineMessageRecipient.updateMany({where:{lineUserKey,OR:[{friendshipAt:null},{friendshipAt:{lte:at}}]},data:{friendFlag:observation.friendFlag,friendshipAt:at}});
+ if(observation.messageAt)await db.lineMessageRecipient.updateMany({where:{lineUserKey,OR:[{lastMessageAt:null},{lastMessageAt:{lt:observation.messageAt}}]},data:{lastMessageAt:observation.messageAt}});
 }

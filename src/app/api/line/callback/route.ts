@@ -33,7 +33,7 @@ export async function GET(req:NextRequest){
   const result=await exchange(code,a.verifier,a.nonce,connection.settings);
   const changed=req.nextUrl.searchParams.get("friendship_status_changed");
   const key=userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?result.userId:connection.settings.botId+":"+result.userId);
-  await saveLineMessageRecipient(key,connection.settings.botId,result.userId);
+  await saveLineMessageRecipient(key,connection.settings.botId,result.userId,{friendFlag:result.friendFlag});
   if(marketingLogin){
    if(!a.clickId)throw Error('Missing marketing click');
    const click=await db.click.findUnique({where:{id:a.clickId},select:{customerLanding:true}});

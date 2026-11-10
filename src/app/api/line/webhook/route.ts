@@ -27,9 +27,9 @@ export async function POST(req:NextRequest){
  const intakeBot=parsed.data.events.some(e=>e.source.type==="group")?await db.orderBot.findUnique({where:{botId:connection.settings.botId},select:{active:true,encrypted:true,receiveOrders:true}}):null;
  const orders:string[]=[];
  for(const e of parsed.data.events){
-  if(e.source.type==='user'&&e.source.userId&&['message','follow'].includes(e.type)){
+  if(e.source.type==='user'&&e.source.userId&&['message','follow','unfollow'].includes(e.type)){
    const recipientKey=userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?e.source.userId:connection.settings.botId+':'+e.source.userId);
-   await saveLineMessageRecipient(recipientKey,connection.settings.botId,e.source.userId);
+   await saveLineMessageRecipient(recipientKey,connection.settings.botId,e.source.userId,{at:new Date(e.timestamp),friendFlag:e.type==='follow'?true:e.type==='unfollow'?false:undefined,messageAt:e.type==='message'?new Date(e.timestamp):undefined});
   }
   if(e.source.type==='user'&&e.source.userId&&e.type==='message'&&e.message?.type==='text'){
    const bound=await bindProfitReportRecipient({botId:connection.settings.botId,userId:e.source.userId,text:e.message.text??''});

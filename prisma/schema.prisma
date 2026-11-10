@@ -180,6 +180,20 @@ model LineMessageRecipient {
  botId String
  encryptedUserId String
  updatedAt DateTime @updatedAt
+ friendFlag Boolean?
+ friendshipAt DateTime?
+ lastMessageAt DateTime?
+}
+
+model CustomerLineMessage {
+ id String @id
+ customerCode String
+ lineUserKey String
+ botId String
+ payloadHash String
+ status String @default("PENDING")
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
 }
 
 model Customer {
