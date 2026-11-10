@@ -179,6 +179,7 @@ model Customer {
  portalRegistrationPending Boolean @default(false)
  portalProfileIncomplete Boolean @default(false)
  portalUsername String? @unique
+  discoverySource String?
  portalPasswordSalt String?
  portalPasswordHash String?
  code String @id @default(dbgenerated("customer_code()"))

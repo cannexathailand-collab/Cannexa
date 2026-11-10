@@ -3,6 +3,11 @@ export const customerLanguageCookie='cannexa_customer_language';
 export function readCustomerLanguage(value:string|undefined):CustomerLanguage|null{return value==='th'||value==='en'?value:null;}
 
 const english:Record<string,string>={
+ "คุณรู้จักเราจากช่องทางไหน":"How did you hear about us?",
+ "เลือกช่องทาง (ไม่บังคับ)":"Select a channel (optional)",
+ "กรุณาเลือกช่องทางที่รู้จักเรา":"Please select how you heard about us",
+ "เว็บไซต์":"Website",
+ "อื่น ๆ":"Other",
  "เลือกที่อยู่จัดส่ง":"Choose a delivery address",
  "กรอกที่อยู่ใหม่":"Enter a new address",
  "เพิ่มได้หลายเบอร์ คั่นด้วย / แต่ละเบอร์ 10 หลัก":"Add multiple 10-digit phone numbers, separated by /",

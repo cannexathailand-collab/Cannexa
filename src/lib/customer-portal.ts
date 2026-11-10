@@ -1,4 +1,6 @@
 import {customerUsername} from './customer-username';
+import {customerDiscoverySource} from './customer-discovery-source';
+import type {Prisma} from '@prisma/client';
 import {canonicalCustomerCode} from './customer-code';
 import {cookies} from 'next/headers';
 import {db,transaction,userLock} from './db';
@@ -92,8 +94,20 @@ export async function linkPortalCustomer(key:string,linkHash?:string|null){
   return saved;
  });
 }
-export async function savePortalProfile(key:string|null,input:Parameters<typeof portalProfile>[0]&{referrerCode?:unknown;username?:unknown},customerCode?:string){
+async function findCustomerReferrer(tx:Prisma.TransactionClient,value:unknown){
+ if(!value)return null;
+ if(typeof value!=='string'||value.length>100)throw Error('กรุณาตรวจสอบรหัสผู้แนะนำ');
+ const code=value.trim();
+ if(!code)return null;
+ const matches=await tx.affiliate.findMany({where:{code:{equals:code,mode:'insensitive'},active:true,archivedAt:null},select:{id:true},take:2});
+ if(matches.length!==1)throw Error('กรุณาตรวจสอบรหัสผู้แนะนำ ไม่พบรหัสที่ใช้งานได้');
+ return matches[0].id;
+}
+
+export async function savePortalProfile(key:string|null,input:Parameters<typeof portalProfile>[0]&{referrerCode?:unknown;username?:unknown;discoverySource?:unknown},customerCode?:string){
  const data=portalProfile(input);
+ const discoverySource=customerDiscoverySource(input.discoverySource);
+ const sourceData=discoverySource===undefined?{}:{discoverySource};
  return transaction(async tx=>{
   if(!key&&!customerCode)throw Error('UNAUTHORIZED');
   await userLock(tx,key??'customer-profile:'+customerCode);
@@ -110,24 +124,19 @@ export async function savePortalProfile(key:string|null,input:Parameters<typeof 
   for(const phone of validContactPhones(data.phone)!.sort())await userLock(tx,'draft-customer-phone:'+phone);
   let referrerId:string|null=null;
   if((!existing||existing.portalProfileIncomplete&&!existing.referrerId)&&input.referrerCode){
-   if(typeof input.referrerCode!=='string'||input.referrerCode.length>100)throw Error('กรุณาตรวจสอบรหัสผู้แนะนำ');
-   const code=input.referrerCode.trim();
-   if(code){
-    const matches=await tx.affiliate.findMany({where:{code:{equals:code,mode:'insensitive'},active:true,archivedAt:null},select:{id:true},take:2});
-    if(matches.length!==1)throw Error('กรุณาตรวจสอบรหัสผู้แนะนำ ไม่พบรหัสที่ใช้งานได้');
-    referrerId=matches[0].id;
-   }
+   referrerId=await findCustomerReferrer(tx,input.referrerCode);
   }
   const matches=await matchingCustomerPhones(tx,data.phone);
   if(matches.some(row=>row.code!==existing?.code))throw Error('EXISTING_CUSTOMER');
   const identityKey=customerIdentity(data.name,data.phone);
-  const saved=existing?await tx.customer.update({where:{code:existing.code},data:{...data,identityKey,portalUsername:username,...(existing.portalProfileIncomplete?{portalProfileIncomplete:false,portalRegistrationPending:true,...(referrerId?{referrerId}:{})}:{})}}):await tx.customer.create({data:{...data,identityKey,portalUsername:username,lineUserKey:key,portalRegistrationPending:true,referrerId}});
+  const saved=existing?await tx.customer.update({where:{code:existing.code},data:{...data,...sourceData,identityKey,portalUsername:username,...(existing.portalProfileIncomplete?{portalProfileIncomplete:false,portalRegistrationPending:true,...(referrerId?{referrerId}:{})}:{})}}):await tx.customer.create({data:{...data,...sourceData,identityKey,portalUsername:username,lineUserKey:key,portalRegistrationPending:true,referrerId}});
   await tx.auditLog.create({data:{actor:'customer',action:existing?'CUSTOMER_PROFILE_UPDATED':'CUSTOMER_REGISTERED',entityId:saved.code,details:{source:'customer-portal'}}});
   return saved;
  });
 }
 
-export async function savePortalPhone(key:string|null,phoneInput:unknown,customerCode?:string){
+export async function savePortalPhone(key:string|null,phoneInput:unknown,customerCode?:string,sourceInput?:unknown,referrerInput?:unknown){
+ const discoverySource=customerDiscoverySource(sourceInput);
  const phones=typeof phoneInput==='string'?validContactPhones(phoneInput):null;
  if(!phones||phones.length!==1)throw Error('กรุณากรอกเบอร์โทรให้ครบ 10 หลัก');
  const phone=phones[0];
@@ -144,7 +153,8 @@ export async function savePortalPhone(key:string|null,phoneInput:unknown,custome
   await userLock(tx,'draft-customer-phone:'+phone);
   const matches=await matchingCustomerPhones(tx,phone);
   if(matches.some(row=>row.code!==customer.code))throw Error('EXISTING_CUSTOMER');
-  const saved=await tx.customer.update({where:{code:customer.code},data:{phone,portalProfileIncomplete:false,portalRegistrationPending:false}});
+  const referrerId=customer.referrerId??await findCustomerReferrer(tx,referrerInput);
+  const saved=await tx.customer.update({where:{code:customer.code},data:{phone,referrerId,...(discoverySource===undefined?{}:{discoverySource}),portalProfileIncomplete:false,portalRegistrationPending:false}});
   await tx.auditLog.create({data:{actor:'customer',action:'CUSTOMER_PHONE_REGISTERED',entityId:saved.code,details:{source:key?'line-login':'password-login'}}});
   return saved;
  });

@@ -1,10 +1,11 @@
 'use client';
 import {useCustomerLanguage} from '@/app/customer/language';
+import {customerDiscoverySources} from '@/lib/customer-discovery-source';
 
 import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {CustomerCodeForm} from './code-form';
-export function ProfileForm({initial,registered,completeProfile=false}:{initial:{username?:string;title:string;name:string;phone:string;address:string};registered:boolean;completeProfile?:boolean}){
+export function ProfileForm({initial,registered,completeProfile=false}:{initial:{username?:string;title:string;name:string;phone:string;address:string;discoverySource?:string};registered:boolean;completeProfile?:boolean}){
  const {t}=useCustomerLanguage();
  const router=useRouter();const [busy,setBusy]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState(false);
  const [ready,setReady]=useState(false);
@@ -20,7 +21,6 @@ export function ProfileForm({initial,registered,completeProfile=false}:{initial:
   <label>{t("คำนำหน้า")}<input name="title" autoComplete="honorific-prefix" defaultValue={initial.title} placeholder={t("เช่น นาย นาง นางสาว")} maxLength={40} required/></label>
   <label>{t("ชื่อผู้รับ")}<input name="name" autoComplete="name" defaultValue={initial.name} maxLength={200} required/></label>
   <label>{t("เบอร์โทร")}<input name="phone" type="tel" autoComplete="tel" defaultValue={initial.phone} placeholder="0812345678 / 0898765432" required/><small>{t("เพิ่มได้หลายเบอร์ คั่นด้วย / แต่ละเบอร์ 10 หลัก")}</small></label>
-  {!registered&&<label>{t("รหัสผู้แนะนำ (ถ้ามี)")}<input name="referrerCode" maxLength={100} autoComplete="off"/></label>}
   {registered?<label>{t("ที่อยู่จัดส่ง")}<textarea name="address" autoComplete="street-address" defaultValue={initial.address} rows={4} maxLength={2000} placeholder={t("บ้านเลขที่ ถนน ตำบล อำเภอ จังหวัด และรหัสไปรษณีย์")} required/></label>:<fieldset className="portal-address"><legend>{t("ที่อยู่จัดส่ง")}</legend>
    <label>{t("บ้านเลขที่")}<input name="houseNumber" maxLength={100} required/></label>
    <label>{t("ถนน")}<input name="road" maxLength={200}/></label>
@@ -30,6 +30,8 @@ export function ProfileForm({initial,registered,completeProfile=false}:{initial:
    <label>{t("รหัสไปรษณีย์")}<input name="postalCode" autoComplete="postal-code" inputMode="numeric" pattern="[0-9]{5}" minLength={5} maxLength={5} required/></label>
   </fieldset>}
   </fieldset>}
+  <label>{t("คุณรู้จักเราจากช่องทางไหน")}<select name="discoverySource" defaultValue={initial.discoverySource??''} disabled={registered&&(!editing||busy)}><option value="">{t("เลือกช่องทาง (ไม่บังคับ)")}</option>{Object.entries(customerDiscoverySources).map(([value,label])=><option key={value} value={value}>{t(label)}</option>)}</select></label>
+  {!registered&&<label>{t("รหัสผู้แนะนำ (ถ้ามี)")}<input name="referrerCode" maxLength={100} autoComplete="off"/></label>}
   {error&&<p className="portal-alert" role="alert">{t(error)}</p>}{saved&&<p role="status" className="portal-success">{t("บันทึกข้อมูลเรียบร้อยแล้ว")}</p>}
   <div className={'portal-profile-actions'+(registered?'':' portal-profile-actions-single')}>
    <button disabled={!ready||busy||!editing}>{t(busy?'กำลังบันทึก…':registered?'บันทึกข้อมูล':completeProfile?'เริ่มใช้งาน':'ลงทะเบียนลูกค้า')}</button>
