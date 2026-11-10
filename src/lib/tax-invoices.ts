@@ -1,3 +1,5 @@
+import {canAccessOrderDocument,type DocumentAccount} from './order-document-access';
+import {isSeparateShopDatabase} from './db';
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import type {Prisma} from '@prisma/client';
@@ -79,10 +81,11 @@ const invoiceInput=z.object({
  settingsVersion:z.string(),issuerVersion:z.string(),buyer:taxBuyerSchema,
  lines:taxInvoiceLineSchema.array().min(1).max(100),confirmed:z.literal(true),
 });
-export async function issueTaxInvoice(actor:string,value:unknown,now=new Date()){
+export async function issueTaxInvoice(actor:string,value:unknown,now=new Date(),operator?:DocumentAccount){
  const input=invoiceInput.parse(value),fingerprint=sha(JSON.stringify(input));
  return transaction(async tx=>{
   await userLock(tx,'tax-invoices');
+  if(operator){const order=await tx.orderIntake.findUnique({where:{id:input.orderId},select:{sellerUsername:true}});if(!order||!canAccessOrderDocument(operator,order.sellerUsername,isSeparateShopDatabase(),true))throw Error('DOCUMENT_FORBIDDEN');}
   const existing=await tx.customerTaxInvoice.findUnique({where:{orderId:input.orderId}});
   if(existing){if(existing.fingerprint!==fingerprint)throw Error('TAX_INVOICE_ALREADY_ISSUED');return existing;}
   const draft=await taxInvoiceDraft(input.orderId,tx);

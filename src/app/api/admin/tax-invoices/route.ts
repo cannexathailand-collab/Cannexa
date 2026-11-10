@@ -1,7 +1,13 @@
-import {admin,sameOrigin} from '@/lib/auth';
+import {currentAccount,sameOrigin} from '@/lib/auth';
+import {documentOperators,requireOrderDocumentAccess} from '@/lib/order-document-access';
 import {billingMutationResponse} from '@/lib/billing-http';
 export async function POST(request:Request){
- let actor:string;
- try{await sameOrigin();actor=await admin();}catch{return Response.json({error:'เฉพาะเจ้าของร้านเท่านั้น'},{status:403});}
- return billingMutationResponse(request,actor,'tax-invoice');
+ try{
+  await sameOrigin();const actor=await currentAccount();
+  if(!documentOperators.some(role=>role===actor.role))throw Error('FORBIDDEN');
+  const input=await request.clone().json();
+  if(typeof input.orderId!=='string')throw Error('FORBIDDEN');
+  await requireOrderDocumentAccess(actor,input.orderId,true);
+  return billingMutationResponse(request,actor.username,'tax-invoice',actor);
+ }catch{return Response.json({error:'ไม่มีสิทธิ์ออกเอกสารออเดอร์นี้'},{status:403});}
 }

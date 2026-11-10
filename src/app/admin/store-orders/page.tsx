@@ -1,3 +1,4 @@
+import {OrderDocumentButtons} from '@/app/order-document-buttons';
 import Link from 'next/link';
 import {stockOperators} from '@/lib/accounts';
 import {requireStockPage} from '@/lib/store-view';
@@ -33,7 +34,7 @@ export default async function StoreOrders({searchParams}:{searchParams:Promise<{
    <OrderShippingDetails sellerName={order.sellerUsername} teamName={order.teamName} data={{recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:order.revenueSatang,items}} tracking={order.tracking}><Link href={'/admin/store-orders/'+encodeURIComponent(order.id)+'?'+query}>เปิดรายละเอียดออเดอร์</Link></OrderShippingDetails>
    {order.confirmationReview&&<p className="notice">{dispatchReviewReason}</p>}{order.codReview&&<p className="notice">จัดส่ง COD ครบ 10 วัน ยังจับคู่ยอดรับเงินไม่สำเร็จ</p>}{order.state==='REVIEW'&&<p><Link className="button" href={'/admin/store-orders/'+encodeURIComponent(order.id)+'/review?'+query}>เปิดตรวจสอบออเดอร์</Link></p>}
    {details.issues.map(issue=><p className="notice" key={issue}>{issue}</p>)}{details.issues.length>0&&<pre>{order.rawText}</pre>}
-   <DuplicateOrderNotice matches={duplicates.get(order.id)??[]} currentOrder={order} baseHref="/admin/store-orders/"/>
+   <OrderDocumentButtons orderId={order.id}/><DuplicateOrderNotice matches={duplicates.get(order.id)??[]} currentOrder={order} baseHref="/admin/store-orders/"/>
   </article>;
  })}</div>
  {!rows.length&&<p>ไม่มีออเดอร์ในกลุ่มนี้</p>}

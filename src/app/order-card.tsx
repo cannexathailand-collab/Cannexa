@@ -1,3 +1,4 @@
+import {OrderDocumentButtons} from '@/app/order-document-buttons';
 import {OrderShippingDetails} from './order-shipping-details';
 import {orderStockItems} from '@/lib/order-stock-items';
 import {PopupDetails} from '@/app/popup-details';
@@ -48,5 +49,5 @@ export function OrderCard({order:o,sale,sellerName,groupName,tracking,fulfillmen
    <p className="small muted">ตอบยืนยัน: {o.replyStatus==='SENT'?'ส่งแล้ว':o.replyStatus==='FAILED'?'ส่งไม่สำเร็จ':o.replyStatus==='NOT_CONFIGURED'?'ยังไม่มี Access Token':'ยังไม่ส่ง'}</p>
    <PopupDetails summary={<> ดูข้อความต้นฉบับ </>}><p className="muted">รหัสผู้ขายที่ส่งมา: {o.sellerCode} (เก็บตามข้อความเดิม)</p><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{o.rawText}</pre></PopupDetails>
   </>}
- </article>;
+ <OrderDocumentButtons orderId={o.id}/></article>;
 }

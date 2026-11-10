@@ -9,3 +9,5 @@
 .store-branded{--focus:var(--store-color)}
 
 .document-brand-header{flex-wrap:wrap;overflow-wrap:anywhere}.document-brand-header img{max-width:100%}
+
+.order-document-buttons{align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}.order-document-buttons>div{margin-top:0!important}

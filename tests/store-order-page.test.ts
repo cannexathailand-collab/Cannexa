@@ -13,6 +13,7 @@ async function render(input:filters.StoreOrderInput,rows:any[]){
  const exports:any={};
  const mocks:Record<string,unknown>={
   'react/jsx-runtime':runtime,
+  '@/app/order-document-buttons':{OrderDocumentButtons:()=>React.createElement('div',{},'เอกสารออเดอร์')},
   'next/link':{default:({href,children,...props}:any)=>React.createElement('a',{href,...props},children)},
   '@/lib/accounts':{stockOperators:['owner','admin','store']},
   '@/lib/store-view':{requireStockPage:async()=>({role:'store'})},

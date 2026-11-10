@@ -1,3 +1,4 @@
+import {OrderDocumentButtons} from '@/app/order-document-buttons';
 import {loadOrderTeamNames} from '@/lib/order-team';
 import Link from 'next/link';
 import {notFound} from 'next/navigation';
@@ -32,6 +33,6 @@ export default async function StoreOrder({params,searchParams}:{params:Promise<{
   <p>สถานะ {orderShipmentStatus(order.status,shipment?.tracking,shipment?.fulfillmentStatus,shipment?.dispatchedAt).label}</p>
   {shipment?.dispatchedAt&&<p>วันที่จัดส่ง {shipment.dispatchedAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>}
   {parsed.issues.map(issue=><p key={issue} className="notice">{issue}</p>)}{parsed.issues.length>0&&<pre>{order.rawText}</pre>}
-  <div className="actions"><Link className="button secondary" href={'/admin/store-orders/'+encodeURIComponent(id)+'/review?'+query}>ตรวจสอบสถานะและหลักฐาน</Link><Link className="button" href="/admin/orders/upload">อัปโหลดรายการจัดส่ง</Link></div>
+  <OrderDocumentButtons orderId={id}/><div className="actions"><Link className="button secondary" href={'/admin/store-orders/'+encodeURIComponent(id)+'/review?'+query}>ตรวจสอบสถานะและหลักฐาน</Link><Link className="button" href="/admin/orders/upload">อัปโหลดรายการจัดส่ง</Link></div>
  </section>;
 }

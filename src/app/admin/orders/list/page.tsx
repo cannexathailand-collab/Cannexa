@@ -1,3 +1,4 @@
+import {OrderDocumentButtons} from '@/app/order-document-buttons';
 import {OrderShippingDetails} from '@/app/order-shipping-details';
 import {loadOrderShippingItems} from '@/lib/order-shipping-items';
 import {DuplicateOrderNotice} from '@/app/duplicate-order-notice';
@@ -33,7 +34,7 @@ export default async function OrderList({searchParams}:{searchParams:Promise<Ord
  {needsTrackingReview(o)&&!s?.tracking&&<p className="notice">ไม่มีเลขพัสดุเกิน 3 วัน</p>}
  {stockReview&&<div className="notice" role="alert"><Link href="/admin/stock/review">รอตรวจสอบ · ตัดสต๊อกยังไม่สำเร็จ</Link>{Array.isArray(stockReview.issues)&&stockReview.issues.map((issue,index)=><small className="order-meta" key={index}>{String(issue)}</small>)}</div>}
  {needsCodReceiptReview(o,s,receipt,new Date(),shipmentVerified)&&<p className="notice">COD ครบ 10 วัน ยังจับคู่ยอดรับเงินไม่สำเร็จ</p>}
- <DuplicateOrderNotice matches={duplicateMatches} currentOrder={o}/>
+ <OrderDocumentButtons orderId={o.id}/><DuplicateOrderNotice matches={duplicateMatches} currentOrder={o}/>
  </article>)}</div>{!data.rows.length&&<p className="empty">ไม่พบออเดอร์ที่ตรงกับเงื่อนไข ลองเปลี่ยนคำค้นหรือช่วงวันที่</p>}<div className="order-pagination">{data.page>1&&<Link className="button secondary" href={'?'+query({page:String(data.page-1)})}>ก่อนหน้า</Link>}<span>หน้า {data.page} / {data.pages}</span>{data.page<data.pages&&<Link className="button secondary" href={'?'+query({page:String(data.page+1)})}>ถัดไป</Link>}</div></section>
  <p className="muted small">ยอดตามออเดอร์ใช้สำหรับติดตามรายการ ยอดขายในบัญชีจะรับรู้ตามเกณฑ์ยืนยันการจัดส่งและการรับเงิน</p></>;
 }

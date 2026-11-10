@@ -1,3 +1,5 @@
+import {canAccessOrderDocument,type DocumentAccount} from './order-document-access';
+import {isSeparateShopDatabase} from './db';
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import {db,transaction,userLock} from './db';
@@ -28,10 +30,11 @@ export async function saveReceiptSettings(actor:string,input:unknown){
  });
 }
 
-export async function issueCustomerReceipt(orderId:string,actor:string,customerCode?:string){
+export async function issueCustomerReceipt(orderId:string,actor:string,customerCode?:string,operator?:DocumentAccount){
  return transaction(async tx=>{
   await userLock(tx,'customer-receipts');
   const order=await tx.orderIntake.findUnique({where:{id:orderId},include:{customer:true}});
+  if(operator&&order&&!canAccessOrderDocument(operator,order.sellerUsername,isSeparateShopDatabase(),true))throw Error('DOCUMENT_FORBIDDEN');
   if(!order||customerCode!==undefined&&order.customerCode!==customerCode)throw Error('RECEIPT_NOT_FOUND');
   const existing=await tx.customerReceipt.findUnique({where:{orderId}});
   if(existing){

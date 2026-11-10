@@ -1,3 +1,4 @@
+import {OrderDocumentButtons} from '@/app/order-document-buttons';
 import {loadOrderTeamNames} from '@/lib/order-team';
 import {PopupDetails} from '@/app/popup-details';
 import {OrderShippingDetails} from '@/app/order-shipping-details';
@@ -52,7 +53,7 @@ export default async function WebsiteOrdersPage({searchParams}: {searchParams: P
         {order.bankDetails&&<p className="muted small">บัญชีรับโอน {order.bankDetails.bankName} · {order.bankDetails.accountName} · {order.bankDetails.accountNumber}</p>}
         {order.reviewedAt&&<p className="muted small">ตรวจสอบโดย {order.reviewedBy} · {new Date(order.reviewedAt).toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>}
         {order.intakeOrderId&&<p className="muted small">ออเดอร์จัดส่ง <Link href={'/admin/orders/list/'+encodeURIComponent(order.intakeOrderId)}>{intakeNumbers.get(order.intakeOrderId)??'เปิดรายละเอียด'}</Link></p>}
-        {order.reviewNote&&<p className="muted small">หมายเหตุ {order.reviewNote}</p>}
+        {order.intakeOrderId&&<OrderDocumentButtons orderId={order.intakeOrderId}/>}{order.reviewNote&&<p className="muted small">หมายเหตุ {order.reviewNote}</p>}
       </article>)}
       {!orders.length&&<section className="card"><p className="empty">ไม่มีออเดอร์จากเว็บไซต์ในสถานะนี้</p></section>}
     </div>

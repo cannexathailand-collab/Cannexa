@@ -1,3 +1,4 @@
+import {OrderDocumentButtons} from '@/app/order-document-buttons';
 import {loadOrderTeamNames} from '@/lib/order-team';
 import {OrderShippingDetails} from '@/app/order-shipping-details';
 import {loadOrderShippingItems} from '@/lib/order-shipping-items';
@@ -45,7 +46,7 @@ export default async function SharedOrder({params,searchParams}:{params:Promise<
    <h1>รายละเอียดออเดอร์</h1>
    <EmployeeNav active="orders"/>
    <Link href={filters.scope==='mine'?'/my-performance/orders?scope=mine':'/my-performance/orders'}>กลับรายการออเดอร์</Link>
-   <h2>{order.orderNumber}</h2>
+   <h2>{order.orderNumber}</h2><OrderDocumentButtons orderId={id}/>
    <p>สร้างออเดอร์ {order.createdAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
    <p>รับออเดอร์ {order.eventAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
    <p>สถานะ {status}</p>

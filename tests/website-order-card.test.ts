@@ -14,6 +14,7 @@ test('website order card renders full shipping details and compact review contro
  const row={id:'web-order',orderNumber:'WEB-123',customerCode:'customer-1',status:'PENDING_REVIEW',createdAt:'2026-11-10T03:00:00Z',recipient:'Recipient',phone:'0812345678',address:'Complete address',paymentMethod:'COD',totalSatang:49000,subtotalSatang:45000,shippingSatang:4000,items:[{code:'CG1',name:'Product',grams:20,pack:'20G',quantity:1,unitPriceSatang:45000,lineTotalSatang:45000}]};
  const mocks:Record<string,unknown>={
   'react/jsx-runtime':runtime,
+  '@/app/order-document-buttons':{OrderDocumentButtons:()=>React.createElement('div',{},'เอกสารออเดอร์')},
   'next/link':{default:({children,href,...props}:any)=>React.createElement('a',{href,...props},children)},
   '@/app/popup-details':{PopupDetails},'@/app/order-shipping-details':{OrderShippingDetails},
   '@/lib/order-team':{loadOrderTeamNames:async()=>new Map()},
