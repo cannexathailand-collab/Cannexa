@@ -3,6 +3,16 @@ export const customerLanguageCookie='cannexa_customer_language';
 export function readCustomerLanguage(value:string|undefined):CustomerLanguage|null{return value==='th'||value==='en'?value:null;}
 
 const english:Record<string,string>={
+ "เลือกที่อยู่จัดส่ง":"Choose a delivery address",
+ "กรอกที่อยู่ใหม่":"Enter a new address",
+ "เพิ่มได้หลายเบอร์ คั่นด้วย / แต่ละเบอร์ 10 หลัก":"Add multiple 10-digit phone numbers, separated by /",
+ "กรุณากรอกเบอร์โทรแต่ละเบอร์ให้ครบ 10 หลัก":"Enter all phone numbers with 10 digits each",
+ "กรุณากรอกชื่อผู้รับและที่อยู่พร้อมรหัสไปรษณีย์":"Enter the recipient name and delivery address with postal code",
+ "ระบุเบอร์โทรศัพท์":"Enter your phone number",
+ "ระบุเบอร์โทรติดต่อเพื่อเริ่มใช้งาน":"Enter your contact number to get started",
+ "กรุณาแก้ไขเบอร์โทรในหน้าข้อมูลส่วนตัว":"Please update your phone number in your profile",
+ "เริ่มใช้งาน":"Get started",
+ "ข้อมูลผู้รับ":"Recipient details",
  "เข้าใช้งานด้วยบัญชี LINE ได้ทันที":"Sign in directly with your LINE account",
  "เข้าสู่ระบบด้วยบัญชีอื่น — สแกน QR Code":"Sign in with another account — scan QR code",
  "สมัครสมาชิก":"Sign up",

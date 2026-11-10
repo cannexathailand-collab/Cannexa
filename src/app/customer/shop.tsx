@@ -73,15 +73,18 @@ function ShopProduct({product, disabled, onAdd}: {
   </article>;
 }
 
-export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
+export function CustomerShop({customerCode, initialCatalog, initialDelivery={name:'',address:'',phone:''}, savedAddresses=[], readOnly = false}: {
   customerCode: string;
   initialCatalog: CustomerCatalog;
+  initialDelivery?: {name:string;address:string;phone:string};
+  savedAddresses?: {id:string;name:string;address:string;phone:string}[];
   readOnly?: boolean;
 }) {
  const {t,locale}=useCustomerLanguage();
   const router = useRouter();
   const [catalog, setCatalog] = useState(initialCatalog);
   const [query, setQuery] = useState('');
+  const [delivery,setDelivery]=useState({name:initialDelivery.name,address:initialDelivery.address,phone:initialDelivery.phone});
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [cart, setCart] = useState<{key: string | null; items: CustomerCartItem[]}>({key: null, items: []});
@@ -250,11 +253,12 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
       if (previous) payload = previous;
       else {
         if (!paymentMethod) throw Error('กรุณาเลือกวิธีชำระเงิน');
+        if(!delivery.name.trim()||!delivery.address.trim()||!/(?<!\d)\d{5}(?!\d)/.test(delivery.address))throw Error('กรุณากรอกชื่อผู้รับและที่อยู่พร้อมรหัสไปรษณีย์');
         payload = createCustomerCheckout(items, catalog.products, crypto.randomUUID(), {
           paymentMethod,
           bankVersion: paymentMethod === 'TRANSFER' ? paymentDetails?.version ?? null : null,
           ...(paymentMethod === 'TRANSFER' && slip ? {slip} : {}),
-        });
+        },delivery);
       }
       localStorage.setItem(checkoutKey, JSON.stringify(payload));
       setCheckout({key: checkoutKey, payload});
@@ -302,7 +306,7 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
         if (activeKey.current === checkoutKey) {
           setCheckout({key: checkoutKey, payload: null});
           const help = result?.code === 'INVALID_DELIVERY'
-            ? 'กรุณาแก้ไขข้อมูลจัดส่งในแท็บข้อมูลส่วนตัวก่อนส่งอีกครั้ง'
+            ? 'กรุณากรอกชื่อผู้รับและที่อยู่พร้อมรหัสไปรษณีย์'
             : 'กรุณาอัปเดตรายการสินค้าและตรวจข้อมูลก่อนส่งอีกครั้ง';
           setError((typeof result?.error === 'string' ? result.error + ' · ' : '') + help);
         }
@@ -394,6 +398,13 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
           {problem && <p className="shop-cart-warning">{t(problem)}</p>}
         </article>;
       })}</div> : <p className="portal-empty">{t("ยังไม่มีสินค้าในตะกร้า")}</p>}
+      {items.length>0&&<fieldset className="shop-delivery" disabled={readOnly||locked}>
+       <legend>{t("ข้อมูลจัดส่ง")}</legend>
+       {savedAddresses.length>0&&<label>{t("เลือกที่อยู่จัดส่ง")}<select defaultValue="" onChange={event=>{const address=savedAddresses.find(row=>row.id===event.target.value);setDelivery(address?{name:address.name,address:address.address,phone:address.phone}:{name:'',address:'',phone:initialDelivery.phone});}}><option value="">{t("กรอกที่อยู่ใหม่")}</option>{savedAddresses.map(address=><option key={address.id} value={address.id}>{address.name} · {address.address}</option>)}</select></label>}
+       <label>{t("ชื่อผู้รับ")}<input value={pending?.delivery?.name??delivery.name} onChange={event=>setDelivery({...delivery,name:event.target.value})} autoComplete="name" maxLength={200}/></label>
+       <label>{t("ที่อยู่จัดส่ง")}<textarea value={pending?.delivery?.address??delivery.address} onChange={event=>setDelivery({...delivery,address:event.target.value})} autoComplete="street-address" maxLength={2000} rows={3} placeholder={t("บ้านเลขที่ ถนน ตำบล อำเภอ จังหวัด และรหัสไปรษณีย์")}/></label>
+       <label>{t("เบอร์โทร")}<input type="tel" value={pending?.delivery?.phone??delivery.phone} onChange={event=>setDelivery({...delivery,phone:event.target.value})} autoComplete="tel"/></label>
+      </fieldset>}
       {items.length > 0 && <section className="shop-payment" aria-label={t("การชำระเงิน")}>
         <h3>{t("การชำระเงิน")}</h3>
         <label>{t("วิธีชำระเงิน")}<select aria-label={t("วิธีชำระเงิน")} value={selectedPayment} disabled={locked} onChange={event => {

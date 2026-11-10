@@ -196,6 +196,7 @@ model Customer {
  legacy Boolean @default(false)
  createdAt DateTime @default(now())
  orders OrderIntake[]
+ deliveryAddresses CustomerDeliveryAddress[]
  accessLinks CustomerAccessLink[]
  rewardRedemptions CrmRewardRedemption[]
  websiteOrders WebsiteOrder[]
@@ -930,4 +931,18 @@ model PlatformAuditLog {
  shopId String?
  details Json
  createdAt DateTime @default(now())
+}
+
+model CustomerDeliveryAddress {
+ id String @id @default(cuid())
+ customerCode String
+ customer Customer @relation(fields:[customerCode],references:[code],onDelete:Cascade,onUpdate:Cascade)
+ fingerprint String
+ name String
+ address String
+ phone String
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@unique([customerCode,fingerprint])
+ @@index([customerCode,updatedAt])
 }

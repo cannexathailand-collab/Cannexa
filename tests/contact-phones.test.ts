@@ -29,3 +29,14 @@ test('a shipment can match either supplied phone while recipient address and tot
  for(const phone of ['0812345678','0898765432','+66 89 876 5432'])assert.equal(shipmentCandidates({recipient:'Sample',phone,address:order.address,codSatang:48000},[order]).length,1);
  assert.equal(shipmentCandidates({recipient:'Sample',phone:'0822222222',address:order.address,codSatang:48000},[order]).length,0);
 });
+
+
+test('multiple customer phone numbers remain available to order parsing and shipment matching',()=>{
+ const phones=Array.from({length:12},(_,index)=>'081234'+String(5601+index));
+ const value=phones.join(' / ');
+ assert.deepEqual(validContactPhones(value),phones);
+ assert.equal(validCustomerPhone(value),value);
+ const order={id:'multi-phone',affiliateId:'a',recipient:'Sample',phone:value,address:'Bangkok 10200',payment:'COD',rawText:'ยอดรวม: 480'};
+ for(const phone of phones)assert.equal(shipmentCandidates({recipient:'Sample',phone,address:order.address,codSatang:48000},[order]).length,1);
+ assert.equal(validContactPhones(value+' / 123'),null);
+});

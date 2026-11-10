@@ -1,4 +1,5 @@
 import {StoreBrand} from '@/app/store-brand';
+import {loadCustomerDeliveryAddresses} from '@/lib/customer-delivery-addresses';
 import {pointTierKey} from '@/lib/crm-tier-points';
 import {customerLanguage} from '@/lib/customer-language-server';
 import {PopupDetails} from '@/app/popup-details';
@@ -33,6 +34,7 @@ export async function OwnerCustomerView({params}:{params:{q?:string;customer?:st
  const summary=selected?summaries?.get(selected.code):null;
  const balance=Math.max(0,summary?.availablePoints??0);
  const catalog=selected?await loadCustomerCatalog():null;
+ const savedAddresses=selected?await loadCustomerDeliveryAddresses(selected.code):[];
  return <main className="customer-portal" data-membership={selected?pointTierKey(member?.level??'Bronze'):undefined}>
   <header className="portal-header"><Link href="/customer" className="portal-brand"><StoreBrand fallback="Customer"/></Link><Link href="/admin">{t("กลับหลังบ้าน")}</Link></header>
   <section className="portal-section">
@@ -57,7 +59,7 @@ export async function OwnerCustomerView({params}:{params:{q?:string;customer?:st
     <MemberCard level={member?.level??'Bronze'} name={[selected.title??'คุณ',selected.name].filter(Boolean).join(' ')} code={(selected.portalUsername||displayCustomerCode(selected.code))}/>
     <section className="portal-coin-balance" aria-label={t("ยอด Green Coin")}><h2>Green Coin</h2><span className="portal-coin-mark" aria-hidden="true">G</span><strong>{balance.toLocaleString(locale)}</strong><span>{t("เหรียญคงเหลือ")}</span></section>
    </div>
-   <CustomerPanels key={selected.code} readOnly shop={<CustomerShop customerCode={selected.code} initialCatalog={catalog!} readOnly/>} orders={<><CustomerWebsiteOrders customerCode={selected.code}/><CustomerOrderHistory history={summary?.allHistory??[]} title={t("ออเดอร์จัดส่ง")} emptyText={t("ยังไม่มีออเดอร์จัดส่ง")}/></>} profile={
+   <CustomerPanels key={selected.code} readOnly shop={<CustomerShop customerCode={selected.code} initialCatalog={catalog!} initialDelivery={{name:selected.name??'',address:selected.address??'',phone:selected.phone??''}} savedAddresses={savedAddresses} readOnly/>} orders={<><CustomerWebsiteOrders customerCode={selected.code}/><CustomerOrderHistory history={summary?.allHistory??[]} title={t("ออเดอร์จัดส่ง")} emptyText={t("ยังไม่มีออเดอร์จัดส่ง")}/></>} profile={
     <section className="portal-section"><h2>{t("ข้อมูลส่วนตัว")}</h2><div className="portal-profile">
      <label>{t("คำนำหน้า")}<input value={selected.title??''} readOnly/></label>
      <label>{t("ชื่อผู้รับ")}<input value={selected.name??''} readOnly/></label>

@@ -656,3 +656,8 @@
 .portal-login-links a{color:#efdaa1;text-decoration:underline;text-underline-offset:4px;padding:4px 0}
 
 .portal-line-qr{background:transparent!important;color:#f0e5c5!important;border:1px solid #b9cbbe!important;margin-top:10px}
+
+.customer-portal[data-membership] .portal-phone-registration{max-width:480px;margin:24px auto;padding:24px}
+.portal-phone-registration .portal-profile{grid-template-columns:1fr;gap:16px;margin-top:20px}
+
+.shop-delivery{margin:18px 0;padding:16px;border:1px solid #ccd9c9;border-radius:12px;min-width:0}.shop-delivery legend{padding:0 6px;font-weight:600}.shop-delivery label{margin:10px 0}.shop-delivery textarea{resize:vertical}

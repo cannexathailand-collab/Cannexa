@@ -10,6 +10,13 @@ const product: CustomerCatalogProduct = {
   prices: [{pack: '1G', grams: 1, priceSatang: 100}, {pack: '5G', grams: 5, priceSatang: 400}],
 };
 
+test('checkout retains selected delivery details when retrying a saved request',()=>{
+ const delivery={name:'Customer',address:'Bangkok 10110',phone:'0812345678 / 0898765432'};
+ const payload=createCustomerCheckout([{code:'A1',pack:'1G',quantity:1}],[product],requestKey,cod,delivery);
+ assert.deepEqual(readCustomerCheckout(JSON.stringify(payload))?.delivery,delivery);
+ assert.equal(readCustomerCheckout(JSON.stringify({...payload,delivery:{...delivery,address:''}})),null);
+});
+
 test('checkout freezes unit prices and restores all cart lines from its persisted payload', () => {
   const items = [{code: 'A1', pack: '1G', quantity: 2}, {code: 'A1', pack: '5G', quantity: 2}];
   const payload = createCustomerCheckout(items, [product], requestKey,cod);

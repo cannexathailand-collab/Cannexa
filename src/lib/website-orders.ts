@@ -1,3 +1,4 @@
+import {validContactPhones} from './contact-phones';
 import {randomUUID} from 'node:crypto';
 import {Prisma,type WebsiteOrder} from '@prisma/client';
 import {z} from 'zod';
@@ -7,6 +8,7 @@ import {canonicalCustomerCode} from './customer-code';
 import {stockCode} from './stock-code';
 import {normalizeStockPackage} from './stock-product-input';
 import {loadCustomerCatalog} from './customer-catalog';
+import {customerIdentity} from './order-customer';
 import {portalProfile} from './customer-portal';
 import {parseRewardImage} from './crm-reward-image';
 import {websiteShippingFees,websitePaymentReady,type WebsitePaymentDetails,type WebsitePaymentMethod} from './website-payment';
@@ -62,6 +64,7 @@ const requestInput=z.object({
  expectedShippingSatang:z.number().int().nonnegative().max(2147483647).optional(),
  bankVersion:z.string().min(1).max(100).nullable().optional(),
  slip:z.string().optional(),
+ delivery:z.object({name:z.string().trim().min(1).max(200),address:z.string().trim().min(1).max(2000),phone:z.string().trim().min(1).max(2000).optional()}).optional(),
 });
 const reviewBase={
  id:z.string().min(1).max(100),
@@ -152,6 +155,7 @@ export async function createWebsiteOrder(customerCode:string,value:unknown){
  const legacy=input.paymentMethod===undefined&&input.expectedShippingSatang===undefined&&input.bankVersion===undefined&&input.slip===undefined;
  const fingerprint=sha(JSON.stringify({
   items:input.items,expectedTotalSatang:input.expectedTotalSatang,
+  ...(input.delivery?{delivery:input.delivery}:{}),
   ...(!legacy?{paymentMethod:input.paymentMethod??null,expectedShippingSatang:input.expectedShippingSatang??null,bankVersion:input.bankVersion??null,slipVersion:slip?.imageVersion??null}:{}),
  }));
  return transaction(async tx=>{
@@ -178,8 +182,9 @@ export async function createWebsiteOrder(customerCode:string,value:unknown){
   }else if(slip||input.bankVersion!==null)throw Error('INVALID_PAYMENT');
   let delivery;
   try{
-   delivery=portalProfile({name:customer.name,phone:customer.phone,address:customer.address});
+   delivery=portalProfile({name:input.delivery?.name??customer.name,phone:input.delivery?.phone??customer.phone,address:input.delivery?.address??customer.address});
   }catch{throw Error('INVALID_DELIVERY');}
+  if(input.delivery)await userLock(tx,'customer-profile:'+code);
   // Serialize with LINE order admission so two channels cannot sell the same remaining stock.
   await userLock(tx,'stock-sheet-add');
   const catalog=await loadCustomerCatalog(tx);
@@ -213,6 +218,15 @@ export async function createWebsiteOrder(customerCode:string,value:unknown){
   const grandTotal=total+shipping;
   if(grandTotal>2147483647)throw Error('ORDER_TOO_LARGE');
   if(grandTotal!==input.expectedTotalSatang)throw Error('TOTAL_CHANGED');
+  if(input.delivery){
+   for(const entry of [{name:customer.name,address:customer.address,phone:customer.phone},delivery]){
+    if(!entry.name||!entry.address||!entry.phone)continue;
+    const fingerprint=sha(JSON.stringify([entry.name.trim(),entry.address.trim()]));
+    await tx.customerDeliveryAddress.upsert({where:{customerCode_fingerprint:{customerCode:code,fingerprint}},create:{customerCode:code,fingerprint,name:entry.name,address:entry.address,phone:entry.phone},update:{phone:entry.phone}});
+   }
+   const phones=[...new Set([...(validContactPhones(customer.phone??'')??[]),...validContactPhones(delivery.phone)!])].join(' / ');
+   await tx.customer.update({where:{code},data:{name:delivery.name,address:delivery.address,phone:phones,identityKey:customerIdentity(delivery.name,phones)}});
+  }
   const saved=await tx.websiteOrder.create({data:{
    orderNumber:'WEB-'+randomUUID().replaceAll('-','').slice(0,20).toUpperCase(),
    customerCode:code,
@@ -227,7 +241,7 @@ export async function createWebsiteOrder(customerCode:string,value:unknown){
    slipData:slip?.imageData,
    slipMime:slip?.imageMime,
    slipVersion:slip?.imageVersion,
-   recipient:[customer.title,delivery.name].filter(Boolean).join(' '),
+   recipient:input.delivery?delivery.name:[customer.title,delivery.name].filter(Boolean).join(' '),
    phone:delivery.phone,
    address:delivery.address,
   },select:orderSelect});

@@ -11,6 +11,7 @@ export type CustomerCheckoutPayload = {
   expectedShippingSatang?: number;
   bankVersion?: string|null;
   slip?: string;
+  delivery?: {name:string;address:string;phone?:string};
 };
 export type CustomerCheckoutPayment={paymentMethod:WebsitePaymentMethod;bankVersion:string|null;slip?:string};
 export type CustomerCheckoutOrder = {id: string; orderNumber: string; status: string; totalSatang: number};
@@ -44,20 +45,22 @@ export function readCustomerCheckout(value: string | null): CustomerCheckoutPayl
       total += item.expectedUnitPriceSatang * item.quantity;
       if (!Number.isSafeInteger(total)) return null;
     }
+    if(parsed.delivery!==undefined&&(!parsed.delivery||typeof parsed.delivery.name!=='string'||!parsed.delivery.name.trim()||parsed.delivery.name.length>200||typeof parsed.delivery.address!=='string'||!parsed.delivery.address.trim()||parsed.delivery.address.length>2000||parsed.delivery.phone!==undefined&&(typeof parsed.delivery.phone!=='string'||parsed.delivery.phone.length>2000)))return null;
+    const delivery=parsed.delivery?{name:parsed.delivery.name.trim(),address:parsed.delivery.address.trim(),...(parsed.delivery.phone!==undefined?{phone:parsed.delivery.phone.trim()}:{})}:undefined;
     const legacy=parsed.paymentMethod===undefined&&parsed.expectedShippingSatang===undefined&&parsed.bankVersion===undefined&&parsed.slip===undefined;
-    if(legacy)return total===parsed.expectedTotalSatang?{requestKey:parsed.requestKey,items,expectedTotalSatang:total}:null;
+    if(legacy)return total===parsed.expectedTotalSatang?{requestKey:parsed.requestKey,items,expectedTotalSatang:total,...(delivery?{delivery}:{})}:null;
     if(!['TRANSFER','COD'].includes(parsed.paymentMethod)||!Number.isSafeInteger(parsed.expectedShippingSatang)||parsed.expectedShippingSatang<0||
        total+parsed.expectedShippingSatang!==parsed.expectedTotalSatang)return null;
     if(parsed.paymentMethod==='TRANSFER'){
       if(typeof parsed.bankVersion!=='string'||!parsed.bankVersion||parsed.bankVersion.length>100||typeof parsed.slip!=='string'||!/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(parsed.slip))return null;
     }else if(parsed.bankVersion!==null||parsed.slip!==undefined)return null;
-    return {requestKey:parsed.requestKey,items,expectedTotalSatang:parsed.expectedTotalSatang,paymentMethod:parsed.paymentMethod,expectedShippingSatang:parsed.expectedShippingSatang,bankVersion:parsed.bankVersion,...(parsed.slip!==undefined?{slip:parsed.slip}:{})};
+    return {requestKey:parsed.requestKey,items,expectedTotalSatang:parsed.expectedTotalSatang,paymentMethod:parsed.paymentMethod,expectedShippingSatang:parsed.expectedShippingSatang,bankVersion:parsed.bankVersion,...(parsed.slip!==undefined?{slip:parsed.slip}:{}),...(delivery?{delivery}:{})};
   } catch {
     return null;
   }
 }
 
-export function createCustomerCheckout(items: CustomerCartItem[], products: CustomerCatalogProduct[], requestKey: string,payment:CustomerCheckoutPayment): CustomerCheckoutPayload {
+export function createCustomerCheckout(items: CustomerCartItem[], products: CustomerCatalogProduct[], requestKey: string,payment:CustomerCheckoutPayment,delivery?:{name:string;address:string;phone?:string}): CustomerCheckoutPayload {
   if(!payment||!['TRANSFER','COD'].includes(payment.paymentMethod))throw Error('กรุณาเลือกวิธีชำระเงิน');
   if (!items.length || items.length > 100) throw Error('กรุณาเลือกสินค้าในตะกร้าให้ครบก่อนส่งออเดอร์');
   const payloadItems = items.map(item => {
@@ -72,7 +75,7 @@ export function createCustomerCheckout(items: CustomerCartItem[], products: Cust
   const expectedTotalSatang = payloadItems.reduce((total, item) => total + item.expectedUnitPriceSatang * item.quantity, expectedShippingSatang);
   if(expectedTotalSatang>2147483647)throw Error('ยอดรวมออเดอร์เกินขอบเขตที่ระบบรองรับ');
   if(payment.paymentMethod==='TRANSFER'&&!payment.slip)throw Error('กรุณาแนบสลิปโอนเงิน');
-  const payload = readCustomerCheckout(JSON.stringify({requestKey, items: payloadItems, expectedTotalSatang,...payment,expectedShippingSatang}));
+  const payload = readCustomerCheckout(JSON.stringify({requestKey, items: payloadItems, expectedTotalSatang,...payment,expectedShippingSatang,...(delivery?{delivery}:{})}));
   if (!payload) throw Error('ข้อมูลตะกร้าไม่ถูกต้อง กรุณาตรวจสอบรายการสินค้าอีกครั้ง');
   return payload;
 }
