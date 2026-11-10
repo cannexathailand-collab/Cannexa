@@ -11,11 +11,12 @@ function settingsStore(t: TestContext) {
   let row: WebsitePaymentDetails | null = null;
   let writes = 0;
   const audits: any[] = [];
+  const publicRow=()=>row&&({bankName:row.bankName,accountName:row.accountName,accountNumber:row.accountNumber,version:row.version,qrImageVersion:row.qrImageVersion??null});
   const tx = {
     $queryRawUnsafe: async (_query: string, key: string) => {assert.equal(key, 'website-payment-settings:active');},
     websitePaymentSettings: {
-      findUnique: async () => row && {...row},
-      create: async ({data}: any) => {row = {...data}; writes++; return row;},
+      findUnique: async () => publicRow(),
+      create: async ({data}: any) => {row = {...data}; writes++; return publicRow();},
       updateMany: async ({where, data}: any) => {
         if (!row || row.version !== where.version) return {count: 0};
         row = {...row, ...data}; writes++; return {count: 1};
@@ -91,8 +92,32 @@ test('clearing every field disables bank transfer and retains a versioned record
   const first = await saveWebsitePaymentSettings('owner', {...details, expectedVersion: null});
   const cleared = await saveWebsitePaymentSettings('owner', {bankName: '', accountName: ' ', accountNumber: '', expectedVersion: first.version});
   assert.equal(websitePaymentReady(cleared), false);
-  assert.deepEqual({...cleared, version: null}, {bankName: '', accountName: '', accountNumber: '', version: null});
+  assert.deepEqual({...cleared, version: null}, {bankName: '', accountName: '', accountNumber: '', version: null,qrImageVersion:null});
   assert.notEqual(cleared.version, first.version);
   assert.equal(store.audits[1].details.configured, false);
   assert.equal(store.row()?.version, cleared.version);
+});
+
+test('payment QR saves with a version, survives replay, and is removed on account changes',async t=>{
+ const store=settingsStore(t);
+ const qrImage='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
+ const first=await saveWebsitePaymentSettings('owner',{...details,expectedVersion:null,qrImage});
+ assert.match(first.qrImageVersion!,/^[a-f0-9]{64}$/);
+ assert.equal('qrImageData' in first,false);
+ const replay=await saveWebsitePaymentSettings('owner',{...details,expectedVersion:null,qrImage});
+ assert.equal(replay.version,first.version);assert.equal(store.writes(),1);
+ const changed=await saveWebsitePaymentSettings('owner',{...details,accountNumber:'9876543210',expectedVersion:first.version});
+ assert.equal(changed.qrImageVersion,null);
+ assert.equal(store.audits[1].details.qrConfigured,false);
+});
+
+test('payment QR can be deleted and malformed images do not replace it',async t=>{
+ const store=settingsStore(t);
+ const qrImage='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
+ const first=await saveWebsitePaymentSettings('owner',{...details,expectedVersion:null,qrImage});
+ await assert.rejects(saveWebsitePaymentSettings('owner',{...details,expectedVersion:first.version,qrImage:'data:image/png;base64,QUJDRA=='}),/INVALID_REWARD_IMAGE/);
+ assert.equal(store.writes(),1);
+ const removed=await saveWebsitePaymentSettings('owner',{...details,expectedVersion:first.version,qrImage:null});
+ assert.equal(removed.qrImageVersion,null);
+ assert.notEqual(removed.version,first.version);
 });

@@ -408,11 +408,14 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
           {pending && pending.bankVersion !== paymentDetails?.version
             ? <p className="portal-muted">{t("คำขอนี้ใช้บัญชีรับโอนที่ยืนยันไว้ตอนส่งครั้งแรก")}</p>
             : paymentLoading ? <p className="portal-muted">{t("กำลังโหลดข้อมูลบัญชีรับโอน…")}</p>
-            : bankReady ? <dl className="shop-bank-details">
+            : bankReady ? <><dl className="shop-bank-details">
               <div><dt>{t("ธนาคาร")}</dt><dd>{paymentDetails!.bankName}</dd></div>
               <div><dt>{t("ชื่อบัญชี")}</dt><dd>{paymentDetails!.accountName}</dd></div>
               <div><dt>{t("เลขบัญชี")}</dt><dd>{paymentDetails!.accountNumber}</dd></div>
-            </dl> : <p className="portal-alert">{t("รอร้านตั้งค่าบัญชีรับโอน")}</p>}
+            </dl>{paymentDetails?.qrImageVersion&&<figure className="shop-payment-qr">
+              <img src={'/api/customer/payment-qr?v='+paymentDetails.qrImageVersion} alt={t('QR code สำหรับโอนเงิน')}/>
+              <figcaption>{t('สแกน QR เพื่อโอนเงิน')}</figcaption>
+            </figure>}</> : <p className="portal-alert">{t("รอร้านตั้งค่าบัญชีรับโอน")}</p>}
           {!pending && <button type="button" className="secondary" disabled={paymentLoading} onClick={() => setPaymentRefresh(value => value + 1)}>{t("อัปเดตข้อมูลบัญชี")}</button>}
           <p className="portal-muted">{t("ยอดโอนรวมค่าส่ง ")}{money(total)}{t(" บาท")}</p>
           {!pending && <label>{t("แนบสลิปการโอนเงิน")}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={locked || readingSlip || paymentLoading || !bankReady} onChange={event => {

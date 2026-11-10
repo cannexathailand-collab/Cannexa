@@ -597,3 +597,5 @@
 @keyframes platinum-letter-shine{from{transform:translateX(0)}to{transform:translateX(2300px)}}
 @media(hover:hover) and (pointer:fine){.portal-member-vip[data-motion="on"]:hover .platinum-letter-shine{animation:none;transform:translateX(var(--platinum-letter-x,1150px))}}
 .platinum-border-specular{stroke:#fffbe6;stroke-width:.75;opacity:.5;filter:drop-shadow(0 0 1px #fff2b1)}
+
+.shop-payment-qr{margin:16px 0;padding:16px;display:grid;justify-items:center;gap:10px;border:1px solid #dce7df;border-radius:12px;background:#fff;color:#244335}.shop-payment-qr img{display:block;width:260px;max-width:100%;max-height:340px;object-fit:contain}.shop-payment-qr figcaption{font-size:13px;text-align:center}

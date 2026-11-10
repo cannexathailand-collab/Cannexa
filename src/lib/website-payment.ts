@@ -10,6 +10,7 @@ export type WebsitePaymentDetails = {
   accountName: string;
   accountNumber: string;
   version: string | null;
+  qrImageVersion?: string | null;
 };
 
 export function websitePaymentReady(details: WebsitePaymentDetails) {

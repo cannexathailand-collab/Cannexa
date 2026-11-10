@@ -236,6 +236,9 @@ model WebsitePaymentSettings {
  bankName String @default("")
  accountName String @default("")
  accountNumber String @default("")
+ qrImageData Bytes?
+ qrImageMime String?
+ qrImageVersion String?
  version String @default(uuid())
  updatedAt DateTime @updatedAt
 }
