@@ -877,6 +877,7 @@ model TaxInvoiceSettings {
  registeredOn DateTime?
  branchCode String @default("00000")
  vatRateBps Int @default(700)
+ priceMode String @default("INCLUSIVE")
  version String @default(uuid())
  updatedAt DateTime @updatedAt
 }

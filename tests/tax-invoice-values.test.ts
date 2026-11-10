@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {inclusiveTaxTotals,validThaiTaxId,taxBuyerSchema} from '../src/lib/tax-invoice-values';
+import {taxInvoiceTotals,inclusiveTaxTotals,validThaiTaxId,taxBuyerSchema} from '../src/lib/tax-invoice-values';
 
 test('inclusive VAT preserves gross and handles mixed tax treatments',()=>{
  const lines=[
@@ -30,4 +30,20 @@ test('taxpayer ID validation rejects incomplete and invalid checksums',()=>{
  const valid=first+String((11-sum%11)%10);
  assert.equal(validThaiTaxId(valid),true);
  assert.equal(taxBuyerSchema.safeParse({name:'ผู้ซื้อ',address:'กรุงเทพ',taxId:'',branchCode:'00000',vatRegistered:true}).success,false);
+});
+
+
+test('VAT price modes preserve the base and add tax only for exclusive pricing',()=>{
+ const lines=[{description:'สินค้า',quantity:'1',grossSatang:40000,treatment:'STANDARD' as const}];
+ assert.equal(taxInvoiceTotals(lines,700,'INCLUSIVE').totalSatang,40000);
+ const added=taxInvoiceTotals(lines,700,'EXCLUSIVE');
+ assert.equal(added.netSatang,40000);
+ assert.equal(added.vatSatang,2800);
+ assert.equal(added.totalSatang,42800);
+ assert.equal(lines[0].grossSatang,40000);
+ const mixed=taxInvoiceTotals([...lines,{description:'ยกเว้น',quantity:'1',grossSatang:10000,treatment:'EXEMPT'}],700,'EXCLUSIVE');
+ assert.equal(mixed.totalSatang,52800);
+ assert.equal(taxInvoiceTotals([{...lines[0],grossSatang:1}],5000,'EXCLUSIVE').vatSatang,1);
+ assert.throws(()=>taxInvoiceTotals(lines,-1,'EXCLUSIVE'));
+ assert.throws(()=>taxInvoiceTotals([{...lines[0],grossSatang:2147483647}],700,'EXCLUSIVE'));
 });

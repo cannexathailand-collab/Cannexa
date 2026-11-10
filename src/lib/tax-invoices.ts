@@ -8,12 +8,12 @@ import {sha} from './crypto';
 import {bangkokDay,dayStart} from './sales-dates';
 import {quotedTotal} from './shipment-matching';
 import {orderStockItems} from './order-stock-items';
-import {inclusiveTaxTotals,taxBuyerSchema,taxInvoiceLineSchema,validThaiTaxId} from './tax-invoice-values';
+import {taxInvoiceTotals,taxBuyerSchema,taxInvoiceLineSchema,validThaiTaxId} from './tax-invoice-values';
 import {documentBrandingSnapshot,documentBrandingSchema} from './document-branding';
 
 const settingsInput=z.object({
  enabled:z.boolean(),registeredOn:z.string(),branchCode:z.string().regex(/^\d{5}$/),
- vatRateBps:z.number().int().min(0).max(10000),expectedVersion:z.string().nullable(),
+ vatRateBps:z.number().int().min(0).max(10000),priceMode:z.enum(['INCLUSIVE','EXCLUSIVE']).optional(),expectedVersion:z.string().nullable(),
 });
 export async function saveTaxInvoiceSettings(actor:string,value:unknown){
  const input=settingsInput.parse(value);
@@ -25,9 +25,9 @@ export async function saveTaxInvoiceSettings(actor:string,value:unknown){
   if(input.enabled&&(!registeredOn||!issuer?.name||!issuer.address||!validThaiTaxId(issuer.taxId)))throw Error('VAT_ISSUER_REQUIRED');
   const previous=await tx.taxInvoiceSettings.findUnique({where:{id:'active'}});
   if((previous?.version??null)!==input.expectedVersion)throw Error('TAX_SETTINGS_CONFLICT');
-  const data={enabled:input.enabled,registeredOn,branchCode:input.branchCode,vatRateBps:input.vatRateBps,version:randomUUID()};
+  const data={enabled:input.enabled,registeredOn,branchCode:input.branchCode,vatRateBps:input.vatRateBps,priceMode:input.priceMode??previous?.priceMode??'INCLUSIVE',version:randomUUID()};
   const saved=await tx.taxInvoiceSettings.upsert({where:{id:'active'},create:{id:'active',...data},update:data});
-  await tx.auditLog.create({data:{actor,action:'TAX_INVOICE_SETTINGS_UPDATED',entityId:'active',details:{enabled:saved.enabled,registeredOn:registeredOn?.toISOString(),branchCode:saved.branchCode,vatRateBps:saved.vatRateBps,priceMode:'INCLUSIVE'}}});
+  await tx.auditLog.create({data:{actor,action:'TAX_INVOICE_SETTINGS_UPDATED',entityId:'active',details:{enabled:saved.enabled,registeredOn:registeredOn?.toISOString(),branchCode:saved.branchCode,vatRateBps:saved.vatRateBps,priceMode:saved.priceMode}}});
   return saved;
  });
 }
@@ -56,6 +56,9 @@ export async function taxInvoiceDraft(orderId:string,client:Prisma.TransactionCl
   if(website.shippingSatang>0)lines.push({description:'ค่าจัดส่ง',quantity:'1',grossSatang:website.shippingSatang,treatment:'STANDARD'});
  }
  if(!lines.length)lines=[{description:'',quantity:'1',grossSatang:null,treatment:'STANDARD'}];
+ const completePrices=lines.every(line=>line.grossSatang!==null)&&lines.reduce((sum,line)=>sum+(line.grossSatang??0),0)===totalSatang;
+ const orderItems=completePrices?undefined:lines.map(({description,quantity})=>({description,quantity}));
+ if(!completePrices&&totalSatang!==null)lines=[{description:'ยอดรวมตามออเดอร์ '+order.orderNumber,quantity:'1 ออเดอร์',grossSatang:totalSatang,treatment:'STANDARD'}];
  const sourceVersion=sha(JSON.stringify([order.id,order.rawText,order.status,order.customerCode,order.recipient,order.address,totalSatang,website?.items,website?.shippingSatang]));
  return {
   orderId,orderNumber:order.orderNumber,orderAt:order.eventAt.toISOString(),customerCode:order.customerCode,sourceVersion,
@@ -63,23 +66,25 @@ export async function taxInvoiceDraft(orderId:string,client:Prisma.TransactionCl
   enabled:!!settings?.enabled&&!!settings.registeredOn&&!!issuer&&validThaiTaxId(issuer.taxId),
   canIssue:!order.withdrawnAt&&!['CANCELLED','WITHDRAWN','EXPIRED','RETURNED','REJECTED'].includes(order.status)&&['โอน','COD'].includes(order.payment??'')&&totalSatang!==null&&totalSatang>0,
   issuer:issuer?{name:issuer.name,address:issuer.address,phone:issuer.phone,taxId:issuer.taxId,branchCode:settings?.branchCode??'00000'}:null,
-  registeredOn:settings?.registeredOn?.toISOString()??null,vatRateBps:settings?.vatRateBps??700,
+  registeredOn:settings?.registeredOn?.toISOString()??null,vatRateBps:settings?.vatRateBps??700,priceMode:settings?.priceMode==='EXCLUSIVE'?'EXCLUSIVE' as const:'INCLUSIVE' as const,
   buyer:{name:order.recipient||[order.customer?.title,order.customer?.name].filter(Boolean).join(' '),address:order.address||order.customer?.address||'',taxId:'',branchCode:'00000',vatRegistered:false},
-  lines,totalSatang,existingInvoiceId:existing?.id??null,
+  branding:await documentBrandingSnapshot(client),
+  lines,orderItems,totalSatang,existingInvoiceId:existing?.id??null,
  };
 }
 export type TaxInvoiceDraft=Awaited<ReturnType<typeof taxInvoiceDraft>>;
 
 export const taxInvoiceSnapshotSchema=z.object({
  issuer:z.object({name:z.string(),address:z.string(),phone:z.string(),taxId:z.string(),branchCode:z.string()}),
- buyer:taxBuyerSchema,orderNumber:z.string(),priceMode:z.literal('INCLUSIVE'),vatRateBps:z.number().int(),
+ buyer:taxBuyerSchema,orderNumber:z.string(),priceMode:z.enum(['INCLUSIVE','EXCLUSIVE']),vatRateBps:z.number().int(),
  lines:taxInvoiceLineSchema.extend({netSatang:z.number().int(),vatSatang:z.number().int()}).array(),
  branding:documentBrandingSchema,
+ orderItems:z.array(z.object({description:z.string(),quantity:z.string()})).optional(),
 });
 const invoiceInput=z.object({
  orderId:z.string().min(1).max(100),sourceVersion:z.string().length(64),
  settingsVersion:z.string(),issuerVersion:z.string(),buyer:taxBuyerSchema,
- lines:taxInvoiceLineSchema.array().min(1).max(100),confirmed:z.literal(true),
+ lines:taxInvoiceLineSchema.array().min(1).max(100),confirmed:z.literal(true),locked:z.boolean().optional(),
 });
 export async function issueTaxInvoice(actor:string,value:unknown,now=new Date(),operator?:DocumentAccount){
  const input=invoiceInput.parse(value),fingerprint=sha(JSON.stringify(input));
@@ -93,13 +98,14 @@ export async function issueTaxInvoice(actor:string,value:unknown,now=new Date(),
   if(new Date(draft.orderAt)<new Date(draft.registeredOn))throw Error('TAX_ORDER_BEFORE_REGISTRATION');
   if(!draft.canIssue)throw Error('TAX_ORDER_NOT_ELIGIBLE');
   if(draft.sourceVersion!==input.sourceVersion||draft.settingsVersion!==input.settingsVersion||draft.issuerVersion!==input.issuerVersion)throw Error('TAX_INVOICE_CONFLICT');
-  const totals=inclusiveTaxTotals(input.lines,draft.vatRateBps);
-  if(totals.totalSatang!==draft.totalSatang)throw Error('TAX_INVOICE_TOTAL_MISMATCH');
+  if(input.locked&&JSON.stringify(input.lines)!==JSON.stringify(draft.lines))throw Error('TAX_INVOICE_CONFLICT');
+  const totals=taxInvoiceTotals(input.lines,draft.vatRateBps,draft.priceMode);
+  if(input.lines.reduce((sum,line)=>sum+line.grossSatang,0)!==draft.totalSatang)throw Error('TAX_INVOICE_TOTAL_MISMATCH');
   const year=Number(bangkokDay(now).slice(0,4));
   const counter=await tx.taxInvoiceCounter.upsert({where:{year},create:{year,number:1},update:{number:{increment:1}}});
-  const snapshot=taxInvoiceSnapshotSchema.parse({issuer:draft.issuer,buyer:input.buyer,orderNumber:draft.orderNumber,priceMode:'INCLUSIVE',vatRateBps:draft.vatRateBps,lines:totals.lines,branding:await documentBrandingSnapshot(tx)});
+  const snapshot=taxInvoiceSnapshotSchema.parse({issuer:draft.issuer,buyer:input.buyer,orderNumber:draft.orderNumber,priceMode:draft.priceMode,vatRateBps:draft.vatRateBps,lines:totals.lines,orderItems:draft.orderItems,branding:await documentBrandingSnapshot(tx)});
   const document=await tx.customerTaxInvoice.create({data:{number:'TI-'+year+'-'+String(counter.number).padStart(6,'0'),orderId:input.orderId,customerCode:draft.customerCode,fingerprint,snapshot,netSatang:totals.netSatang,vatSatang:totals.vatSatang,totalSatang:totals.totalSatang,issuedAt:now}});
-  await tx.auditLog.create({data:{actor,action:'TAX_INVOICE_ISSUED',entityId:document.id,details:{orderId:input.orderId,number:document.number,totalSatang:document.totalSatang,vatSatang:document.vatSatang,priceMode:'INCLUSIVE'}}});
+  await tx.auditLog.create({data:{actor,action:'TAX_INVOICE_ISSUED',entityId:document.id,details:{orderId:input.orderId,number:document.number,totalSatang:document.totalSatang,vatSatang:document.vatSatang,priceMode:draft.priceMode}}});
   return document;
  });
 }
