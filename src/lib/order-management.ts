@@ -5,7 +5,7 @@ import {dayStart,shiftDay} from './sales-dates';
 import {csvCell} from './policy';
 import {quotedTotal,normalizePhone} from './shipment-matching';
 import {canonicalCustomerCode} from './customer-code';
-import {needsTrackingReview,needsCodReceiptReview} from './order-tracking-review';
+import {needsTrackingReview,needsCodReceiptReview,needsDispatchConfirmationReview} from './order-tracking-review';
 import {loadOrderRoundSettings} from './order-round-settings';
 import {hasActualDispatch} from './sales-recognition';
 import {readStockSheet} from './stock-google';
@@ -16,10 +16,10 @@ export type OrderFilters={q?:string;from?:string;to?:string;payment?:string;stat
 export function orderMatchesState(row:{state:string;shipped:boolean;awaitingShipment:boolean;awaitingConfirmation?:boolean;shipmentVerified?:boolean},state:string){
  return state==='ALL'?row.state!=='CANCELLED':(state==='CONFIRMED'?!!row.shipmentVerified:state==='VERIFY'?!!row.awaitingConfirmation:state==='SHIPPED'?row.shipped:state==='WAITING'?row.awaitingShipment:row.state===state);
 }
-export function orderState(order:Pick<OrderIntake,'status'|'payment'|'issues'>&{createdAt?:Date},shipment?:Pick<Shipment,'fulfillmentStatus'|'dispatchedAt'>&{tracking?:string;codSatang?:number},sale?:Pick<SalesOrder,'status'>,now=new Date(),receipt?:{tracking:string;amountSatang:number}):Exclude<keyof typeof orderStates,'ALL'>{
+export function orderState(order:Pick<OrderIntake,'status'|'payment'|'issues'>&{createdAt?:Date},shipment?:Pick<Shipment,'fulfillmentStatus'|'dispatchedAt'>&{tracking?:string;codSatang?:number;createdAt?:Date;status?:string},sale?:Pick<SalesOrder,'status'>,now=new Date(),receipt?:{tracking:string;amountSatang:number},shipmentVerified=true):Exclude<keyof typeof orderStates,'ALL'>{
  if(order.status==='RETURNED'||shipment?.fulfillmentStatus==='RETURNED')return 'RETURNED';
  if(['CANCELLED','WITHDRAWN','EXPIRED'].includes(order.status)||shipment?.fulfillmentStatus==='CANCELLED')return 'CANCELLED';
- if(needsTrackingReview(order,shipment?.tracking,now)||needsCodReceiptReview(order,shipment,receipt,now)||order.status==='NEEDS_REVIEW'||order.status==='COD_AMOUNT_MISMATCH'||sale?.status==='WAITING_COST'||Array.isArray(order.issues)&&order.issues.length>0)return 'REVIEW';
+ if(needsDispatchConfirmationReview(order,shipment,shipmentVerified,now)||needsTrackingReview(order,shipment?.tracking,now)||needsCodReceiptReview(order,shipment,receipt,now,shipmentVerified)||order.status==='NEEDS_REVIEW'||order.status==='COD_AMOUNT_MISMATCH'||sale?.status==='WAITING_COST'||Array.isArray(order.issues)&&order.issues.length>0)return 'REVIEW';
  if(order.payment==='COD'&&(sale?.status==='WAITING_COD'||order.status==='MATCHED_SHIPMENT_WAITING_COD'))return 'COD';
  return shipment?.fulfillmentStatus==='DISPATCHED'&&shipment.dispatchedAt?'SHIPPED':'WAITING';
 }
@@ -59,7 +59,7 @@ export async function orderManagement(input:OrderFilters={},options:{searchAllRo
  const [receipts,reports]=await Promise.all([db.codReceipt.findMany({where:{tracking:{in:shipments.map(s=>s.tracking)}}}),db.gmailImport.findMany({where:{id:{in:shipments.map(s=>s.importId)},kind:'SHIPMENT'},select:{id:true}})]),verifiedReports=new Set(reports.map(report=>report.id)),receiptMap=new Map(receipts.map(r=>[r.tracking,r])),now=new Date();
  const stockReviews=await db.stockDispatch.findMany({where:{orderId:{in:ids},status:{in:['NEEDS_REVIEW','WAITING_COST','HISTORY_SAVED']}},select:{orderId:true,issues:true,status:true}});
  const stockReviewMap=new Map(stockReviews.map(review=>[review.orderId,review]));
- const all=orders.map(order=>{const shipment=shipping.get(order.id),sale=saleMap.get(order.id),receipt=shipment?receiptMap.get(shipment.tracking):undefined,closed=['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(order.status),shipped=!closed&&!!shipment&&hasActualDispatch(shipment);const stockReview=!closed&&shipment?.tracking?stockReviewMap.get(order.id):undefined;const duplicateMatches=duplicateReviews.get(order.id)??[];return {order,stockReview,duplicateMatches,teamName:teamNames.get(order.groupKey)??'ยังไม่ระบุทีม',shipment,sale,receipt,shipped,shipmentVerified:shipped&&!!shipment&&verifiedReports.has(shipment.importId),awaitingConfirmation:shipped&&!!shipment&&!verifiedReports.has(shipment.importId),awaitingShipment:!closed&&!shipped,state:stockReview||duplicateMatches.length?'REVIEW' as const:orderState(order,shipment,sale,now,receipt),amountSatang:quotedTotal(order.rawText??'')??sale?.revenueSatang??null};});
+ const all=orders.map(order=>{const shipment=shipping.get(order.id),sale=saleMap.get(order.id),receipt=shipment?receiptMap.get(shipment.tracking):undefined,closed=['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(order.status),shipped=!closed&&!!shipment&&hasActualDispatch(shipment);const stockReview=!closed&&shipment?.tracking?stockReviewMap.get(order.id):undefined;const duplicateMatches=duplicateReviews.get(order.id)??[];return {order,stockReview,duplicateMatches,teamName:teamNames.get(order.groupKey)??'ยังไม่ระบุทีม',shipment,sale,receipt,shipped,shipmentVerified:shipped&&!!shipment&&verifiedReports.has(shipment.importId),awaitingConfirmation:shipped&&!!shipment&&!verifiedReports.has(shipment.importId),awaitingShipment:!closed&&!shipped,state:stockReview||duplicateMatches.length?'REVIEW' as const:orderState(order,shipment,sale,now,receipt,!!shipment&&verifiedReports.has(shipment.importId)),amountSatang:quotedTotal(order.rawText??'')??sale?.revenueSatang??null};});
  const counts=Object.fromEntries(Object.keys(orderStates).map(key=>[key,all.filter(row=>orderMatchesState(row,key)).length])) as Record<keyof typeof orderStates,number>;
  const filtered=all.filter(row=>orderMatchesState(row,status));
  const active=all.filter(row=>row.state!=='CANCELLED');

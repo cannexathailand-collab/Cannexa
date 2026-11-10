@@ -9,9 +9,10 @@ test("pending orders offer review while completed and returned orders do not",()
  assert.equal(needsOrderReview({status:"TRANSFER_RECORDED",payment:"โอน"},{status:"PAID"}),true);
 });
 test("employee review requires both account and affiliate, and reveals no unrelated parcel candidates",async t=>{
- const original={order:db.orderIntake.findFirst,sale:db.salesOrder.findUnique,shipment:db.shipment.findUnique,receipt:db.codReceipt.findUnique,candidates:db.shipment.findMany};
- t.after(()=>{db.orderIntake.findFirst=original.order;db.salesOrder.findUnique=original.sale;db.shipment.findUnique=original.shipment;db.codReceipt.findUnique=original.receipt;db.shipment.findMany=original.candidates;});
+ const original={order:db.orderIntake.findFirst,sale:db.salesOrder.findUnique,shipment:db.shipment.findUnique,receipt:db.codReceipt.findUnique,candidates:db.shipment.findMany,report:db.gmailImport.findFirst};
+ t.after(()=>{db.orderIntake.findFirst=original.order;db.salesOrder.findUnique=original.sale;db.shipment.findUnique=original.shipment;db.codReceipt.findUnique=original.receipt;db.shipment.findMany=original.candidates;db.gmailImport.findFirst=original.report;});
  db.orderIntake.findFirst=(async({where}:any)=>{assert.equal(where.id,"own");assert.equal(where.sellerUsername,"ink123");assert.equal(where.affiliateId,"shared");return {id:"own",affiliateId:"shared",sellerUsername:"ink123",status:"MATCHED_SHIPMENT_WAITING_COD",payment:"COD",phone:"0812345678",recipient:"ทดสอบ",rawText:"ยอดรวม: 100",issues:[]};}) as any;
+ db.gmailImport.findFirst=(async()=>null) as any;
  db.salesOrder.findUnique=(async()=>null) as any;db.shipment.findUnique=(async()=>({orderId:"own",tracking:"OWNTRACK",codSatang:10000})) as any;db.codReceipt.findUnique=(async()=>null) as any;db.shipment.findMany=(async()=>assert.fail("Employee must not query parcel candidates")) as any;
  const data=await orderReview("own",{role:"employee",username:"ink123",affiliateId:"shared"});assert.ok(data);assert.equal(data.canSeeCandidates,false);assert.deepEqual(data.candidates,[]);assert.ok(data.reasons.some(r=>r.includes("รอรายงานรับเงิน COD")));
 });

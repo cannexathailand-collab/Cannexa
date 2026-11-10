@@ -1,7 +1,7 @@
 import {contactPhones} from './contact-phones';
 import {db} from "./db";
 import {normalizeName,phonesMatch,quotedTotal} from "./shipment-matching";
-import {needsTrackingReview,needsCodReceiptReview} from './order-tracking-review';
+import {needsTrackingReview,needsCodReceiptReview,needsDispatchConfirmationReview,dispatchReviewReason} from './order-tracking-review';
 type Access={role:"owner"}|{role:"employee";username:string;affiliateId:string|null};
 export async function orderReview(id:string,access:Access){
  if(access.role==="employee"&&!access.affiliateId)return null;
@@ -9,11 +9,13 @@ export async function orderReview(id:string,access:Access){
  if(!order)return null;
  const [sale,shipment]=await Promise.all([db.salesOrder.findUnique({where:{orderId:id}}),db.shipment.findUnique({where:{orderId:id}})]);
  const receipt=shipment?await db.codReceipt.findUnique({where:{tracking:shipment.tracking}}):null;
+ const verifiedReport=shipment?await db.gmailImport.findFirst({where:{id:shipment.importId,kind:'SHIPMENT'},select:{id:true}}):null;
  const reasons=Array.isArray(order.issues)?order.issues.map(String):[];
+ if(needsDispatchConfirmationReview(order,shipment,!!verifiedReport))reasons.push(dispatchReviewReason);
  if(!order.affiliateId)reasons.push("ยังระบุผู้ขายที่ถูกต้องเพียงรายเดียวไม่ได้");
  if(!shipment)reasons.push("ยังไม่ผูกกับรายการจัดส่งที่ยืนยันได้");
  if(needsTrackingReview(order,shipment?.tracking))reasons.push('ยังไม่มีเลขพัสดุเกิน 3 วันนับจากวันที่บันทึกออเดอร์');
- if(needsCodReceiptReview(order,shipment,receipt))reasons.push('จัดส่ง COD ครบ 10 วันแล้ว ยังจับคู่ยอดรับเงินไม่สำเร็จ');
+ if(needsCodReceiptReview(order,shipment,receipt,new Date(),!!verifiedReport))reasons.push('จัดส่ง COD ครบ 10 วันแล้ว ยังจับคู่ยอดรับเงินไม่สำเร็จ');
  if(shipment&&shipment.fulfillmentStatus!=="DISPATCHED"&&!["RETURNED","CANCELLED"].includes(shipment.status))reasons.push("รอยืนยันอัตโนมัติจากรายงานจัดส่งที่จับคู่กับออเดอร์ หากจับคู่ไม่ได้ให้ตรวจข้อมูลผู้รับและเลขพัสดุ");
  if(order.payment==="COD"&&shipment&&order.status!=="RETURNED"){
   if(!receipt)reasons.push("ผูกจัดส่งแล้ว รอรายงานรับเงิน COD ของเลขพัสดุนี้ ไม่ได้หมายความว่าตีกลับ");

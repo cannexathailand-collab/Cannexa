@@ -4,7 +4,7 @@ import {DuplicateOrderNotice} from '@/app/duplicate-order-notice';
 import Link from 'next/link';
 import {requireAdminPage} from '@/lib/auth';
 import {orderManagement,orderStates,type OrderFilters} from '@/lib/order-management';
-import {needsTrackingReview,needsCodReceiptReview} from '@/lib/order-tracking-review';
+import {needsTrackingReview,needsCodReceiptReview,needsDispatchConfirmationReview,dispatchReviewReason} from '@/lib/order-tracking-review';
 import {displayCustomerCode} from '@/lib/customer-code';
 import '@/app/order-management.css';
 import {OrderFiltersForm} from './order-filters-form';
@@ -29,9 +29,10 @@ export default async function OrderList({searchParams}:{searchParams:Promise<Ord
  {o.customerCode&&<p><Link href={'/admin/crm/'+encodeURIComponent(o.customerCode)}>{displayCustomerCode(o.customerCode)}</Link></p>}
  <OrderShippingDetails teamName={teamName} copyDetails={{orderNumber:o.orderNumber,seller:o.sellerUsername??o.sellerCode,createdAt:o.createdAt,status:orderStates[state]}} data={{recipient:o.recipient,phone:o.phone,address:o.address,payment:o.payment,amountSatang,items:shipping.get(o.id)!.items}} tracking={s?.tracking}><OrderRowActions id={o.id} orderNumber={o.orderNumber} version={orderEditVersion(o)} canEdit={!shipped&&!s&&!['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(o.status)} canCancel={!shipped&&!['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(o.status)}/></OrderShippingDetails>
  {shipped&&<p className="muted small">{shipmentVerified?'ยืนยันการจัดส่งแล้ว':'รอยืนยันการจัดส่ง'}</p>}
+ {needsDispatchConfirmationReview(o,s,shipmentVerified)&&<p className="notice">{dispatchReviewReason}</p>}
  {needsTrackingReview(o)&&!s?.tracking&&<p className="notice">ไม่มีเลขพัสดุเกิน 3 วัน</p>}
  {stockReview&&<div className="notice" role="alert"><Link href="/admin/stock/review">รอตรวจสอบ · ตัดสต๊อกยังไม่สำเร็จ</Link>{Array.isArray(stockReview.issues)&&stockReview.issues.map((issue,index)=><small className="order-meta" key={index}>{String(issue)}</small>)}</div>}
- {needsCodReceiptReview(o,s,receipt)&&<p className="notice">COD ครบ 10 วัน ยังจับคู่ยอดรับเงินไม่สำเร็จ</p>}
+ {needsCodReceiptReview(o,s,receipt,new Date(),shipmentVerified)&&<p className="notice">COD ครบ 10 วัน ยังจับคู่ยอดรับเงินไม่สำเร็จ</p>}
  <DuplicateOrderNotice matches={duplicateMatches} currentOrder={o}/>
  </article>)}</div>{!data.rows.length&&<p className="empty">ไม่พบออเดอร์ที่ตรงกับเงื่อนไข ลองเปลี่ยนคำค้นหรือช่วงวันที่</p>}<div className="order-pagination">{data.page>1&&<Link className="button secondary" href={'?'+query({page:String(data.page-1)})}>ก่อนหน้า</Link>}<span>หน้า {data.page} / {data.pages}</span>{data.page<data.pages&&<Link className="button secondary" href={'?'+query({page:String(data.page+1)})}>ถัดไป</Link>}</div></section>
  <p className="muted small">ยอดตามออเดอร์ใช้สำหรับติดตามรายการ ยอดขายในบัญชีจะรับรู้ตามเกณฑ์ยืนยันการจัดส่งและการรับเงิน</p></>;
