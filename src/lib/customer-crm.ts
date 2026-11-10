@@ -25,7 +25,7 @@ export function summarizeCustomerOrders(orders:OrderIntake[],sales:SaleRow[],shi
   const cost=byCost.get(order.id),costReady=cost?.status==='POSTED'&&cost.totalCostSatang!==null;
   const profitSatang=recognized&&costReady?amountSatang!-cost!.totalCostSatang!:null;
   const points=recognized?(snapshotPoints(order.loyaltySnapshot,amountSatang!)??purchasePoints(amountSatang!,sale!.recognizedAt!,rules)):0;
-  return {order,amountSatang,excluded,recognized,recognizedAt:sale?.recognizedAt??null,returned,shipped,profitSatang,points,tracking:shipment?.tracking??null,status:returned?'ไม่รับสินค้า · ตีกลับ':recognized?'ซื้อสำเร็จ':excluded?'ไม่นับยอดซื้อ':sale?.status==='WAITING_COD'?'รอรับเงิน COD':order.status==='NEEDS_REVIEW'?'รอตรวจสอบ':orderShipmentStatus(order.status,shipment?.tracking,shipment?.fulfillmentStatus,shipment?.dispatchedAt).label};
+  return {order,amountSatang,excluded,recognized,recognizedAt:sale?.recognizedAt??null,returned,shipped,productCostSatang:costReady?cost!.totalCostSatang:null,profitSatang,points,tracking:shipment?.tracking??null,status:returned?'ไม่รับสินค้า · ตีกลับ':recognized?'ซื้อสำเร็จ':excluded?'ไม่นับยอดซื้อ':sale?.status==='WAITING_COD'?'รอรับเงิน COD':order.status==='NEEDS_REVIEW'?'รอตรวจสอบ':orderShipmentStatus(order.status,shipment?.tracking,shipment?.fulfillmentStatus,shipment?.dispatchedAt).label};
  }).sort((a,b)=>+b.order.eventAt-+a.order.eventAt||a.order.id.localeCompare(b.order.id));
  const range=filters?crmRange(filters):null;
  const selected=range?history.filter(h=>{const day=bangkokDay(h.order.eventAt);return day>=range.from&&day<=range.to;}):history;

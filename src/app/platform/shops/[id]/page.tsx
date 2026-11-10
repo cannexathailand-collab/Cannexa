@@ -8,6 +8,7 @@ import {accountingReport} from '@/lib/accounting-report';
 import {readStockSheet} from '@/lib/stock-google';
 import {customerAddress} from '@/lib/customer-address';
 import {loadCustomerCrm} from '@/lib/customer-crm';
+import {platformCustomerData} from '@/lib/platform-customer-data';
 
 type Filters={view?:string;q?:string;page?:string;order?:string;customer?:string;from?:string;to?:string};
 const views=[['overview','ภาพรวมและยอดขาย'],['customers','ลูกค้า'],['orders','ออเดอร์'],['stock','สต๊อก'],['accounting','บัญชี'],['users','ผู้ใช้']] as const;
@@ -22,8 +23,19 @@ async function Customers({client,q,page,path,selected}:{client:PrismaClient;q:st
   const customer=await client.customer.findUnique({where:{code:selected}});
   if(!customer)return <section className="card"><p>ไม่พบลูกค้าในร้านนี้</p></section>;
   const data=(await loadCustomerCrm([customer.code],undefined,client)).get(customer.code)!;
+  const financial=(await platformCustomerData(client,new Date(),customer.code))[0];
   const resolvedAddress=customerAddress(customer.address,data.allHistory.map(row=>row.order));
-  return <section className="card"><h2>{customer.name||customer.code}</h2><p>{customer.code} · {customer.phone||'ไม่มีเบอร์โทร'}</p><p>{resolvedAddress.address||'ไม่มีที่อยู่'}{resolvedAddress.source&&<small className="muted"> · จาก{resolvedAddress.source}</small>}</p><p>ยอดขายรวม {money(data.orderedSatang)} บาท · ยอดรอรับเงิน {money(data.pendingSatang)} บาท</p><p>ออเดอร์ {data.orderCount} ครั้ง · รับเงินสำเร็จ {money(data.purchasedSatang)} บาท</p><p>กำไรหลังต้นทุนสินค้า {data.pendingCostCount?'รอต้นทุนสินค้า':money(data.profitSatang)+' บาท'}</p><h3>ประวัติออเดอร์</h3>{data.allHistory.map(row=><p key={row.order.id}><Link href={path+'?'+new URLSearchParams({view:'orders',order:row.order.id})}>{row.order.orderNumber}</Link> · {row.order.eventAt.toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok'})} · {row.amountSatang===null?'ยังไม่ทราบยอด':money(row.amountSatang)+' บาท'} · {row.status}</p>)}{!data.allHistory.length&&<p>ยังไม่มีประวัติออเดอร์</p>}</section>;
+  return <section className="card">
+   <h2>{customer.name||customer.code}</h2><p>{customer.code} · {customer.phone||'ไม่มีเบอร์โทร'}</p>
+   <p>{resolvedAddress.address||'ไม่มีที่อยู่'}{resolvedAddress.source&&<small className="muted"> · จาก{resolvedAddress.source}</small>}</p>
+   <p>ยอดขายรวม {money(financial.orderedSatang)} บาท · ยอดรอรับเงิน COD {money(financial.pendingSatang)} บาท</p>
+   <p>ออเดอร์ {data.orderCount} ครั้ง · รับเงินสำเร็จ {money(financial.purchasedSatang)} บาท</p>
+   <p>กำไรหลังต้นทุนสินค้าของออเดอร์รับเงินแล้ว {financial.profitSatang===null?'รอต้นทุนสินค้า':money(financial.profitSatang)+' บาท'}</p>
+   <p>กำไรประมาณการ COD ที่รอรับเงิน {financial.pendingCod.profitSatang===null?'รอข้อมูลครบ':money(financial.pendingCod.profitSatang)+' บาท'}</p>
+   {financial.receivedEstimatedCostCount>0&&<p className="muted">ต้นทุนออเดอร์รับเงินแล้วบางส่วนเป็นประมาณการก่อนจัดส่ง</p>}
+   <h3>ประวัติออเดอร์</h3>{data.allHistory.map(row=><p key={row.order.id}><Link href={path+'?'+new URLSearchParams({view:'orders',order:row.order.id})}>{row.order.orderNumber}</Link> · {row.order.eventAt.toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok'})} · {row.amountSatang===null?'ยังไม่ทราบยอด':money(row.amountSatang)+' บาท'} · {row.order.payment==='โอน'&&!row.excluded?'โอนแล้ว · ':''}{row.status}</p>)}
+   {!data.allHistory.length&&<p>ยังไม่มีประวัติออเดอร์</p>}
+  </section>;
  }
  const where=q?{OR:[{code:{contains:q,mode:'insensitive' as const}},{name:{contains:q,mode:'insensitive' as const}},{phone:{contains:q}}]}:{};
  const rows=await client.customer.findMany({where,skip:(page-1)*50,take:50,orderBy:[{createdAt:'desc'},{code:'asc'}],select:{code:true,name:true,phone:true,address:true}});
