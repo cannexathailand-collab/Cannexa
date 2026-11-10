@@ -3,6 +3,12 @@ export const customerLanguageCookie='cannexa_customer_language';
 export function readCustomerLanguage(value:string|undefined):CustomerLanguage|null{return value==='th'||value==='en'?value:null;}
 
 const english:Record<string,string>={
+ "เบอร์โทรรับพัสดุ":"Delivery phone number",
+ "เบอร์สำรอง":"Backup phone",
+ "เพิ่มเบอร์สำรอง":"Add a backup phone",
+ "ลบเบอร์สำรอง":"Remove backup phone",
+ "กำลังเลือก…":"Selecting…",
+ "กำลังใช้ที่อยู่นี้":"Currently selected",
  "ข้อมูลที่อยู่จัดส่ง":"Delivery address details",
  "เพิ่มที่อยู่ใหม่":"Add another address",
  "ข้อมูลเพิ่มเติม":"Additional details",

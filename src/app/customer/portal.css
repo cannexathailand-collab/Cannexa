@@ -710,3 +710,18 @@
 .portal-address-form-heading button{font-size:13px;padding:9px 12px;border-radius:8px}
 @media(max-width:760px){.portal-address-layout{grid-template-columns:1fr;gap:16px}.portal-address-layout .portal-address-list{max-height:220px}}
 @media(max-width:600px){.portal-profile-section .portal-saved-addresses,.portal-profile-section .portal-address-form{padding:16px}.portal-address-form-heading{flex-wrap:wrap}}
+
+.portal-profile-section .portal-address-list article{background:#edf4e8;border-color:#d2e3cb;color:#294b36;transition:background-color .18s,border-color .18s}
+.portal-profile-section .portal-address-list article button{background:#d8e9cf;border:1px solid #b9d0ae;color:#274c32;font-size:13px}
+.portal-profile-section .portal-address-list article.is-selected{background:#184f38;border-color:#184f38;color:#fff}
+.portal-profile-section .portal-address-list article.is-selected button{background:#ffffff16;border-color:#a8cdb7;color:#fff}
+.portal-profile-section .portal-address-list article button:focus-visible{outline:2px solid #b3904c;outline-offset:3px}
+.portal-address-phones{list-style:none;margin:8px 0 0;padding:0;font-size:13px;line-height:1.6}
+.portal-address-phones li{overflow-wrap:anywhere}
+.portal-address-phones span{opacity:.8;margin-right:5px}
+.portal-delivery-phones{display:grid;gap:10px;min-width:0}
+.portal-phone-row{display:flex;align-items:flex-end;gap:8px;min-width:0}
+.portal-phone-row label{flex:1;min-width:0}
+.portal-phone-actions{display:flex;flex-wrap:wrap;gap:8px}
+.portal-profile-section .portal-phone-actions button,.portal-profile-section .portal-remove-phone{padding:8px 10px;border:1px solid #bfd4b8;border-radius:8px;background:#e6f0df;color:#254c33;font-size:12px}
+.portal-profile-section .portal-remove-phone{min-height:44px}

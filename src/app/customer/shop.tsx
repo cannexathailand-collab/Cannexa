@@ -85,6 +85,7 @@ export function CustomerShop({customerCode, initialCatalog, initialDelivery={nam
   const [catalog, setCatalog] = useState(initialCatalog);
   const [query, setQuery] = useState('');
   const [delivery,setDelivery]=useState({name:initialDelivery.name,address:initialDelivery.address,phone:initialDelivery.phone});
+  useEffect(()=>setDelivery({name:initialDelivery.name,address:initialDelivery.address,phone:initialDelivery.phone}),[initialDelivery.name,initialDelivery.address,initialDelivery.phone]);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [cart, setCart] = useState<{key: string | null; items: CustomerCartItem[]}>({key: null, items: []});
