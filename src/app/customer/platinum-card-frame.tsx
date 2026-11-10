@@ -1,10 +1,11 @@
 'use client';
-import {useEffect,useState,type ReactNode} from 'react';
+import {useEffect,useId,useState,type ReactNode} from 'react';
 
 type MotionPreference='auto'|'on'|'off';
 const storageKey='cannexa:platinum-border-motion';
 
 export function PlatinumCardFrame({children}:{children:ReactNode}){
+ const sparkleId=useId();
  const [preference,setPreference]=useState<MotionPreference>('auto');
  const [reducedMotion,setReducedMotion]=useState(true);
  useEffect(()=>{
@@ -19,8 +20,14 @@ export function PlatinumCardFrame({children}:{children:ReactNode}){
   <div className="portal-member-card portal-member-vip" data-motion={moving?'on':'off'}>
    {children}
    <svg className="platinum-border" aria-hidden="true" focusable="false">
+    <defs><filter id={sparkleId} x="-100%" y="-100%" width="300%" height="300%" colorInterpolationFilters="sRGB">
+     <feGaussianBlur in="SourceGraphic" stdDeviation="6 0.35" result="horizontal"/>
+     <feGaussianBlur in="SourceGraphic" stdDeviation="0.35 6" result="vertical"/>
+     <feMerge><feMergeNode in="horizontal"/><feMergeNode in="vertical"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter></defs>
     <rect className="platinum-border-glow" x="2" y="2" rx="18" pathLength="100"/>
     <rect className="platinum-border-light" x="2" y="2" rx="18" pathLength="100"/>
+    <rect className="platinum-border-sparkle" x="2" y="2" rx="18" pathLength="100" filter={'url(#'+sparkleId+')'}/>
    </svg>
   </div>
  </div>;

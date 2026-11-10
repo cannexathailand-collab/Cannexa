@@ -582,6 +582,7 @@
 .platinum-border rect{width:calc(100% - 4px);height:calc(100% - 4px);fill:none;stroke-linecap:round;stroke-dasharray:14 36;animation:platinum-border-travel 4.5s linear infinite;animation-play-state:paused;rx:4.5%}
 .platinum-border-glow{stroke:#ffc43d;stroke-width:8;opacity:.95;filter:blur(3px)}
 .platinum-border-light{stroke:#fff5cc;stroke-width:3.5;filter:drop-shadow(0 0 6px #ffd04a)}
+.platinum-border-sparkle{stroke:#fff9dc;stroke-width:4;stroke-dasharray:.15 2 .15 47.7}
 .portal-member-vip[data-motion="on"] .platinum-border rect{animation-play-state:running}
 @media(max-width:700px){.customer-portal[data-membership="vip"] .portal-member-overview{max-width:none}}
 
