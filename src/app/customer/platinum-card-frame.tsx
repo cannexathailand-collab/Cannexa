@@ -51,15 +51,10 @@ export function PlatinumCardFrame({children}:{children:ReactNode}){
      <linearGradient id={sparkleId+'-border-metal'} x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0" stopColor="#ad7019"/><stop offset=".2" stopColor="#ffe39b"/><stop offset=".35" stopColor="#fffde7"/><stop offset=".5" stopColor="#d99828"/><stop offset=".65" stopColor="#fffbdc"/><stop offset=".8" stopColor="#ffdb78"/><stop offset="1" stopColor="#b77b21"/>
      </linearGradient>
-     <filter id={sparkleId} x="-100%" y="-100%" width="300%" height="300%" colorInterpolationFilters="sRGB">
-     <feGaussianBlur in="SourceGraphic" stdDeviation="6 0.35" result="horizontal"/>
-     <feGaussianBlur in="SourceGraphic" stdDeviation="0.35 6" result="vertical"/>
-     <feMerge><feMergeNode in="horizontal"/><feMergeNode in="vertical"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter></defs>
+    </defs>
     <rect className="platinum-border-glow" x="2" y="2" rx="18" pathLength="100"/>
     <rect className="platinum-border-light" x="2" y="2" rx="18" pathLength="100" style={{stroke:'url(#'+sparkleId+'-border-metal)'}}/>
     <rect className="platinum-border-specular" x="2" y="2" rx="18" pathLength="100"/>
-    <rect className="platinum-border-sparkle" x="2" y="2" rx="18" pathLength="100" filter={'url(#'+sparkleId+')'}/>
    </svg>
   </div>
  </div>;
