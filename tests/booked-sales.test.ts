@@ -118,3 +118,17 @@ test('current round profit includes transfer and unpaid COD',()=>{
  const report=analyzeBookedSales({...data([order('transfer'),order('cod',{payment:'COD'})]),recordedCosts:[{orderId:'transfer',costSatang:3000},{orderId:'cod',costSatang:4000}]},{},now);
  assert.equal(report.todaySummary.revenueSatang,20000);assert.equal(report.todaySummary.profitSatang,13000);assert.equal(report.todaySummary.paidCodCount,0);
 });
+
+test('daily profit history covers past rounds independently of the selected day and reconciles to each round',()=>{
+ const now=new Date('2026-11-10T10:00:00+07:00');
+ const orders=[order('old',{eventAt:new Date('2026-10-02T08:00:00+07:00')}),order('a',{eventAt:new Date('2026-11-08T08:00:00+07:00')}),order('b',{eventAt:new Date('2026-11-08T09:00:00+07:00'),payment:'COD'}),order('missing',{eventAt:new Date('2026-11-09T08:00:00+07:00')})];
+ const dataset={...data(orders),recordedCosts:[{orderId:'old',costSatang:2500},{orderId:'a',costSatang:3000},{orderId:'b',costSatang:4000}]};
+ const report=analyzeBookedSales(dataset,{from:'2026-11-10',to:'2026-11-10'},now);
+ assert.deepEqual(report.profitHistory.map(row=>row.day),['2026-11-10','2026-11-09','2026-11-08','2026-10-02']);
+ assert.equal(report.profitHistory[0].isOpen,true);
+ assert.equal(report.profitHistory.find(row=>row.day==='2026-11-08')!.profitSatang,13000);
+ assert.equal(report.profitHistory.find(row=>row.day==='2026-11-09')!.profitSatang,null);
+ for(const row of report.profitHistory){const detail=analyzeBookedSales(dataset,{from:row.day,to:row.day},now);assert.equal(row.revenueSatang,detail.summary.revenueSatang);assert.equal(row.costSatang,detail.summary.costSatang);assert.equal(row.profitSatang,detail.summary.profitSatang);}
+ const revised=analyzeBookedSales({...dataset,recordedCosts:[...dataset.recordedCosts,{orderId:'missing',costSatang:2000}]},{},now);
+ assert.equal(revised.profitHistory.find(row=>row.day==='2026-11-09')!.profitSatang,8000);
+});

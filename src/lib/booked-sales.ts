@@ -72,6 +72,9 @@ export function analyzeBookedSales(data:Data,input:SalesFilters={},now=new Date(
  const pendingWebsiteOrders=websiteOrders.filter(order=>orderRoundClosingDay(order.createdAt,closeMinutes)>=range.from&&orderRoundClosingDay(order.createdAt,closeMinutes)<=range.to).sort((a,b)=>+b.createdAt-+a.createdAt);
  const webPending={count:pendingWebsiteOrders.length,revenueSatang:pendingWebsiteOrders.reduce((total,order)=>total+order.totalSatang,0)};
  const availableDays=[...new Set([currentRound,...rows.map(row=>row.day),...websiteOrders.map(order=>orderRoundClosingDay(order.createdAt,closeMinutes))])].sort().reverse();
+ const historyGroups=Map.groupBy(rows,row=>row.day);
+ if(!historyGroups.has(currentRound))historyGroups.set(currentRound,[]);
+ const profitHistory=[...historyGroups].sort(([first],[second])=>second.localeCompare(first)).map(([day,items])=>({day,isOpen:day>=currentRound,...totals(items)}));
  const waitingCod=orderRows.filter(row=>row.paymentMethod==='COD'&&!row.codPaid);
  const daily=[];
  for(let day=range.from;day<=range.to;day=shiftDay(day,1))daily.push({day,...totals(inRange(day,day))});
@@ -84,7 +87,7 @@ export function analyzeBookedSales(data:Data,input:SalesFilters={},now=new Date(
   COD_PAID:orderRows.filter(row=>row.codPaid),COD_WAITING:waitingCod,RECOGNIZED:orderRows.filter(row=>row.paymentMethod==='TRANSFER'||row.codPaid)};
  const detail=Object.hasOwn(details,input.detail??'')?input.detail as keyof typeof details:'ALL';
  const closeTime=String(Math.floor(closeMinutes/60)).padStart(2,'0')+':'+String(closeMinutes%60).padStart(2,'0');
- return {range,today,todaySummary,currentRound,roundStart,roundEnd,closeMinutes,closeTime,roundSettings:{closeTime,version:null as string|null},summary,orderRows,availableDays,webPending,pendingWebsiteOrders,awaitingShipment:totals(awaitingShipment),shipped:totals(shipped),orderTotals:{...summary,amountSatang:summary.revenueSatang},daily,previous,groups,
+ return {range,today,todaySummary,currentRound,roundStart,roundEnd,closeMinutes,closeTime,roundSettings:{closeTime,version:null as string|null},summary,orderRows,availableDays,profitHistory,webPending,pendingWebsiteOrders,awaitingShipment:totals(awaitingShipment),shipped:totals(shipped),orderTotals:{...summary,amountSatang:summary.revenueSatang},daily,previous,groups,
   sources:salesSources(orderRows.flatMap(row=>row.revenueSatang===null?[]:[{customer:row.customer,revenueSatang:row.revenueSatang}])),
   waitingCodCount:waitingCod.length,waitingCodSatang:totals(waitingCod).revenueSatang,detail,detailRows:details[detail],payment,seller:input.seller??'',
   sellerOptions:[...new Set(data.orders.flatMap(order=>order.sellerUsername?[order.sellerUsername]:[]))].sort()};
