@@ -17,10 +17,11 @@ import {loadDuplicateOrderReviews} from '@/lib/order-duplicates';
 import {DuplicateOrderNotice} from '@/app/duplicate-order-notice';
 import {EmployeeNav} from '../../employee-nav';
 
-export default async function SharedOrder({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{from?:string;scope?:string}>}){
+export default async function SharedOrder({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{from?:string;scope?:string;range?:string;page?:string;q?:string;status?:string}>}){
  const actor=await requireEmployeePage();
  const {id}=await params;
  const filters=await searchParams;
+ const backQuery=new URLSearchParams({...(filters.scope==='mine'?{scope:'mine'}:{}),...(filters.range==='all'?{range:'all'}:{}),...(filters.page?{page:filters.page.slice(0,6)}:{}),...(filters.q?{q:filters.q.slice(0,100)}:{}),...(filters.status?{status:filters.status.slice(0,20)}:{})}).toString();
  if(filters.from==='tasks'){
   const data=await orderReview(id,actor.role==='owner'?{role:'owner'}:{role:'employee',username:actor.username,affiliateId:actor.affiliateId});
   if(!data)notFound();
@@ -45,7 +46,7 @@ export default async function SharedOrder({params,searchParams}:{params:Promise<
   <section className="customer">
    <h1>รายละเอียดออเดอร์</h1>
    <EmployeeNav active="orders"/>
-   <Link href={filters.scope==='mine'?'/my-performance/orders?scope=mine':'/my-performance/orders'}>กลับรายการออเดอร์</Link>
+   <Link href={'/my-performance/orders'+(backQuery?'?'+backQuery:'')}>กลับรายการออเดอร์</Link>
    <h2>{order.orderNumber}</h2>
    <p>สร้างออเดอร์ {order.createdAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
    <p>รับออเดอร์ {order.eventAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>

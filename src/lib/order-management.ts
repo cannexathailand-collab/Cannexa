@@ -30,7 +30,7 @@ export function orderRoundRange(input:{from?:string;to?:string;page?:string}={},
  if(from>to)throw Error('INVALID_DATE_RANGE');
  return {from,to,...orderRoundBounds(shiftDay(to,1),closeMinutes)};
 }
-export async function orderManagement(input:OrderFilters={},options:{searchAllRounds?:boolean;reviewAllRounds?:boolean}={}){
+export async function orderManagement(input:OrderFilters={},options:{searchAllRounds?:boolean;reviewAllRounds?:boolean;includeClosed?:boolean}={}){
  const roundSettings=await loadOrderRoundSettings();
  const duplicateReviews=await loadDuplicateOrderReviews();
  const groups=await db.orderGroup.findMany({where:{purpose:'ORDER'},select:{id:true,name:true},orderBy:{name:'asc'}});
@@ -41,7 +41,7 @@ export async function orderManagement(input:OrderFilters={},options:{searchAllRo
  if(from)dayStart(from);if(to)dayStart(to);if(from&&to&&from>to)throw Error('INVALID_DATE_RANGE');
  const phoneQuery=/^[+\d\s()-]+$/.test(q)?normalizePhone(q):'';
  const trackingIds=q?(await db.shipment.findMany({where:{tracking:{contains:q,mode:'insensitive'}},select:{orderId:true}})).flatMap(s=>s.orderId?[s.orderId]:[]):[];
- const where:Prisma.OrderIntakeWhereInput={...(payment?{payment}:{}),...((from||to)?{eventAt:{...(from?{gte:dayStart(from)}:{}),...(to?{lt:dayStart(shiftDay(to,1))}:{})}}:{}),...(q?{OR:[...['orderNumber','recipient','phone','sellerCode','sellerUsername','customerCode'].map(field=>({[field]:{contains:q,mode:'insensitive'}})),{customerCode:{contains:canonicalCustomerCode(q),mode:'insensitive'}},{id:{in:trackingIds}},...(phoneQuery?[{phone:{contains:phoneQuery}}]:[])]}:{})};
+ const where:Prisma.OrderIntakeWhereInput={...(payment?{payment}:{}),...((from||to)?{eventAt:{...(from?{gte:dayStart(from)}:{}),...(to?{lt:dayStart(shiftDay(to,1))}:{})}}:{}),...(q?{OR:[...['orderNumber','recipient','phone','address','rawText','sellerCode','sellerUsername','customerCode'].map(field=>({[field]:{contains:q,mode:'insensitive'}})),{customerCode:{contains:canonicalCustomerCode(q),mode:'insensitive'}},{id:{in:trackingIds}},...(phoneQuery?[{phone:{contains:phoneQuery}}]:[])]}:{})};
  const earliest=await db.orderIntake.findFirst({orderBy:{eventAt:'asc'},select:{eventAt:true}});
  const at=new Date(),latestRound=orderRoundRange({},at,roundSettings.closeMinutes);
  const firstRound=earliest?orderRoundRange({},earliest.eventAt,roundSettings.closeMinutes):latestRound;
@@ -61,7 +61,7 @@ export async function orderManagement(input:OrderFilters={},options:{searchAllRo
  const stockReviewMap=new Map(stockReviews.map(review=>[review.orderId,review]));
  const all=orders.map(order=>{const shipment=shipping.get(order.id),sale=saleMap.get(order.id),receipt=shipment?receiptMap.get(shipment.tracking):undefined,closed=['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(order.status),shipped=!closed&&!!shipment&&hasActualDispatch(shipment);const stockReview=!closed&&shipment?.tracking?stockReviewMap.get(order.id):undefined;const duplicateMatches=duplicateReviews.get(order.id)??[];return {order,stockReview,duplicateMatches,confirmationReview:needsDispatchConfirmationReview(order,shipment,!!shipment&&verifiedReports.has(shipment.importId),now),codReview:needsCodReceiptReview(order,shipment,receipt,now,!!shipment&&verifiedReports.has(shipment.importId)),teamName:teamNames.get(order.groupKey)??'ยังไม่ระบุทีม',shipment,sale,receipt,shipped,shipmentVerified:shipped&&!!shipment&&verifiedReports.has(shipment.importId),awaitingConfirmation:shipped&&!!shipment&&!verifiedReports.has(shipment.importId),awaitingShipment:!closed&&!shipped,state:stockReview||duplicateMatches.length?'REVIEW' as const:orderState(order,shipment,sale,now,receipt,!!shipment&&verifiedReports.has(shipment.importId)),amountSatang:quotedTotal(order.rawText??'')??sale?.revenueSatang??null};});
  const counts=Object.fromEntries(Object.keys(orderStates).map(key=>[key,all.filter(row=>orderMatchesState(row,key)).length])) as Record<keyof typeof orderStates,number>;
- const filtered=all.filter(row=>orderMatchesState(row,status));
+ const filtered=all.filter(row=>options.includeClosed&&status==='ALL'||orderMatchesState(row,status));
  const active=all.filter(row=>row.state!=='CANCELLED');
  const totalAmountSatang=active.reduce((total,row)=>total+(row.amountSatang??0),0);
  const transferAmountSatang=active.filter(row=>row.order.payment==='โอน').reduce((total,row)=>total+(row.amountSatang??0),0);
