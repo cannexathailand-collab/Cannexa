@@ -15,4 +15,4 @@ export async function account(username:string){
  if(username==="owner")return {username,role:"owner",active:true,affiliateId:null,salt:env("ADMIN_PASSWORD_SALT"),hash:env("ADMIN_PASSWORD_HASH"),version:"initial"};
  return null;
 }
-export function home(role:string){return role==="store"?"/store":isEmployeeRole(role)?"/my-performance":"/admin";}
+export function home(role:string){return role==="owner"?"/admin/executive":role==="store"?"/store":isEmployeeRole(role)?"/my-performance":"/admin";}

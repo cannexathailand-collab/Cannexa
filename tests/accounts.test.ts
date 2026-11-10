@@ -14,7 +14,8 @@ test("sales is a distinct staff role with its own-work home and no back-office p
  assert.ok(roles.includes("sales"));
  for(const group of [office, managers, approvers])assert.equal(group.includes("sales"),false);
  for(const role of ["employee","sales"]){assert.equal(isEmployeeRole(role),true);assert.equal(home(role),"/my-performance");}
- for(const role of ["owner","admin","manager","viewer"]){assert.equal(isEmployeeRole(role),false);assert.equal(home(role),"/admin");}
+ assert.equal(home("owner"),"/admin/executive");
+ for(const role of ["admin","manager","viewer"]){assert.equal(isEmployeeRole(role),false);assert.equal(home(role),"/admin");}
 });
 
 test("employee report scopes the query to one affiliate and separates approved from paid",async t=>{
