@@ -15,8 +15,8 @@ export default async function PlatformCustomers({searchParams}:{searchParams:Pro
   try{rows=await platformCustomerData(shopDatabase(selected.shop.schemaName));}
   catch{error='โหลดข้อมูลลูกค้าร้านนี้ไม่สำเร็จ กรุณาลองใหม่';}
  }
- return <main className="main"><h1>แดชบอร์ดลูกค้าทุกร้าน</h1>
-  <section className="card"><h2>เลือกร้านเพื่อดูข้อมูลลูกค้า</h2><form className="actions" action="/platform/customers"><label>เลือกร้าน<select name="shop" defaultValue={selectedId}>{shops.map(shop=><option key={shop.id} value={shop.id}>{shop.name} ({shop.slug})</option>)}</select></label><button>ดูแดชบอร์ดร้าน</button></form>{selected&&<p>กำลังดูข้อมูลของ {selected.shop.name}</p>}{id&&!selected&&<p role="alert">ไม่พบข้อมูลร้านที่เลือก</p>}</section>
+ return <main className="main customer-page"><header className="customer-page-heading"><span className="customer-eyebrow">ภาพรวมลูกค้า</span><h1>แดชบอร์ดลูกค้าทุกร้าน</h1><p>ยอดขาย กำไร และความเคลื่อนไหวของลูกค้าในที่เดียว</p></header>
+  <section className="card customer-shop-selector"><form className="actions" action="/platform/customers"><label>เลือกร้าน<select name="shop" defaultValue={selectedId}>{shops.map(shop=><option key={shop.id} value={shop.id}>{shop.name} ({shop.slug})</option>)}</select></label><button>ดูแดชบอร์ดร้าน</button></form>{selected&&<p className="customer-current-shop"><span aria-hidden="true">●</span> กำลังดู {selected.shop.name}</p>}{id&&!selected&&<p role="alert">ไม่พบข้อมูลร้านที่เลือก</p>}</section>
   {error&&<p role="alert" className="notice">{error}</p>}
   {rows&&selected&&<><PlatformCustomerDashboard key={selected.shop.id} rows={rows} shopId={selected.shop.id}/><div className="actions"><a className="button secondary" href={'/api/platform/export?shop='+encodeURIComponent(selected.shop.id)}>รายชื่อลูกค้าร้านนี้ (CSV)</a><a className="button secondary" href={'/api/platform/export?kind=business&shop='+encodeURIComponent(selected.shop.id)}>ข้อมูลธุรกิจร้านนี้ (Excel)</a></div></>}
  </main>;
