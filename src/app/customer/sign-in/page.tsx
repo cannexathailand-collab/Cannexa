@@ -9,8 +9,8 @@ export const metadata:Metadata={title:'Customer',robots:{index:false,follow:fals
 export default async function CustomerSignInPage(){
  const {t}=await customerLanguage();
  return <main className="customer-portal">
-  <header className="portal-header"><a className="portal-brand" href="/customer/sign-in"><StoreBrand fallback="Customer"/></a></header>
-  <section className="portal-welcome">
+  <section className="portal-welcome portal-login-card">
+   <div className="portal-login-brand"><a className="portal-brand" href="/customer/sign-in"><StoreBrand fallback="Customer"/></a></div>
    <h1>{t("ยินดีต้อนรับ")}</h1>
    <p>{t("ขอบคุณที่ร่วมเป็นสมาชิกกับเรา")}</p>
    <CustomerSignInForm/>
