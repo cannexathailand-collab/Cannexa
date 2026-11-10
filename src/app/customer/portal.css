@@ -534,16 +534,16 @@
  background:radial-gradient(ellipse at 8% 5%,#263a383f,transparent 43%),radial-gradient(ellipse at 95% 24%,#4f535326,transparent 48%),linear-gradient(145deg,#131a1b,#080d0e 60%,#151a1b);
  color:#e6e9e5;
 }
-.customer-shell:has(.customer-portal[data-membership="vip"]) .customer-language-switch{max-width:1160px;padding-top:20px;color:#aab4b0}
+.customer-shell:has(.customer-portal[data-membership="vip"]) .customer-language-switch{max-width:960px;padding-top:16px;color:#aab4b0}
 .customer-shell:has(.customer-portal[data-membership="vip"]) .customer-language-switch button{background:transparent;border-color:#48514e;color:#cbd2ce;border-radius:6px}
 .customer-shell:has(.customer-portal[data-membership="vip"]) .customer-language-switch button[aria-pressed=true]{background:#d9dfd9;color:#18231e;border-color:#d9dfd9}
-.customer-portal[data-membership="vip"]{max-width:1160px;padding:18px 40px 64px;line-height:1.8}
+.customer-portal[data-membership="vip"]{max-width:960px;padding:12px 32px 48px;line-height:1.8}
 .customer-portal[data-membership="vip"] .portal-header{border-color:#aebcb329;padding-bottom:23px;margin-bottom:30px}
 .customer-portal[data-membership="vip"] .portal-brand{font-family:var(--font-platinum),Georgia,serif;font-size:34px;font-weight:500;letter-spacing:.035em;color:#e6e7df}
 .customer-portal[data-membership="vip"] .portal-signout{font-size:12px;border-radius:6px!important;color:#cbd1cc!important}
-.customer-portal[data-membership="vip"] .portal-member-overview{grid-template-columns:minmax(0,550px) minmax(180px,230px);max-width:810px;margin-left:auto;margin-right:auto;padding:0;background:none;border:0;gap:30px;border-radius:0;align-items:stretch;margin-bottom:35px}
-.portal-member-vip{width:100%;isolation:isolate;aspect-ratio:1586/992;border-radius:20px;overflow:visible;border:0;background:transparent;filter:drop-shadow(0 10px 14px #0005)}
-.customer-portal[data-membership="vip"] .portal-coin-balance{margin-top:41px;border-radius:17px;background:radial-gradient(circle at 50% 24%,#fff4c9,transparent 55%),linear-gradient(150deg,#ead39a,#c3a759);border:1px solid #efdca2;box-shadow:inset 0 0 0 5px #fff5d71c,0 12px 28px #0002;padding:30px 18px}
+.customer-portal[data-membership="vip"] .portal-member-overview{grid-template-columns:minmax(0,550px) minmax(200px,1fr);max-width:none;margin-left:auto;margin-right:auto;padding:0;background:none;border:0;gap:24px;border-radius:0;align-items:stretch;margin-bottom:24px}
+.portal-member-vip{width:100%;isolation:isolate;aspect-ratio:1526/822;border-radius:20px;overflow:visible;border:0;background:transparent;filter:drop-shadow(0 10px 14px #0005)}
+.customer-portal[data-membership="vip"] .portal-coin-balance{margin-top:32px;border-radius:17px;background:radial-gradient(circle at 50% 24%,#fff4c9,transparent 55%),linear-gradient(150deg,#ead39a,#c3a759);border:1px solid #efdca2;box-shadow:inset 0 0 0 5px #fff5d71c,0 12px 28px #0002;padding:24px 18px}
 .customer-portal[data-membership="vip"] .portal-coin-balance h2{color:#493c17;font-size:13px;font-weight:400;letter-spacing:.03em;margin-bottom:20px}
 .customer-portal[data-membership="vip"] .portal-coin-mark{border-color:#ad873d;background:linear-gradient(135deg,#fff1bf,#d3ae53);color:#826121;box-shadow:inset 0 0 0 4px #f6e4ab,inset 0 0 0 5px #b18a3e,0 4px 10px #76521b20;width:52px;height:52px;font-family:var(--font-platinum),Georgia,serif;font-size:32px}
 .customer-portal[data-membership="vip"] .portal-coin-balance>strong{font-family:var(--font-platinum),Georgia,serif;font-size:72px;font-weight:400;color:#493714;line-height:1}
@@ -563,7 +563,7 @@
 
 @media(max-width:700px){
  .customer-portal[data-membership="vip"]{padding:12px 16px calc(150px + env(safe-area-inset-bottom))}
- .portal-member-vip{aspect-ratio:1586/992}
+ .portal-member-vip{aspect-ratio:1526/822}
  .customer-portal[data-membership="vip"] .portal-tabs{background:#121b18f5;border-color:#b8c4b440;box-shadow:0 -8px 32px #0005;border-radius:16px 16px 0 0;padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
  .customer-portal[data-membership="vip"] .portal-header{margin-bottom:24px;padding-bottom:18px}
  .customer-portal[data-membership="vip"] .portal-brand{font-size:30px}
@@ -578,11 +578,18 @@
  .customer-portal[data-membership="vip"] .portal-section h2{font-size:18px}
 }
 
-.platinum-border{position:absolute;left:1.7%;top:7.05%;width:96.6%;height:82.8%;overflow:visible;pointer-events:none;z-index:3}
+.platinum-border{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:3}
 .platinum-border rect{width:calc(100% - 4px);height:calc(100% - 4px);fill:none;stroke-linecap:round;stroke-dasharray:14 86;animation:platinum-border-travel 4.5s linear infinite;animation-play-state:paused;rx:4.5%}
 .platinum-border-glow{stroke:#efb93c;stroke-width:5;opacity:.7;filter:blur(2px)}
 .platinum-border-light{stroke:#ffe59a;stroke-width:2.5;filter:drop-shadow(0 0 3px #ffc23c)}
 .portal-member-vip[data-motion="on"] .platinum-border rect{animation-play-state:running}
-.platinum-motion-toggle{display:block;margin:7px 0 0 auto;padding:5px 10px;min-height:32px!important;font:inherit;font-size:11px;border:1px solid #adbbac45;border-radius:6px;background:transparent;color:#c8d2c0;cursor:pointer}
-.platinum-motion-toggle:hover{background:#d8e2cf15;color:#f2f4e7}
-@media(max-width:700px){.customer-portal[data-membership="vip"] .portal-member-overview{max-width:none}.platinum-motion-toggle{min-height:36px!important}}
+@media(max-width:700px){.customer-portal[data-membership="vip"] .portal-member-overview{max-width:none}}
+
+.platinum-member>h2{font-size:15px;line-height:20px;margin:0 0 12px;letter-spacing:.05em}
+.platinum-card-wrap{min-width:0}
+.portal-member-vip>img{position:absolute;width:103.93%;height:120.68%;max-width:none;left:-1.9%;top:-8.52%;object-fit:fill}
+.portal-member-vip .portal-member-name{top:12%;font-size:clamp(15px,1.8vw,21px)!important}
+.portal-member-vip .portal-member-code{bottom:6%;font-size:14px}
+.customer-portal[data-membership="vip"] .portal-section-title{margin-bottom:12px}
+.customer-portal[data-membership="vip"] .portal-empty{padding:22px 12px}
+@media(max-width:700px){.portal-member-vip .portal-member-name{font-size:15px!important}.portal-member-vip .portal-member-code{font-size:12px}.customer-portal[data-membership="vip"] .portal-member-overview{gap:16px}}

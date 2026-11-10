@@ -1,12 +1,10 @@
 'use client';
 import {useEffect,useState,type ReactNode} from 'react';
-import {useCustomerLanguage} from './language';
 
 type MotionPreference='auto'|'on'|'off';
 const storageKey='cannexa:platinum-border-motion';
 
 export function PlatinumCardFrame({children}:{children:ReactNode}){
- const {t}=useCustomerLanguage();
  const [preference,setPreference]=useState<MotionPreference>('auto');
  const [reducedMotion,setReducedMotion]=useState(true);
  useEffect(()=>{
@@ -17,10 +15,6 @@ export function PlatinumCardFrame({children}:{children:ReactNode}){
   return()=>media.removeEventListener('change',update);
  },[]);
  const moving=preference==='on'||preference==='auto'&&!reducedMotion;
- function toggle(){
-  const next=moving?'off':'on';setPreference(next);
-  try{localStorage.setItem(storageKey,next);}catch{}
- }
  return <div className="platinum-card-wrap">
   <div className="portal-member-card portal-member-vip" data-motion={moving?'on':'off'}>
    {children}
@@ -29,6 +23,5 @@ export function PlatinumCardFrame({children}:{children:ReactNode}){
     <rect className="platinum-border-light" x="2" y="2" rx="18" pathLength="100"/>
    </svg>
   </div>
-  <button type="button" className="platinum-motion-toggle" aria-pressed={moving} onClick={toggle}>{t(moving?'หยุดแสงวิ่ง':'เปิดแสงวิ่ง')}</button>
  </div>;
 }
