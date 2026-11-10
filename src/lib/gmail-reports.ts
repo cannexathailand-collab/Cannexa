@@ -97,13 +97,13 @@ export async function matchShipments(actor:string){
    let order=shipment.orderId?orders.find(o=>o.id===shipment.orderId):undefined;
    let matchMethod=shipment.orderId?"LINKED_TRACKING":"EXACT";
    if(!shipment.orderId){
-   const available=orders.filter(o=>o.status==="WAITING_SHIPMENT"&&!used.has(o.id));
+   const available=orders.filter(o=>o.status==="WAITING_SHIPMENT"&&!used.has(o.id)&&(!o.eventAt||!shipment.reportAt||o.eventAt<=shipment.reportAt));
    let candidates=shipmentCandidates(shipment,available);
    if(!candidates.length){
     candidates=compatibleCodCandidates(shipment,available);matchMethod="COMPATIBLE_UNIQUE";
     if(!candidates.length)continue;
     // A still-unpaid plausible parcel is also a conflict: don't steal an older receipt.
-    const alternatives=shipments.filter(s=>!s.orderId&&s.codSatang>0&&compatibleCodCandidates(s,[candidates[0]]).length);
+    const alternatives=shipments.filter(s=>!s.orderId&&s.codSatang>0&&(!candidates[0].eventAt||!s.reportAt||candidates[0].eventAt<=s.reportAt)&&compatibleCodCandidates(s,[candidates[0]]).length);
     if(candidates.length!==1||alternatives.length!==1){ambiguous++;setStatus(shipment,"AMBIGUOUS_ORDER");continue;}
    }
    if(!candidates.length)continue;

@@ -24,6 +24,23 @@ function harness(t:any,conflict=false){const original=db.$transaction;t.after(()
  const tx:any={$queryRawUnsafe:async()=>[],codReceipt:{findMany:async()=>receipts},shipment:{findUnique:async({where}:any)=>shipments.find(s=>s.orderId===where.orderId),updateMany:async({where,data}:any)=>{const selected=shipments.filter(s=>where.tracking.in.includes(s.tracking)&&!s.orderId);selected.forEach(s=>Object.assign(s,data));return {count:selected.length};},findMany:async({where}:any)=>where.status?.in?shipments.filter(s=>where.status.in.includes(s.status)):shipments.filter(s=>!["RETURNED","CANCELLED"].includes(s.status)&&(!s.orderId||["MATCHED_WAITING_COD","MATCHED_COD_AMOUNT_MISMATCH"].includes(s.status))),update:async({where,data}:any)=>Object.assign(shipments.find(s=>s.tracking===where.tracking)!,data)},orderIntake:{findMany:async({where}:any)=>orders.filter(o=>typeof where.status==="string"?o.status===where.status:where.status.in.includes(o.status)),update:async({where,data}:any)=>Object.assign(orders.find(o=>o.id===where.id)!,data)},affiliate:{findUnique:async()=>({active:true,archivedAt:null})},salesOrder:{findUnique:async({where}:any)=>sales.find(s=>s.orderId===where.orderId),update:async({where,data}:any)=>Object.assign(sales.find(s=>s.id===where.id),data),create:async({data}:any)=>{assert.ok(!sales.some(s=>s.tracking===data.tracking||s.orderId===data.orderId));sales.push(data);}},auditLog:{create:async()=>{}}};db.$transaction=(async(fn:any)=>fn(tx)) as any;return {orders,shipments,sales,receipts};}
 test("two identical orders and two distinct parcels produce two one-to-one sales, rerun posts nothing",async t=>{const h=harness(t);assert.equal((await matchShipments("owner")).matched,2);assert.equal(h.sales.length,2);assert.notEqual(h.sales[0].orderId,h.sales[1].orderId);assert.equal(h.sales[0].commissionSatang,25600);assert.equal((await matchShipments("owner")).matched,0);});
 test("same matching details assigned to different sellers are not auto-credited",async t=>{const h=harness(t,true);assert.equal((await matchShipments("owner")).matched,0);assert.equal(h.sales.length,0);assert.ok(h.shipments.every(s=>s.status==="AMBIGUOUS_SELLER"));});
+
+test('COD never links an old report to a newer order despite matching contact and amount',async t=>{
+ const h=harness(t);h.orders.splice(1);h.shipments.splice(1);
+ Object.assign(h.orders[0],{eventAt:new Date('2026-11-10T03:00:00Z')});
+ Object.assign(h.shipments[0],{reportAt:new Date('2026-11-01T03:00:00Z')});
+ assert.equal((await matchShipments('owner')).shipmentLinked,0);
+ assert.equal(h.shipments[0].orderId,null);assert.equal(h.sales.length,0);
+});
+
+test('compatible COD matching ignores earlier parcels when checking later valid evidence',async t=>{
+ const h=harness(t);h.orders.splice(1);
+ Object.assign(h.orders[0],{eventAt:new Date('2026-11-10T03:00:00Z'),recipient:'OBY',address:shortAddress});
+ Object.assign(h.shipments[0],{reportAt:new Date('2026-11-01T03:00:00Z'),recipient:'Obie',address:shortAddress+' ตำบลทดสอบ 11000'});
+ Object.assign(h.shipments[1],{reportAt:new Date('2026-11-11T03:00:00Z'),recipient:'Obie',address:shortAddress+' ตำบลทดสอบ 11000'});
+ assert.equal((await matchShipments('owner')).shipmentLinked,1);
+ assert.equal(h.shipments[0].orderId,null);assert.equal(h.shipments[1].orderId,'a');assert.equal(h.sales.length,1);
+});
 test("profit commission waits for actual stock costs",async t=>{const h=harness(t);h.orders[0].salesCommissionBasis="PROFIT";await matchShipments("owner");assert.equal(h.sales[0].commissionSatang,null);assert.equal(h.sales[0].status,"WAITING_COST");});
 test('gross profit COD never posts revenue-based commission while waiting for costs',async t=>{const h=harness(t);h.orders[0].salesCommissionBasis='GROSS_PROFIT';await matchShipments('owner');assert.equal(h.sales[0].commissionBasis,'GROSS_PROFIT');assert.equal(h.sales[0].commissionSatang,null);assert.equal(h.sales[0].status,'WAITING_COST');});
 test("shipment without COD receipt cannot credit commission; later receipt unlocks one sale",async t=>{const h=harness(t);h.receipts.splice(0);let result=await matchShipments("owner");assert.equal(result.matched,0);assert.equal(result.waitingCod,2);assert.equal(h.sales.length,0);h.receipts.push({tracking:"TRACK0001",amountSatang:256000});result=await matchShipments("owner");assert.equal(result.matched,1);assert.equal(h.sales[0].paymentEvidence,"COD_RECEIPT");assert.equal(h.sales.length,1);assert.equal((await matchShipments("owner")).matched,0);});
