@@ -8,16 +8,20 @@ import {baseUrl} from "@/lib/config";
 import {passwordHash} from "@/lib/crypto";
 import {transaction} from "@/lib/db";
 
-const fields=z.object({username:z.string().trim().toLowerCase().regex(/^[a-z0-9._-]{3,64}$/),role:z.enum(roles),affiliateId:z.string().max(100),password:z.string().max(256)});
+const fields=z.object({username:z.string().trim().toLowerCase().regex(/^[a-z0-9._-]{3,64}$/),role:z.enum(roles),affiliateId:z.string().max(100).default(""),password:z.string().max(256)});
 export async function POST(req:Request){
  let actor:string;
  try{actor=await admin();await sameOrigin();}catch{return new Response("Forbidden",{status:403});}
- const back=(status:string)=>NextResponse.redirect(baseUrl()+"/admin/users?status="+status,303);
+ const back=(status:string,reason?:string)=>NextResponse.redirect(baseUrl()+"/admin/users?"+new URLSearchParams({status,...(reason?{reason}:{})}),303);
  try{
   const form=await req.formData();
-  const {username,role,affiliateId,password}=fields.parse(Object.fromEntries(form));
+  const parsed=fields.safeParse(Object.fromEntries(form));
+  if(!parsed.success)return back("error",String(parsed.error.issues[0]?.path[0]??""));
+  const {username,role,affiliateId,password}=parsed.data;
   const edit=form.get("action")==="edit";
-  if(username==="owner"||(!edit&&password.length<8)||(password&&password.length<8)||(isEmployeeRole(role)&&!affiliateId))return back("error");
+  if(username==="owner")return back("error","reserved");
+  if((!edit&&password.length<8)||(password&&password.length<8))return back("error","password");
+  if(isEmployeeRole(role)&&!affiliateId)return back("error","affiliate");
   const active=form.get("active")==="on";
   const salt=randomBytes(32).toString("hex");
   const credential=password?{salt,hash:passwordHash(password,salt)}:undefined;
@@ -25,12 +29,18 @@ export async function POST(req:Request){
   const values={role,affiliateId:isEmployeeRole(role)?affiliateId:null,active,version:randomUUID()};
   await transaction(async tx=>{
    const affiliate=isEmployeeRole(role)?await tx.affiliate.findUnique({where:{id:affiliateId},select:{code:true,archivedAt:true}}):null;
-   if(isEmployeeRole(role)&&(!affiliate||affiliate.archivedAt))throw new Error("Affiliate unavailable");
-   if(affiliate?.code===metaAdCode)throw new Error("Reserved Meta ad link");
+   if(isEmployeeRole(role)&&(!affiliate||affiliate.archivedAt))throw new Error("USER_AFFILIATE_UNAVAILABLE");
+   if(affiliate?.code===metaAdCode)throw new Error("USER_AFFILIATE_UNAVAILABLE");
    if(edit)await tx.userAccount.update({where:{username},data:{...values,...credential}});
    else if(credential)await tx.userAccount.create({data:{username,...values,...credential}});
    await tx.auditLog.create({data:{actor,action:edit?"USER_UPDATED":"USER_CREATED",entityId:username,details:{role,active,passwordReset:!!credential}}});
   });
   return back("saved");
- }catch{return back("error");}
+ }catch(error){
+  if(error instanceof Error&&error.message==="USER_AFFILIATE_UNAVAILABLE")return back("error","affiliate");
+  const code=(error as {code?:string}|null)?.code;
+  if(code==="P2002")return back("error","duplicate");
+  if(code==="P2025")return back("error","missing");
+  return back("error");
+ }
 }
