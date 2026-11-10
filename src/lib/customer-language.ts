@@ -3,6 +3,8 @@ export const customerLanguageCookie='cannexa_customer_language';
 export function readCustomerLanguage(value:string|undefined):CustomerLanguage|null{return value==='th'||value==='en'?value:null;}
 
 const english:Record<string,string>={
+ "หยุดแสงวิ่ง":"Pause border light",
+ "เปิดแสงวิ่ง":"Enable border light",
  "สมาชิกระดับพิเศษ":"Private membership",
  "ชื่อสมาชิก":"Member name",
  "ไม่สามารถเข้าใช้งานได้": "Access unavailable",

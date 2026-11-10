@@ -541,32 +541,13 @@
 .customer-portal[data-membership="vip"] .portal-header{border-color:#aebcb329;padding-bottom:23px;margin-bottom:30px}
 .customer-portal[data-membership="vip"] .portal-brand{font-family:var(--font-platinum),Georgia,serif;font-size:34px;font-weight:500;letter-spacing:.035em;color:#e6e7df}
 .customer-portal[data-membership="vip"] .portal-signout{font-size:12px;border-radius:6px!important;color:#cbd1cc!important}
-.customer-portal[data-membership="vip"] .portal-member-overview{grid-template-columns:minmax(0,2.3fr) minmax(190px,1fr);padding:0;background:none;border:0;gap:30px;border-radius:0;align-items:stretch;margin-bottom:35px}
-.platinum-member-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:17px;min-height:24px}
-.platinum-member-heading h2{margin:0;font-size:12px;font-weight:400;letter-spacing:.03em;color:#c0c9c2}
-.platinum-member-heading>span{font-size:9px;font-weight:500;letter-spacing:.18em;color:#a9ada1}
-.portal-member-vip{width:100%;isolation:isolate;aspect-ratio:1.72;border-radius:20px;filter:none;box-shadow:0 24px 60px #0006,0 0 22px #d9b35c22;border:1px solid #bdaa7250;background:#252b29}
-.portal-member-vip::before{content:"";position:absolute;inset:-80%;z-index:-1;background:conic-gradient(from 0deg,transparent 0 55%,#806027 62%,#e9b954 68%,#fff0ac 72%,#c2953c 77%,transparent 85% 100%);animation:platinum-border-orbit 8s linear infinite}
-.platinum-card-face{position:absolute;inset:2px;overflow:hidden;border-radius:17px;padding:25px 30px;display:flex;flex-direction:column;justify-content:space-between;background:radial-gradient(ellipse at 100% 0%,#59605d66,transparent 55%),linear-gradient(125deg,#2b3431,#151c1a 53%,#313832);box-shadow:inset 0 0 0 1px #d2d8c421}
-.platinum-card-face::before{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(115deg,transparent 0 3px,#ffffff02 4px 5px),radial-gradient(ellipse at 8% 95%,#a1a78b0d,transparent 60%)}
-.platinum-card-face::after{content:"";position:absolute;width:76%;aspect-ratio:1;right:-37%;top:-24%;border:1px solid #d4d9c112;border-radius:50%;box-shadow:0 0 0 35px #d4d9c105,0 0 0 70px #d4d9c103;pointer-events:none}
-.platinum-card-top,.platinum-card-tier,.platinum-card-footer{position:relative;z-index:1}
-.platinum-card-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.platinum-card-top>span:first-child{font-size:11px;font-weight:500;letter-spacing:.28em;color:#d2d7c7}
-.platinum-card-seal{display:grid;place-items:center;flex:0 0 39px;width:39px;height:39px;border:1px solid #b6c0af55;border-radius:50%;font-family:var(--font-platinum),Georgia,serif;font-size:24px;color:#d8dcca;box-shadow:inset 0 0 0 4px #d4d9c106}
-.platinum-card-tier>span{display:block;font-size:9px;letter-spacing:.32em;color:#aeb7a7;margin-bottom:0}
-.platinum-card-tier>strong{display:block;font-family:var(--font-platinum),Georgia,serif;font-size:clamp(54px,6vw,88px);font-weight:400;letter-spacing:-.025em;line-height:1.1;color:#e6e6cf;text-shadow:0 1px 0 #fff5,0 3px 14px #0004}
-.platinum-card-footer{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;border-top:1px solid #bfc4af30;padding-top:16px}
-.platinum-card-holder{min-width:0;flex:1}
-.platinum-card-holder>span,.portal-member-vip .portal-member-code>span{display:block;font-size:9px;letter-spacing:.04em;font-weight:400;color:#b4bcae;opacity:1;margin:0 0 4px}
-.portal-member-vip .portal-member-name{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;position:static;inset:auto;margin:0!important;text-align:left;font-size:clamp(14px,1.8vw,21px)!important;font-weight:400;line-height:1.4;letter-spacing:0;color:#eef0e6;text-shadow:none;overflow-wrap:anywhere}
-.portal-member-vip .portal-member-code{position:static;inset:auto;margin:0;flex:0 0 auto;text-align:right;color:#dce2d1;text-shadow:none;font-size:13px}
-.portal-member-vip .portal-member-code>strong{font-family:var(--font-platinum),Georgia,serif;font-size:23px;font-weight:500;letter-spacing:.06em}
-.customer-portal[data-membership="vip"] .portal-coin-balance{margin-top:41px;border-radius:17px;background:radial-gradient(ellipse at 50% 5%,#ffffff09,transparent 70%),#ffffff03;border:1px solid #bcc8ba30;box-shadow:inset 0 0 0 5px #ffffff02;padding:30px 18px}
-.customer-portal[data-membership="vip"] .portal-coin-balance h2{color:#c5cdbf;font-size:13px;font-weight:400;letter-spacing:.03em;margin-bottom:20px}
-.customer-portal[data-membership="vip"] .portal-coin-mark{border-color:#aab7a5;background:linear-gradient(130deg,#cbd5bd,#a2af98 45%,#e3e4ca);color:#354433;box-shadow:inset 0 0 0 4px #cbd5bb,inset 0 0 0 5px #6c7a61,0 5px 25px #0004;width:52px;height:52px;font-family:var(--font-platinum),Georgia,serif;font-size:32px}
-.customer-portal[data-membership="vip"] .portal-coin-balance>strong{font-family:var(--font-platinum),Georgia,serif;font-size:72px;font-weight:400;color:#e4e9db;line-height:1}
-.customer-portal[data-membership="vip"] .portal-coin-balance>span:last-child{color:#aeb8aa;font-size:12px}
+.customer-portal[data-membership="vip"] .portal-member-overview{grid-template-columns:minmax(0,550px) minmax(180px,230px);max-width:810px;margin-left:auto;margin-right:auto;padding:0;background:none;border:0;gap:30px;border-radius:0;align-items:stretch;margin-bottom:35px}
+.portal-member-vip{width:100%;isolation:isolate;aspect-ratio:1586/992;border-radius:20px;overflow:visible;border:0;background:transparent;filter:drop-shadow(0 10px 14px #0005)}
+.customer-portal[data-membership="vip"] .portal-coin-balance{margin-top:41px;border-radius:17px;background:radial-gradient(circle at 50% 24%,#fff4c9,transparent 55%),linear-gradient(150deg,#ead39a,#c3a759);border:1px solid #efdca2;box-shadow:inset 0 0 0 5px #fff5d71c,0 12px 28px #0002;padding:30px 18px}
+.customer-portal[data-membership="vip"] .portal-coin-balance h2{color:#493c17;font-size:13px;font-weight:400;letter-spacing:.03em;margin-bottom:20px}
+.customer-portal[data-membership="vip"] .portal-coin-mark{border-color:#ad873d;background:linear-gradient(135deg,#fff1bf,#d3ae53);color:#826121;box-shadow:inset 0 0 0 4px #f6e4ab,inset 0 0 0 5px #b18a3e,0 4px 10px #76521b20;width:52px;height:52px;font-family:var(--font-platinum),Georgia,serif;font-size:32px}
+.customer-portal[data-membership="vip"] .portal-coin-balance>strong{font-family:var(--font-platinum),Georgia,serif;font-size:72px;font-weight:400;color:#493714;line-height:1}
+.customer-portal[data-membership="vip"] .portal-coin-balance>span:last-child{color:#685329;font-size:12px}
 .customer-portal[data-membership="vip"] .portal-tabs{border-color:#b8c4b42e;background:#ffffff03;border-radius:10px;padding:6px;margin-bottom:28px}
 .customer-portal[data-membership="vip"] .portal-tab-controls button{font-size:13px;font-weight:400;border-radius:6px;color:#bac5b9;min-height:48px;letter-spacing:.01em}
 .customer-portal[data-membership="vip"] .portal-tab-controls button[aria-selected=true]{background:linear-gradient(130deg,#dfe4d4,#b9c3ad);color:#233021;font-weight:500;box-shadow:0 4px 14px #0002}
@@ -578,22 +559,15 @@
 .customer-portal[data-membership="vip"] .portal-order{background:#fafbf7;border-color:#d6ddcd;border-left-color:#89997c;border-radius:9px}
 .customer-portal[data-membership="vip"] .portal-profile input,.customer-portal[data-membership="vip"] .portal-profile select,.customer-portal[data-membership="vip"] .portal-profile textarea{background:#fafbf8;border-color:#cbd4c1;border-radius:7px;color:#263a29}
 .customer-portal[data-membership="vip"] .portal-profile-actions button,.customer-portal[data-membership="vip"] .portal-profile>button,.customer-portal[data-membership="vip"] .shop-cart-button,.customer-portal[data-membership="vip"] .shop-add-action button{background:#26392b;color:#eef2e6;border-radius:7px}
-@keyframes platinum-border-orbit{to{transform:rotate(360deg)}}
-@media(prefers-reduced-motion:reduce){.portal-member-vip::before{animation:none}}
+@keyframes platinum-border-travel{from{stroke-dashoffset:0}to{stroke-dashoffset:-100}}
+
 @media(max-width:700px){
  .customer-portal[data-membership="vip"]{padding:12px 16px calc(150px + env(safe-area-inset-bottom))}
- .portal-member-vip{min-height:220px;aspect-ratio:1.65}
+ .portal-member-vip{aspect-ratio:1586/992}
  .customer-portal[data-membership="vip"] .portal-tabs{background:#121b18f5;border-color:#b8c4b440;box-shadow:0 -8px 32px #0005;border-radius:16px 16px 0 0;padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
  .customer-portal[data-membership="vip"] .portal-header{margin-bottom:24px;padding-bottom:18px}
  .customer-portal[data-membership="vip"] .portal-brand{font-size:30px}
  .customer-portal[data-membership="vip"] .portal-member-overview{grid-template-columns:1fr;gap:18px;margin-bottom:24px}
- .platinum-member-heading{margin-bottom:12px}.platinum-member-heading h2{font-size:11px}.platinum-member-heading>span{font-size:8px}
- .platinum-card-face{padding:20px 22px}
- .platinum-card-top>span:first-child{font-size:10px}.platinum-card-seal{width:31px;height:31px;flex-basis:31px;font-size:21px}
- .platinum-card-tier>strong{font-size:clamp(48px,13vw,76px)}
- .platinum-card-tier>span{font-size:8px;letter-spacing:.22em}
- .platinum-card-footer{padding-top:12px;gap:10px}
- .portal-member-vip .portal-member-name{font-size:15px!important}.portal-member-vip .portal-member-code>strong{font-size:21px}
  .customer-portal[data-membership="vip"] .portal-coin-balance{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:14px;row-gap:0;align-items:center;text-align:left;padding:18px 22px;border-radius:12px}
  .customer-portal[data-membership="vip"] .portal-coin-balance h2{grid-column:2;grid-row:1;margin:0;font-size:13px}
  .customer-portal[data-membership="vip"] .portal-coin-mark{grid-column:1;grid-row:1/3;margin:0;width:42px;height:42px;font-size:27px}
@@ -603,4 +577,12 @@
  .customer-portal[data-membership="vip"] .portal-section{padding:22px 18px;border-radius:12px}
  .customer-portal[data-membership="vip"] .portal-section h2{font-size:18px}
 }
-@media(max-width:360px){.platinum-card-face{padding:16px}.platinum-card-tier>strong{font-size:47px}.portal-member-vip .portal-member-name{font-size:13px!important}.platinum-card-footer{padding-top:8px}.platinum-card-seal{width:27px;height:27px;flex-basis:27px}.platinum-member-heading>span{letter-spacing:.09em}}
+
+.platinum-border{position:absolute;left:1.7%;top:7.05%;width:96.6%;height:82.8%;overflow:visible;pointer-events:none;z-index:3}
+.platinum-border rect{width:calc(100% - 4px);height:calc(100% - 4px);fill:none;stroke-linecap:round;stroke-dasharray:14 86;animation:platinum-border-travel 4.5s linear infinite;animation-play-state:paused;rx:4.5%}
+.platinum-border-glow{stroke:#efb93c;stroke-width:5;opacity:.7;filter:blur(2px)}
+.platinum-border-light{stroke:#ffe59a;stroke-width:2.5;filter:drop-shadow(0 0 3px #ffc23c)}
+.portal-member-vip[data-motion="on"] .platinum-border rect{animation-play-state:running}
+.platinum-motion-toggle{display:block;margin:7px 0 0 auto;padding:5px 10px;min-height:32px!important;font:inherit;font-size:11px;border:1px solid #adbbac45;border-radius:6px;background:transparent;color:#c8d2c0;cursor:pointer}
+.platinum-motion-toggle:hover{background:#d8e2cf15;color:#f2f4e7}
+@media(max-width:700px){.customer-portal[data-membership="vip"] .portal-member-overview{max-width:none}.platinum-motion-toggle{min-height:36px!important}}
