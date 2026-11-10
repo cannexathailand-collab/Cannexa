@@ -112,6 +112,16 @@
 .portal-profile-fields input:disabled,.portal-profile-fields textarea:disabled,.portal-profile-fields select:disabled {background:#e9eee6;color:#697c69;border-color:#d9e1d3;opacity:1;-webkit-text-fill-color:#697c69;cursor:default;box-shadow:none}
 .portal-profile-actions {grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:5px}
 .portal-profile-actions-single {grid-template-columns:1fr}
+.portal-profile .portal-use-registration-phone{justify-self:start;background:transparent;color:#20543a;border:1px solid #a7bda3;border-radius:8px;padding:8px 12px;font-size:13px}
+.portal-saved-addresses{margin:20px 0 24px}
+.portal-address-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.portal-address-heading h3{font-size:17px;margin:0}
+.portal-address-heading button,.portal-address-list button{white-space:nowrap;padding:10px 14px;border-radius:9px}
+.portal-address-list{display:grid;gap:10px;max-height:320px;overflow:auto}
+.portal-address-list article{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px;border:1px solid #d9e1d3;border-radius:10px;min-width:0}
+.portal-address-list article>div{min-width:0;overflow-wrap:anywhere}
+.portal-address-list p{margin:5px 0 0;font-size:14px}
+@media(max-width:600px){.portal-address-heading,.portal-address-list article{align-items:stretch;flex-direction:column}.portal-address-heading button,.portal-address-list button{align-self:flex-start}}
 .portal-profile-actions button {min-height:48px;border-radius:11px;font-size:16px;font-weight:600;background:#20543a;color:#fff}
 .portal-profile-actions .portal-edit-button {background:transparent;color:#20543a;border:1px solid #a7bda3}
 .portal-sign-in-alternative {margin-top:26px;padding-top:15px;border-top:1px solid #c9d8bb35}
@@ -661,3 +671,24 @@
 .portal-phone-registration .portal-profile{grid-template-columns:1fr;gap:16px;margin-top:20px}
 
 .shop-delivery{margin:18px 0;padding:16px;border:1px solid #ccd9c9;border-radius:12px;min-width:0}.shop-delivery legend{padding:0 6px;font-weight:600}.shop-delivery label{margin:10px 0}.shop-delivery textarea{resize:vertical}
+
+.customer-portal[data-membership] .portal-profile-section{max-width:680px;margin:0 auto;padding:22px}
+.portal-profile-section h2{font-size:20px}
+.portal-profile-section>.portal-muted{font-size:13px;line-height:1.6}
+.portal-profile-section .portal-profile{gap:12px;margin-top:16px}
+.portal-profile-section .portal-profile-fields{gap:12px}
+.portal-profile-section .portal-profile label{gap:6px;font-size:14px}
+.portal-profile-section .portal-profile input,.portal-profile-section .portal-profile select,.portal-profile-section .portal-profile textarea{padding:10px 12px;min-height:44px;font-size:16px}
+.portal-profile-section .portal-profile small{font-size:12px;line-height:1.5}
+.portal-profile-section .portal-saved-addresses{margin:16px 0}
+.portal-profile-section .portal-address-heading h3{font-size:15px}
+.portal-profile-section .portal-address-list{max-height:180px;gap:8px}
+.portal-profile-section .portal-address-list article{padding:10px;gap:10px}
+.portal-profile-section .portal-address-list p{font-size:13px;line-height:1.4}
+.portal-profile-section .portal-profile-actions button{min-height:44px;font-size:15px}
+.portal-profile-extra{grid-column:1/-1;border-top:1px solid #d9e1d3;padding-top:10px}
+.portal-profile-extra summary{cursor:pointer;font-size:14px;padding:8px 0}
+.portal-profile-extra fieldset{border:0;padding:8px 0 0;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0}
+.portal-profile-extra fieldset>label:last-child{grid-column:1/-1}
+@media(max-width:600px){.customer-portal[data-membership] .portal-profile-section{padding:18px 16px}.portal-profile-section .portal-profile-fields{gap:12px}}
+@media(max-width:600px){.portal-profile-extra fieldset{grid-template-columns:1fr}}

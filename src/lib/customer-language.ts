@@ -3,6 +3,13 @@ export const customerLanguageCookie='cannexa_customer_language';
 export function readCustomerLanguage(value:string|undefined):CustomerLanguage|null{return value==='th'||value==='en'?value:null;}
 
 const english:Record<string,string>={
+ "ข้อมูลเพิ่มเติม":"Additional details",
+ "ใช้เบอร์เดียวกับที่สมัคร":"Use my registration phone number",
+ "ที่อยู่จัดส่งที่บันทึกไว้":"Saved delivery addresses",
+ "เพิ่มที่อยู่จัดส่ง":"Add a delivery address",
+ "บันทึกที่อยู่จัดส่ง":"Save delivery address",
+ "ใช้ที่อยู่นี้":"Use this address",
+ "ยังไม่มีที่อยู่จัดส่งที่บันทึกไว้":"No saved delivery addresses yet",
  "คุณรู้จักเราจากช่องทางไหน":"How did you hear about us?",
  "เลือกช่องทาง (ไม่บังคับ)":"Select a channel (optional)",
  "กรุณาเลือกช่องทางที่รู้จักเรา":"Please select how you heard about us",

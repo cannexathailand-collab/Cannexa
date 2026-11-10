@@ -180,6 +180,7 @@ model Customer {
  portalProfileIncomplete Boolean @default(false)
  portalUsername String? @unique
   discoverySource String?
+  registrationPhone String?
  portalPasswordSalt String?
  portalPasswordHash String?
  code String @id @default(dbgenerated("customer_code()"))

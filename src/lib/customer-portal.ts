@@ -1,5 +1,6 @@
 import {customerUsername} from './customer-username';
 import {customerDiscoverySource} from './customer-discovery-source';
+import {saveCustomerDeliveryAddresses} from './customer-delivery-addresses';
 import type {Prisma} from '@prisma/client';
 import {canonicalCustomerCode} from './customer-code';
 import {cookies} from 'next/headers';
@@ -114,6 +115,7 @@ export async function savePortalProfile(key:string|null,input:Parameters<typeof 
   const existing=key?await tx.customer.findUnique({where:{lineUserKey:key}}):await tx.customer.findUnique({where:{code:customerCode}});
   if(!key&&(!existing||existing.portalRegistrationPending))throw Error('UNAUTHORIZED');
   if(existing)await userLock(tx,'customer-profile:'+existing.code);
+  const profileData=existing?{...data,phone:[...new Set([...(validContactPhones(existing.phone??'')??[]),...validContactPhones(data.phone)!])].join(' / ')}:data;
   const username=input.username===undefined?existing?.portalUsername??null:customerUsername(input.username);
   if(username){
    await userLock(tx,'customer-username:'+username);
@@ -121,15 +123,16 @@ export async function savePortalProfile(key:string|null,input:Parameters<typeof 
    const reserved=await tx.customer.findUnique({where:{code:canonicalCustomerCode(username)},select:{code:true}});
    if(owner&&owner.code!==existing?.code||reserved&&reserved.code!==existing?.code)throw Error('กรุณาเลือกชื่อผู้ใช้อื่น ชื่อนี้ถูกใช้แล้ว');
   }
-  for(const phone of validContactPhones(data.phone)!.sort())await userLock(tx,'draft-customer-phone:'+phone);
+  for(const phone of validContactPhones(profileData.phone)!.sort())await userLock(tx,'draft-customer-phone:'+phone);
   let referrerId:string|null=null;
   if((!existing||existing.portalProfileIncomplete&&!existing.referrerId)&&input.referrerCode){
    referrerId=await findCustomerReferrer(tx,input.referrerCode);
   }
-  const matches=await matchingCustomerPhones(tx,data.phone);
+  const matches=await matchingCustomerPhones(tx,profileData.phone);
   if(matches.some(row=>row.code!==existing?.code))throw Error('EXISTING_CUSTOMER');
-  const identityKey=customerIdentity(data.name,data.phone);
-  const saved=existing?await tx.customer.update({where:{code:existing.code},data:{...data,...sourceData,identityKey,portalUsername:username,...(existing.portalProfileIncomplete?{portalProfileIncomplete:false,portalRegistrationPending:true,...(referrerId?{referrerId}:{})}:{})}}):await tx.customer.create({data:{...data,...sourceData,identityKey,portalUsername:username,lineUserKey:key,portalRegistrationPending:true,referrerId}});
+  const identityKey=customerIdentity(profileData.name,profileData.phone);
+  const saved=existing?await tx.customer.update({where:{code:existing.code},data:{...profileData,...sourceData,identityKey,portalUsername:username,...(existing.portalProfileIncomplete?{portalProfileIncomplete:false,portalRegistrationPending:true,...(referrerId?{referrerId}:{})}:{})}}):await tx.customer.create({data:{...profileData,...sourceData,identityKey,portalUsername:username,lineUserKey:key,portalRegistrationPending:true,referrerId}});
+  await saveCustomerDeliveryAddresses(tx,saved.code,existing?[{...existing,preserve:true},data]:[data]);
   await tx.auditLog.create({data:{actor:'customer',action:existing?'CUSTOMER_PROFILE_UPDATED':'CUSTOMER_REGISTERED',entityId:saved.code,details:{source:'customer-portal'}}});
   return saved;
  });
@@ -154,7 +157,7 @@ export async function savePortalPhone(key:string|null,phoneInput:unknown,custome
   const matches=await matchingCustomerPhones(tx,phone);
   if(matches.some(row=>row.code!==customer.code))throw Error('EXISTING_CUSTOMER');
   const referrerId=customer.referrerId??await findCustomerReferrer(tx,referrerInput);
-  const saved=await tx.customer.update({where:{code:customer.code},data:{phone,referrerId,...(discoverySource===undefined?{}:{discoverySource}),portalProfileIncomplete:false,portalRegistrationPending:false}});
+  const saved=await tx.customer.update({where:{code:customer.code},data:{phone,registrationPhone:customer.registrationPhone??phone,referrerId,...(discoverySource===undefined?{}:{discoverySource}),portalProfileIncomplete:false,portalRegistrationPending:false}});
   await tx.auditLog.create({data:{actor:'customer',action:'CUSTOMER_PHONE_REGISTERED',entityId:saved.code,details:{source:key?'line-login':'password-login'}}});
   return saved;
  });

@@ -1,4 +1,5 @@
 import {validContactPhones} from './contact-phones';
+import {saveCustomerDeliveryAddresses} from './customer-delivery-addresses';
 import {randomUUID} from 'node:crypto';
 import {Prisma,type WebsiteOrder} from '@prisma/client';
 import {z} from 'zod';
@@ -219,11 +220,7 @@ export async function createWebsiteOrder(customerCode:string,value:unknown){
   if(grandTotal>2147483647)throw Error('ORDER_TOO_LARGE');
   if(grandTotal!==input.expectedTotalSatang)throw Error('TOTAL_CHANGED');
   if(input.delivery){
-   for(const entry of [{name:customer.name,address:customer.address,phone:customer.phone},delivery]){
-    if(!entry.name||!entry.address||!entry.phone)continue;
-    const fingerprint=sha(JSON.stringify([entry.name.trim(),entry.address.trim()]));
-    await tx.customerDeliveryAddress.upsert({where:{customerCode_fingerprint:{customerCode:code,fingerprint}},create:{customerCode:code,fingerprint,name:entry.name,address:entry.address,phone:entry.phone},update:{phone:entry.phone}});
-   }
+   await saveCustomerDeliveryAddresses(tx,code,[{...customer,preserve:true},delivery]);
    const phones=[...new Set([...(validContactPhones(customer.phone??'')??[]),...validContactPhones(delivery.phone)!])].join(' / ');
    await tx.customer.update({where:{code},data:{name:delivery.name,address:delivery.address,phone:phones,identityKey:customerIdentity(delivery.name,phones)}});
   }
