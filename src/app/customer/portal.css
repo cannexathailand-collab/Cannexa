@@ -579,9 +579,9 @@
 }
 
 .platinum-border{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:3}
-.platinum-border rect{width:calc(100% - 4px);height:calc(100% - 4px);fill:none;stroke-linecap:round;stroke-dasharray:14 86;animation:platinum-border-travel 4.5s linear infinite;animation-play-state:paused;rx:4.5%}
-.platinum-border-glow{stroke:#efb93c;stroke-width:5;opacity:.7;filter:blur(2px)}
-.platinum-border-light{stroke:#ffe59a;stroke-width:2.5;filter:drop-shadow(0 0 3px #ffc23c)}
+.platinum-border rect{width:calc(100% - 4px);height:calc(100% - 4px);fill:none;stroke-linecap:round;stroke-dasharray:14 36;animation:platinum-border-travel 4.5s linear infinite;animation-play-state:paused;rx:4.5%}
+.platinum-border-glow{stroke:#ffc43d;stroke-width:8;opacity:.95;filter:blur(3px)}
+.platinum-border-light{stroke:#fff5cc;stroke-width:3.5;filter:drop-shadow(0 0 6px #ffd04a)}
 .portal-member-vip[data-motion="on"] .platinum-border rect{animation-play-state:running}
 @media(max-width:700px){.customer-portal[data-membership="vip"] .portal-member-overview{max-width:none}}
 
