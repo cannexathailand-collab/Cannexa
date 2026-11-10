@@ -4,13 +4,20 @@ import {equal,passwordHash,signToken} from "@/lib/crypto";
 import {baseUrl} from "@/lib/config";
 import {account,home} from "@/lib/accounts";
 import {customerAgeCookie} from '@/lib/customer-age';
+export async function GET(){
+ return NextResponse.redirect(baseUrl()+"/login",303);
+}
 export async function POST(req:NextRequest){
  await sameOrigin();
  const data=await req.formData();
  const username=String(data.get("username")??"").trim().toLowerCase()||"owner";
  const password=String(data.get("password")??"");
  if(username.length>64)return NextResponse.redirect(baseUrl()+"/login?error=1",303);
- const a=await account(username);
+ let a:Awaited<ReturnType<typeof account>>;
+ try{a=await account(username);}catch{
+  console.error('Login account lookup unavailable');
+  return NextResponse.redirect(baseUrl()+"/login?error=unavailable",303);
+ }
  const actual=passwordHash(password.slice(0,256),a?.salt??"invalid-account-salt");
  if(password.length>256||!a?.active||!equal(actual,a.hash))return NextResponse.redirect(baseUrl()+"/login?error=1",303);
  const res=NextResponse.redirect(baseUrl()+home(a.role),303);
