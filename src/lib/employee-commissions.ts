@@ -2,12 +2,12 @@ import {db} from './db';
 import {mockMode} from './config';
 export const commissionKinds={FRIEND:'ค่าคอมเพิ่มเพื่อน',TRANSFER:'ค่าคอมโอน',COD:'ค่าคอม COD',SPECIAL:'ค่าคอมพิเศษ / โบนัส'} as const;
 export type EmployeeCommission={id:string;kind:keyof typeof commissionKinds;status:'PENDING'|'PAID'|'WAITING';amount:number|null;date:Date;paidAt:Date|null;reference:string;note:string};
-export function commissionBasisDescription(basis:string,bps:number,revenue:number|null,cost:number|null=null,freight:number|null=null,recorded:number|null=null){
+export function commissionBasisDescription(basis:string,bps:number,revenue:number|null,cost:number|null=null,_freight:number|null=null,recorded:number|null=null){
  const money=(n:number)=>(n/100).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})+' บาท',rate=(bps/100).toLocaleString('th-TH')+'%';
  if(revenue===null)return 'รอยืนยันยอดขาย · อัตรา '+rate;
- if(basis!=='REVENUE'&&(cost===null||basis==='GROSS_PROFIT'&&freight===null))return 'ยอดขาย '+money(revenue)+' · รอต้นทุน'+(basis==='GROSS_PROFIT'?' / ค่าขนส่ง':'')+' · อัตรา '+rate;
- const base=Math.max(0,revenue-(basis==='REVENUE'?0:cost!)-(basis==='GROSS_PROFIT'?freight!:0));
- const prefix=basis==='REVENUE'?'ยอดขาย ':('ยอดขาย '+money(revenue)+' − ต้นทุน '+money(cost!)+(basis==='GROSS_PROFIT'?' − ค่าส่ง '+money(freight!):'')+'\nกำไร ');
+ if(basis!=='REVENUE'&&cost===null)return 'ยอดขาย '+money(revenue)+' · รอต้นทุน'+' · อัตรา '+rate;
+ const base=Math.max(0,revenue-(basis==='REVENUE'?0:cost!));
+ const prefix=basis==='REVENUE'?'ยอดขาย ':('ยอดขาย '+money(revenue)+' − ต้นทุน '+money(cost!)+'\nกำไร ');
  const formula=prefix+money(base)+' × '+rate;
  return recorded===null?formula:formula+(Math.round(base*bps/10000)===recorded?' = ':' · ค่าคอมที่บันทึก ')+money(recorded);
 }
@@ -27,10 +27,10 @@ export async function employeeCommissions(affiliateId:string){
  const byId=new Map(orders.map(r=>[r.id,r]));
  const sourceSales=extras.length?await db.salesOrder.findMany({where:{orderId:{in:extras.map(r=>r.orderId)}},select:{orderId:true,revenueSatang:true}}):[];
  const revenueByOrder=new Map(sourceSales.map(r=>[r.orderId,r.revenueSatang]));
- const [costs,shipments]=await Promise.all([db.stockDispatch.findMany({where:{orderId:{in:ids},status:'POSTED'},select:{orderId:true,totalCostSatang:true}}),db.shipment.findMany({where:{orderId:{in:ids}},select:{orderId:true,freightSatang:true,freightReportAt:true}})]);
- const costByOrder=new Map(costs.map(r=>[r.orderId,r.totalCostSatang])),freightByOrder=new Map(shipments.map(r=>[r.orderId,r.freightReportAt?r.freightSatang:null]));
+ const costs=await db.stockDispatch.findMany({where:{orderId:{in:ids},status:'POSTED'},select:{orderId:true,totalCostSatang:true}});
+ const costByOrder=new Map(costs.map(r=>[r.orderId,r.totalCostSatang]));
  const closed=(id:string)=>['CANCELLED','WITHDRAWN','RETURNED','EXPIRED'].includes(byId.get(id)?.status??'');
- const basis=(id:string,value:string,bps:number,revenue:number|null,amount:number|null)=>commissionBasisDescription(value,bps,revenue,costByOrder.get(id)??null,freightByOrder.get(id)??null,amount);
+ const basis=(id:string,value:string,bps:number,revenue:number|null,amount:number|null)=>commissionBasisDescription(value,bps,revenue,costByOrder.get(id)??null,null,amount);
  const rows:EmployeeCommission[]=[
   ...friends.map(r=>({id:'friend:'+r.id,kind:'FRIEND' as const,status:r.status==='Paid'?'PAID' as const:r.status==='Approved'?'PENDING' as const:'WAITING' as const,amount:r.status==='Pending'?null:r.amountSatang,date:r.conversion.verifiedAt??r.conversion.createdAt,paidAt:r.paidAt,reference:r.conversion.customerCode,note:r.status==='Pending'?'รอตรวจสอบการเพิ่มเพื่อน':'1 คน × '+(r.amountSatang/100).toLocaleString('th-TH',{minimumFractionDigits:2})+' บาทต่อคน'})),
   ...sales.filter(r=>r.status==='PAID'||!closed(r.orderId)).map(r=>({id:'sale:'+r.id,kind:r.paymentMethod==='COD'?'COD' as const:'TRANSFER' as const,status:r.status==='PAID'?'PAID' as const:r.status==='PENDING'&&r.commissionSatang!==null?'PENDING' as const:'WAITING' as const,amount:r.status==='PAID'?(r.paidAmountSatang??r.commissionSatang??0):r.status==='PENDING'?r.commissionSatang:null,date:r.createdAt,paidAt:r.paidAt,reference:byId.get(r.orderId)?.orderNumber??'ออเดอร์',note:basis(r.orderId,r.commissionBasis,r.commissionBps,r.revenueSatang,r.commissionSatang)+(r.status==='WAITING_COD'?' · รอรับเงินและจับคู่ COD':r.status==='WAITING_COST'?' · รอคำนวณ':'')})),

@@ -10,7 +10,7 @@ export function CustomerDashboard({data,productNames=new Map()}:{data:CustomerDa
  const paymentTotal=data.payments.reduce((sum,payment)=>sum+payment.amountSatang,0);
  const comparisons=[
   {label:'ยอดซื้อสำเร็จ',current:data.current.revenueSatang,previous:data.previous.revenueSatang,format:crmMoney},
-  {label:'กำไรหลังต้นทุนสินค้าและค่าส่ง',current:data.current.profitSatang,previous:data.previous.profitSatang,format:crmMoney},
+  {label:'กำไรหลังต้นทุนสินค้า',current:data.current.profitSatang,previous:data.previous.profitSatang,format:crmMoney},
   {label:'จำนวนซื้อสำเร็จ',current:data.current.purchases,previous:data.previous.purchases,format:count},
   {label:'ยอดเฉลี่ยต่อการซื้อ',current:data.current.averageOrderSatang,previous:data.previous.averageOrderSatang,format:crmMoney},
   {label:'อัตรากำไรต่อยอดซื้อ',current:data.current.profitMargin,previous:data.previous.profitMargin,format:percent},

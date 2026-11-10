@@ -17,14 +17,14 @@ test('CRM counts each order once and separates completed purchases from pending 
  assert.equal(returned.orderCount,1);assert.equal(returned.purchasedSatang,100000);assert.equal(returned.history.length,2);
 });
 
-test('CRM profit requires actual product cost and freight, preserves losses and groups selected dates',()=>{
+test('CRM profit uses actual product cost without freight and preserves losses',()=>{
  const sale=demoSalesRows(new Date('2026-11-07T12:00:00+07:00'))[0];
  const order={...sale.order,eventAt:sale.createdAt,withdrawnAt:null} as OrderIntake;
  const shipment={...sale.shipment!,freightSatang:5000,freightReportAt:new Date()};
  const costs=[{orderId:order.id,status:'POSTED',totalCostSatang:110000}];
  const rules=[{enabled:true,satangPerPoint:10000,effectiveAt:new Date('2026-11-01')}];
  const full=summarizeCustomerOrders([order],[sale],[shipment],costs,rules,{from:'2026-11-01',to:'2026-11-30',view:'month'});
- assert.equal(full.profitSatang,-15000);assert.equal(full.points,10);assert.equal(full.periods[0].period,'2026-11');
+ assert.equal(full.profitSatang,-10000);assert.equal(full.points,10);assert.equal(full.periods[0].period,'2026-11');
  assert.equal(summarizeCustomerOrders([order],[sale],[shipment],[],rules).pendingCostCount,1);
  const filtered=summarizeCustomerOrders([order],[sale],[shipment],costs,rules,{from:'2026-10-01',to:'2026-10-31'});
  assert.equal(filtered.purchaseCount,0);assert.equal(filtered.lifetimePoints,10);
@@ -79,9 +79,9 @@ test('monthly average profit uses lifetime calendar months, retains losses and w
  const now=new Date('2026-11-10T12:00:00+07:00'),since=new Date('2026-09-01T00:00:00+07:00');
  const summary=summarizeCustomerOrders([order],[sale],[shipment],[{orderId:order.id,status:'POSTED',totalCostSatang:65000}]);
  const life=customerLifetimeStats(summary,since,now);
- assert.equal(life.months,3);assert.equal(life.profitSatang,30000);assert.equal(life.monthlyProfitAverageSatang,10000);
+ assert.equal(life.months,3);assert.equal(life.profitSatang,35000);assert.equal(life.monthlyProfitAverageSatang,11667);
  const loss=summarizeCustomerOrders([order],[sale],[shipment],[{orderId:order.id,status:'POSTED',totalCostSatang:110000}]);
- assert.equal(customerLifetimeStats(loss,since,now).monthlyProfitAverageSatang,-5000);
+ assert.equal(customerLifetimeStats(loss,since,now).monthlyProfitAverageSatang,-3333);
  assert.equal(customerLifetimeStats(summarizeCustomerOrders([order],[sale],[shipment]),since,now).monthlyProfitAverageSatang,null);
  assert.equal(customerLifetimeStats(summarizeCustomerOrders([],[]),since,now).monthlyProfitAverageSatang,0);
 });

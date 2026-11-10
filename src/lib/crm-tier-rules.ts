@@ -3,8 +3,8 @@ export const tierNames={bronze:'Bronze',silver:'Silver',gold:'Gold',vip:'VIP Pla
 export const tierKeys=['bronze','silver','gold','vip'] as const;
 export const tierMetrics=[
  ['spend','ยอดซื้อสำเร็จสะสม','บาท'],
- ['profit','กำไรสะสมหลังต้นทุนสินค้าและค่าส่ง','บาท'],
- ['monthlyProfit','กำไรสะสมเดือนปัจจุบันหลังต้นทุนสินค้าและค่าส่ง','บาท'],
+ ['profit','กำไรสะสมหลังต้นทุนสินค้า','บาท'],
+ ['monthlyProfit','กำไรสะสมเดือนปัจจุบันหลังต้นทุนสินค้า','บาท'],
  ['monthlySpend','ยอดซื้อเฉลี่ยต่อเดือน','บาท/เดือน'],
  ['frequency','จำนวนครั้งที่ซื้อเฉลี่ยต่อเดือน','ครั้ง/เดือน'],
  ['gap','ระยะห่างเฉลี่ยระหว่างการซื้อ','วัน'],

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import {requireEmployeePage} from '@/lib/employee-view';
 import {employeeReviewOrders,employeeTaskTypes} from '@/lib/employee-review-orders';
 import {EmployeeNav} from '../employee-nav';
-const nextSteps={TRACKING:'ติดตามเลขพัสดุกับทีมจัดส่ง',COD:'แจ้งผู้ดูแลตรวจรายงานรับเงิน COD',COST:'ติดตามข้อมูลต้นทุน / ค่าขนส่งกับผู้ดูแล',DATA:'เปิดดูสาเหตุและแจ้งข้อมูลที่ต้องแก้กับผู้ดูแล'};
+const nextSteps={TRACKING:'ติดตามเลขพัสดุกับทีมจัดส่ง',COD:'แจ้งผู้ดูแลตรวจรายงานรับเงิน COD',COST:'ติดตามข้อมูลต้นทุนสินค้ากับผู้ดูแล',DATA:'เปิดดูสาเหตุและแจ้งข้อมูลที่ต้องแก้กับผู้ดูแล'};
 export default async function EmployeeTasks({searchParams}:{searchParams:Promise<{type?:string;q?:string;page?:string}>}){
  const a=await requireEmployeePage(),input=await searchParams;
  const all=a.affiliateId?await employeeReviewOrders(a.affiliateId,a.username):[];

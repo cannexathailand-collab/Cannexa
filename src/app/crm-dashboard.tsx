@@ -8,7 +8,7 @@ export function CrmDashboard({data}:{data:CrmDashboardData}){
   <div className="stats">
    <article className="card stat"><span>ลูกค้าทั้งหมด</span><strong>{data.customers.toLocaleString('th-TH')} คน</strong><small>ซื้อซ้ำ {data.repeatCustomers} คน</small></article>
    <article className="card stat"><span>ยอดซื้อสำเร็จสะสม</span><strong>{crmMoney(data.revenueSatang)}</strong><small>{data.purchases} ออเดอร์</small></article>
-   <article className="card stat" style={profitColors(data.profitSatang)}><span>กำไรหลังต้นทุนสินค้าและค่าส่ง</span><strong>{crmMoney(data.profitSatang)}</strong><small>{data.missingCosts?'ยังรอต้นทุน '+data.missingCosts+' ออเดอร์':'จากยอดซื้อสำเร็จ'}</small></article>
+   <article className="card stat" style={profitColors(data.profitSatang)}><span>กำไรหลังต้นทุนสินค้า</span><strong>{crmMoney(data.profitSatang)}</strong><small>{data.missingCosts?'ยังรอต้นทุน '+data.missingCosts+' ออเดอร์':'จากยอดซื้อสำเร็จ'}</small></article>
    <article className="card stat"><span>ไม่รับสินค้า</span><strong>{data.returned} ออเดอร์</strong><small>{data.returnPercent===null?'ยังไม่มีออเดอร์จัดส่ง':data.returnPercent.toFixed(1)+'% ของ '+data.shipped+' ออเดอร์ที่จัดส่ง'}</small></article>
   </div>
   <div className="crm-chart-grid">

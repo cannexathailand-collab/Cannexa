@@ -7,16 +7,12 @@ export function executivePeriodSummary(booked:BookedSale[],sales:SaleRow[],costs
  const completed=sales.filter(row=>isRecognizedSale(row)&&row.shipment!.dispatchedAt!>=start&&row.shipment!.dispatchedAt!<end);
  const byCost=new Map(costs.map(row=>[row.orderId,row]));
  const pendingProfitOrders:{id:string;number:string;tracking:string|null;reason:string}[]=[];
- let knownProfitSatang=0,freightSatang=0,missingProductCosts=0,missingFreight=0,missingProfit=0;
+ let knownProfitSatang=0,missingProductCosts=0;
  for(const row of completed){
   const cost=byCost.get(row.orderId);
   const productReady=cost?.status==='POSTED'&&cost.totalCostSatang!==null;
-  const freightReady=row.shipment!.freightSatang!==null&&!!row.shipment!.freightReportAt;
-  if(!productReady)missingProductCosts++;
-  else knownProfitSatang+=row.revenueSatang-cost!.totalCostSatang!;
-  if(!freightReady)missingFreight++;
-  else freightSatang+=row.shipment!.freightSatang!;
-  if(!productReady||!freightReady){missingProfit++;pendingProfitOrders.push({id:row.orderId,number:row.order!.orderNumber,tracking:row.tracking,reason:[!productReady?'รอต้นทุนสินค้า':'',!freightReady?'รอค่าส่ง':''].filter(Boolean).join(' · ')});continue;}
+  if(productReady)knownProfitSatang+=row.revenueSatang-cost!.totalCostSatang!;
+  else{missingProductCosts++;pendingProfitOrders.push({id:row.orderId,number:row.order!.orderNumber,tracking:row.tracking,reason:'รอต้นทุนสินค้า'});}
  }
  const buyers=new Map<string,number>(),sellers=new Map<string,{name:string;orders:number;amountSatang:number}>();
  for(const row of orders){
@@ -27,7 +23,7 @@ export function executivePeriodSummary(booked:BookedSale[],sales:SaleRow[],costs
  return {
   orderCount:orders.length,orderedSatang:orders.reduce((sum,row)=>sum+(row.revenueSatang??0),0),unknownAmounts:orders.filter(row=>row.revenueSatang===null).length,
   completedCount:completed.length,completedSatang:completed.reduce((sum,row)=>sum+row.revenueSatang,0),
-  profitSatang:missingProductCosts?null:knownProfitSatang,knownProfitSatang,freightSatang,missingProfit,missingProductCosts,missingFreight,pendingProfitOrders,
+  profitSatang:missingProductCosts?null:knownProfitSatang,knownProfitSatang,missingProfit:missingProductCosts,missingProductCosts,pendingProfitOrders,
   buyers:buyers.size,repeatBuyers:[...buyers.values()].filter(count=>count>1).length,unknownCustomers:orders.filter(row=>!row.customer).length,
   waitingShipment:orders.filter(row=>!row.hasTracking).length,waitingCod:orders.filter(row=>row.paymentMethod==='COD'&&!row.codPaid).length,
   waitingCodSatang:orders.filter(row=>row.paymentMethod==='COD'&&!row.codPaid).reduce((sum,row)=>sum+(row.revenueSatang??0),0),

@@ -14,7 +14,7 @@ test('empty commission account has four empty categories and no invented amount'
 test('commission formulas show actual revenue, net basis, saved rate and amount',()=>{
  assert.equal(commissionBasisDescription('REVENUE',200,126000,null,null,2520),'ยอดขาย 1,260.00 บาท × 2% = 25.20 บาท');
  assert.equal(commissionBasisDescription('PROFIT',250,126000,26000,null,2500),'ยอดขาย 1,260.00 บาท − ต้นทุน 260.00 บาท\nกำไร 1,000.00 บาท × 2.5% = 25.00 บาท');
- assert.equal(commissionBasisDescription('GROSS_PROFIT',200,126000,26000,10000,1800),'ยอดขาย 1,260.00 บาท − ต้นทุน 260.00 บาท − ค่าส่ง 100.00 บาท\nกำไร 900.00 บาท × 2% = 18.00 บาท');
+ assert.equal(commissionBasisDescription('GROSS_PROFIT',200,126000,26000,10000,1800),'ยอดขาย 1,260.00 บาท − ต้นทุน 260.00 บาท\nกำไร 1,000.00 บาท × 2% · ค่าคอมที่บันทึก 18.00 บาท');
  assert.match(commissionBasisDescription('PROFIT',200,126000),/รอต้นทุน/);
  assert.ok(!commissionBasisDescription('REVENUE',200,126000,null,null,1000).includes(' = '));
  assert.match(commissionBasisDescription('REVENUE',200,null),/รอยืนยันยอดขาย/);

@@ -62,7 +62,7 @@ export function ShipmentUpload({ordersHref='/admin/orders/list'}:{ordersHref?:st
    </tr>)}</tbody></table></div>
    <label>วันเวลาที่ส่งพัสดุจริง<input type="datetime-local" value={date} disabled={busy||retrying} onChange={event=>setDate(event.target.value)}/></label>
    <label><input type="checkbox" checked={confirmed} disabled={busy||retrying} onChange={event=>setConfirmed(event.target.checked)}/> ตรวจออเดอร์แล้ว และยืนยันว่าได้ส่งพัสดุรายการนี้แล้ว</label>
-   <p className="muted">รายงานขนส่งภายหลังจะเติมค่าส่งและยอดรับเงิน COD ตามเลขพัสดุ</p>
+   <p className="muted">รายงานขนส่งภายหลังใช้ตรวจสถานะและยอดรับเงิน COD ตามเลขพัสดุ ค่าส่งบันทึกยอดจ่ายเหมาจริงเป็นค่าใช้จ่ายแยกตามรอบ</p>
    <button type="button" disabled={busy||missing>0||!confirmed||!count} onClick={save}>{busy?'กำลังนำเข้า…':retrying?'ลองนำเข้าคำขอเดิมอีกครั้ง':'ยืนยันส่งและนำเข้า'}</button>
   </>}
  </section>;

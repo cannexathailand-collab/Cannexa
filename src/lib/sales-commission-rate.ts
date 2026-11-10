@@ -2,7 +2,7 @@ export function salesCommissionRate(seller:{salesCommissionBps:number;salesCommi
  return (payment==='COD'?seller.salesCommissionCodBps:payment==='โอน'?seller.salesCommissionTransferBps:undefined)??seller.salesCommissionBps;
 }
 export function salesCommissionUsesCost(basis:string){return basis==='PROFIT'||basis==='GROSS_PROFIT';}
-export function salesCommissionBasisLabel(basis:string){return basis==='GROSS_PROFIT'?'กำไรขั้นต้นหลังหักต้นทุนสินค้าและค่าส่ง':basis==='PROFIT'?'กำไรหลังหักต้นทุนสินค้า (เดิม)':'ยอดขายรวมค่าส่ง';}
+export function salesCommissionBasisLabel(basis:string){return salesCommissionUsesCost(basis)?'กำไรหลังหักต้นทุนสินค้า':'ยอดขาย';}
 export function commissionPercentBps(value:FormDataEntryValue|null){
  if(value===null)return undefined;
  if(typeof value!=='string'||!/^\d{1,3}(?:\.\d{1,2})?$/.test(value.trim()))throw Error('INVALID_COMMISSION_PERCENT');
