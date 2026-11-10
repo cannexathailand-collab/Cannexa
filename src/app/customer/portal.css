@@ -713,8 +713,7 @@
 
 .portal-profile-section .portal-address-list article{background:#edf4e8;border-color:#d2e3cb;color:#294b36;transition:background-color .18s,border-color .18s}
 .portal-profile-section .portal-address-list article button{background:#d8e9cf;border:1px solid #b9d0ae;color:#274c32;font-size:13px}
-.portal-profile-section .portal-address-list article.is-selected{background:#184f38;border-color:#184f38;color:#fff}
-.portal-profile-section .portal-address-list article.is-selected button{background:#ffffff16;border-color:#a8cdb7;color:#fff}
+.portal-profile-section .portal-address-list article.is-selected button{background:#184f38;border-color:#184f38;color:#fff}
 .portal-profile-section .portal-address-list article button:focus-visible{outline:2px solid #b3904c;outline-offset:3px}
 .portal-address-phones{list-style:none;margin:8px 0 0;padding:0;font-size:13px;line-height:1.6}
 .portal-address-phones li{overflow-wrap:anywhere}
