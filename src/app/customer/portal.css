@@ -580,9 +580,9 @@
 
 .platinum-border{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:3}
 .platinum-border rect{width:calc(100% - 4px);height:calc(100% - 4px);fill:none;stroke-linecap:round;stroke-dasharray:14 36;animation:platinum-border-travel 4.5s linear infinite;animation-play-state:paused;rx:4.5%}
-.platinum-border-glow{stroke:#ffc43d;stroke-width:8;opacity:.95;filter:blur(3px)}
-.platinum-border-light{stroke:#fff5cc;stroke-width:3.5;filter:drop-shadow(0 0 6px #ffd04a)}
-.platinum-border-sparkle{stroke:#fff9dc;stroke-width:4;stroke-dasharray:.15 2 .15 47.7}
+.platinum-border-glow{stroke:#ffc43d;stroke-width:5;opacity:.65;filter:blur(2px)}
+.platinum-border-light{stroke:#fff5cc;stroke-width:2.5;filter:drop-shadow(0 0 4px #ffd04a)}
+.platinum-border-sparkle{stroke:#fff9dc;stroke-width:3;stroke-dasharray:.15 2 .15 47.7}
 .portal-member-vip[data-motion="on"] .platinum-border rect{animation-play-state:running}
 @media(max-width:700px){.customer-portal[data-membership="vip"] .portal-member-overview{max-width:none}}
 
@@ -595,7 +595,8 @@
 .customer-portal[data-membership="vip"] .portal-empty{padding:22px 12px}
 @media(max-width:700px){.portal-member-vip .portal-member-name{font-size:15px!important}.portal-member-vip .portal-member-code{font-size:12px}.customer-portal[data-membership="vip"] .portal-member-overview{gap:16px}}
 .platinum-letter-effect{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
-.platinum-letter-shine{animation:platinum-letter-shine 6s ease-in-out infinite;animation-play-state:paused}
+.platinum-letter-shine{animation:platinum-letter-shine 4.8s ease-in-out infinite;animation-play-state:paused}
 .portal-member-vip[data-motion="on"] .platinum-letter-shine{animation-play-state:running}
-@keyframes platinum-letter-shine{0%,10%{transform:translateX(0)}80%,100%{transform:translateX(2300px)}}
+@keyframes platinum-letter-shine{from{transform:translateX(0)}to{transform:translateX(2300px)}}
 @media(hover:hover) and (pointer:fine){.portal-member-vip[data-motion="on"]:hover .platinum-letter-shine{animation:none;transform:translateX(var(--platinum-letter-x,1150px))}}
+.platinum-border-specular{stroke:#fffbe6;stroke-width:.8;opacity:.65;filter:drop-shadow(0 0 2px #fff2b1)}
