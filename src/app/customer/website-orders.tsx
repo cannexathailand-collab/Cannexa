@@ -11,6 +11,8 @@ export async function CustomerWebsiteOrders({customerCode}: {customerCode: strin
   const orders = await loadWebsiteOrdersForCustomer(customerCode);
   const receiptSettings=await db.receiptSettings.findUnique({where:{id:'active'},select:{enabled:true}});
   const ids=orders.flatMap(order=>order.intakeOrderId?[order.intakeOrderId]:[]);
+  const invoices=await db.customerTaxInvoice.findMany({where:{orderId:{in:ids}},select:{id:true,orderId:true}});
+  const invoiceByOrder=new Map(invoices.map(row=>[row.orderId,row.id]));
   const intakes=ids.length?await db.orderIntake.findMany({where:{id:{in:ids}},select:{id:true,groupKey:true}}):[];
   const intakeById=new Map(intakes.map(row=>[row.id,row]));
   const teams=await loadOrderTeamNames(intakes.map(row=>row.groupKey));
@@ -27,6 +29,7 @@ export async function CustomerWebsiteOrders({customerCode}: {customerCode: strin
       {order.bankDetails && <p className="portal-muted">{order.bankDetails.bankName} · {order.bankDetails.accountName} · {order.bankDetails.accountNumber}</p>}
       {order.slipVersion && <p><a href={'/api/customer/website-orders/'+encodeURIComponent(order.id)+'/slip?v='+order.slipVersion} target="_blank" rel="noopener noreferrer">{t("ดูสลิปโอนเงิน")}</a></p>}
       {order.reviewNote && <p className="portal-muted">{t("หมายเหตุจากผู้ตรวจสอบ ")}{order.reviewNote}</p>}
+      {order.intakeOrderId&&invoiceByOrder.has(order.intakeOrderId)&&<a className="button secondary" href={'/tax-invoices/'+invoiceByOrder.get(order.intakeOrderId)}>{language==='en'?'Tax invoice':'ใบกำกับภาษี'}</a>}
       {receiptSettings?.enabled&&order.intakeOrderId&&<ReceiptButton orderId={order.intakeOrderId} english={language==='en'}/>}
     </article>)}</div> : <p className="portal-empty">{t("ยังไม่มีออเดอร์จากเว็บไซต์")}</p>}
   </section>;

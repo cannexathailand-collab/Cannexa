@@ -1,3 +1,4 @@
+import {StoreBrand} from '@/app/store-brand';
 import {pointTierKey} from '@/lib/crm-tier-points';
 import {customerLanguage} from '@/lib/customer-language-server';
 import {PopupDetails} from '@/app/popup-details';
@@ -33,7 +34,7 @@ export async function OwnerCustomerView({params}:{params:{q?:string;customer?:st
  const balance=Math.max(0,summary?.availablePoints??0);
  const catalog=selected?await loadCustomerCatalog():null;
  return <main className="customer-portal" data-membership={selected?pointTierKey(member?.level??'Bronze'):undefined}>
-  <header className="portal-header"><Link href="/customer" className="portal-brand">Customer</Link><Link href="/admin">{t("กลับหลังบ้าน")}</Link></header>
+  <header className="portal-header"><Link href="/customer" className="portal-brand"><StoreBrand fallback="Customer"/></Link><Link href="/admin">{t("กลับหลังบ้าน")}</Link></header>
   <section className="portal-section">
    <h1>{t("Customer · โหมดเจ้าของระบบ")}</h1>
    <p className="portal-muted">{t("เลือกลูกค้าเพื่อดูข้อมูลแบบอ่านอย่างเดียวและทดลองตะกร้า")}</p>

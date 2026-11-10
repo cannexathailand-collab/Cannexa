@@ -854,6 +854,52 @@ model CustomerReceipt {
  @@index([customerCode,issuedAt])
 }
 
+model StoreBranding {
+ id String @id @default("active")
+ name String @default("")
+ color String @default("#087c59")
+ footer String @default("")
+ logoVersion String?
+ version String @default(uuid())
+ updatedAt DateTime @updatedAt
+}
+
+model StoreBrandAsset {
+ id String @id
+ imageData Bytes
+ imageMime String
+ createdAt DateTime @default(now())
+}
+
+model TaxInvoiceSettings {
+ id String @id @default("active")
+ enabled Boolean @default(false)
+ registeredOn DateTime?
+ branchCode String @default("00000")
+ vatRateBps Int @default(700)
+ version String @default(uuid())
+ updatedAt DateTime @updatedAt
+}
+
+model TaxInvoiceCounter {
+ year Int @id
+ number Int @default(0)
+}
+
+model CustomerTaxInvoice {
+ id String @id @default(cuid())
+ number String @unique
+ orderId String @unique
+ customerCode String?
+ fingerprint String
+ snapshot Json
+ netSatang Int
+ vatSatang Int
+ totalSatang Int
+ issuedAt DateTime @default(now())
+ @@index([customerCode,issuedAt])
+}
+
 model PlatformAdministrator {
  username String @id
  active Boolean @default(true)

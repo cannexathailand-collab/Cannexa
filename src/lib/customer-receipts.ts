@@ -4,12 +4,14 @@ import {db,transaction,userLock} from './db';
 import {quotedTotal} from './shipment-matching';
 import {orderStockItems} from './order-stock-items';
 import {receiptPaymentAmount} from './receipt-payment';
+import {documentBrandingSchema,documentBrandingSnapshot} from './document-branding';
 
 export const receiptSnapshotSchema=z.object({
  issuer:z.object({name:z.string(),address:z.string(),phone:z.string(),taxId:z.string()}),
  customer:z.object({name:z.string(),address:z.string(),code:z.string().nullable()}),
  orderNumber:z.string(),payment:z.string(),
  items:z.array(z.object({description:z.string(),quantity:z.string()})),
+ branding:documentBrandingSchema.optional(),
 });
 export type ReceiptSnapshot=z.infer<typeof receiptSnapshotSchema>;
 export const receiptSettingsSchema=z.object({name:z.string().trim().min(1).max(200),address:z.string().trim().min(1).max(2000),phone:z.string().trim().max(100),taxId:z.string().trim().regex(/^(?:\d{13})?$/),enabled:z.boolean(),expectedVersion:z.string().nullable()});
@@ -51,6 +53,7 @@ export async function issueCustomerReceipt(orderId:string,actor:string,customerC
    customer:{name:order.recipient||[order.customer?.title,order.customer?.name].filter(Boolean).join(' ')||'ลูกค้า',address:order.address||order.customer?.address||'',code:order.customerCode},
    orderNumber:order.orderNumber,payment:order.payment==='COD'?'COD':'TRANSFER',
    items:parsed.items.map(item=>({description:[item.code,names.get(item.code)].filter(Boolean).join(' · '),quantity:(item.quantityMilliG/1000).toLocaleString('en-US',{maximumFractionDigits:3})+' g'})),
+   branding:await documentBrandingSnapshot(tx),
   };
   // Legacy orders may not contain parseable item lines. Keep their source order reference and total.
   if(!snapshot.items.length)snapshot.items.push({description:'สินค้าและค่าจัดส่งตามออเดอร์ '+order.orderNumber,quantity:'1'});

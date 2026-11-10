@@ -1,3 +1,4 @@
+import {StoreBrand} from '@/app/store-brand';
 import {customerLanguage} from '@/lib/customer-language-server';
 import type {Metadata} from 'next';
 import {CustomerSignInForm} from './sign-in-form';
@@ -8,7 +9,7 @@ export const metadata:Metadata={title:'Customer',robots:{index:false,follow:fals
 export default async function CustomerSignInPage(){
  const {t}=await customerLanguage();
  return <main className="customer-portal">
-  <header className="portal-header"><a className="portal-brand" href="/customer/sign-in">Customer</a></header>
+  <header className="portal-header"><a className="portal-brand" href="/customer/sign-in"><StoreBrand fallback="Customer"/></a></header>
   <section className="portal-welcome">
    <h1>{t("ยินดีต้อนรับ")}</h1>
    <p>{t("ขอบคุณที่ร่วมเป็นสมาชิกกับเรา")}</p>

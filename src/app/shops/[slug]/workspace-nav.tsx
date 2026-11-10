@@ -1,3 +1,4 @@
+import {StoreBrand} from '@/app/store-brand';
 import Link from 'next/link';
 import {shopPath,requireShopAccount} from '@/lib/shop-session';
 import {PopupDetails} from '@/app/popup-details';
@@ -16,9 +17,10 @@ export async function ShopWorkspaceNav({slug,role='owner'}:{slug:string;role?:st
   {href:base+'/stock/returns',label:'รับคืนสินค้า'},
  );
  if(['owner','admin'].includes(role))links.push({href:base+'/accounting',label:'บัญชี'});
- if(role==='owner')links.push({href:base+'/receipts',label:'ใบเสร็จรับเงิน'},{href:base+'/users',label:'พนักงานและทีม'},{href:base+'/connections',label:'การเชื่อมต่อ'});
+ if(role==='owner')links.push({href:base+'/branding',label:'ตั้งค่าแบรนด์ร้าน'},{href:base+'/receipts',label:'ใบเสร็จรับเงิน'},{href:base+'/users',label:'พนักงานและทีม'},{href:base+'/connections',label:'การเชื่อมต่อ'});
  const primary=[links[0],links[1],links.find(link=>link.href===base+'/stock')??links.find(link=>link.href===base+'/sales')].filter((link):link is {href:string;label:string}=>!!link);
  return <>
+  <div className="brand"><StoreBrand fallback={context.shop.name}/></div>
   {context.readOnly&&<>
    <ReadOnlyForms/>
    <aside className="notice" role="status">

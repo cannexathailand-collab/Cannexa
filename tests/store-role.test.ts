@@ -50,6 +50,7 @@ test('store navigation contains inventory and shipping tasks without finance or 
   '@/lib/db':{},'@/lib/stock-review':{},'@/lib/accounts':{office},'@/lib/store-view':{isOwnerStoreView:async()=>false},
   '@/lib/auth':{requireAdminPage:async(allowed:string[])=>{assert.ok(allowed.includes('store'));return {role:'store',username:'store-user'};}},
   '@/lib/config':{},'@/lib/line-settings':{},
+  '@/app/store-brand':{StoreBrand:()=>React.createElement('span',{},'ร้านทดสอบ')},
   '@/app/sidebar-navigation':{SidebarNavigation:({children}:any)=>React.createElement('nav',{},children)},
   '@/app/sidebar.css':{},'@/app/workspace-location':{},'@/lib/website-orders':{},
  };
