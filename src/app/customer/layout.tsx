@@ -10,7 +10,15 @@ const customerFont=localFont({
  display:'swap',
 });
 
+const platinumFont=localFont({
+ src:'./fonts/cormorant/CormorantGaramond.ttf',
+ variable:'--font-platinum',
+ display:'swap',
+ preload:false,
+ weight:'300 700',
+});
+
 export default async function CustomerLayout({children}:{children:React.ReactNode}){
  const language=readCustomerLanguage((await cookies()).get(customerLanguageCookie)?.value);
- return <div className={customerFont.variable+' customer-shell'}><CustomerLanguageProvider initialLanguage={language}>{children}</CustomerLanguageProvider></div>;
+ return <div className={customerFont.variable+' '+platinumFont.variable+' customer-shell'}><CustomerLanguageProvider initialLanguage={language}>{children}</CustomerLanguageProvider></div>;
 }

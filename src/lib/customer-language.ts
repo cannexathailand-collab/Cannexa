@@ -3,6 +3,8 @@ export const customerLanguageCookie='cannexa_customer_language';
 export function readCustomerLanguage(value:string|undefined):CustomerLanguage|null{return value==='th'||value==='en'?value:null;}
 
 const english:Record<string,string>={
+ "สมาชิกระดับพิเศษ":"Private membership",
+ "ชื่อสมาชิก":"Member name",
  "ไม่สามารถเข้าใช้งานได้": "Access unavailable",
  "สำหรับผู้ที่มีอายุครบ 20 ปีแล้วเท่านั้น": "You must be at least 20 years old to access this service.",
  "กรุณาเข้าสู่ระบบอีกครั้ง": "Please sign in again.",

@@ -1,3 +1,4 @@
+import {pointTierKey} from '@/lib/crm-tier-points';
 import {customerLanguage} from '@/lib/customer-language-server';
 import type {Metadata} from 'next';
 import {portalCustomer,hasPortalAccess} from '@/lib/customer-portal';
@@ -35,7 +36,7 @@ export default async function CustomerPage({searchParams}:{searchParams:Promise<
  const catalog=customer&&!completing?await loadCustomerCatalog():null;
  const profileContent=<section className="portal-section"><h2>{t("ข้อมูลส่วนตัว")}</h2><p className="portal-muted">{t("ใช้สำหรับติดต่อและจัดส่งสินค้า การแก้ไขนี้ไม่เปลี่ยนที่อยู่ของออเดอร์ที่สั่งไปแล้ว")}</p><ProfileForm registered={!!customer&&!completing} completeProfile={completing} initial={{title:customer?.title??'คุณ',name:customer?.name??'',phone:customer?.phone??'',address:customer?.address??''}}/></section>;
 
- return <main className="customer-portal">
+ return <main className="customer-portal" data-membership={pointTierKey(memberLevel)}>
   {method&&<header className="portal-header"><a href="/customer" className="portal-brand">Customer</a><form action="/api/customer/logout" method="post"><button className="portal-signout">{t("ออกจากระบบ")}</button></form></header>}
   {!method||link?<section className="portal-welcome"><h1>{t("ยินดีต้อนรับ")}</h1><p>{t("ขอบคุณที่ร่วมเป็นสมาชิกกับเรา")}</p>{params.error&&<p role="alert" className="portal-alert">{t(params.error==='unavailable'?'ขณะนี้ยังไม่พร้อมเชื่อมต่อ LINE กรุณาลองอีกครั้ง':params.error==='link'?'ลิงก์หมดอายุหรือถูกใช้แล้ว กรุณาขอลิงก์ใหม่จากร้าน':'เข้าสู่ระบบหรือผูกบัญชีไม่สำเร็จ กรุณาลองใหม่ หรือติดต่อร้านหากบัญชีนี้ผูกกับลูกค้าคนอื่นแล้ว')}</p>}<a className="button portal-line" href={'/api/customer/login'+(link?'?link='+encodeURIComponent(link):'')}>{t(link?'ยืนยันผูกข้อมูลด้วย LINE':'เข้าสู่ระบบด้วย LINE')}</a>{!link&&<p><a href="/customer/sign-in">{t("เข้าสู่ระบบด้วยรหัสลูกค้า")}</a></p>}</section>:<>
    {(!customer||completing)&&<section className="portal-intro"><span className="portal-eyebrow">MY ACCOUNT</span><h1>{t("ยินดีต้อนรับ")}</h1><p>{t(completing?'กรอกข้อมูลสมัครสมาชิก รหัสลูกค้า '+displayCustomerCode(customer!.code):'กรอกข้อมูลเพื่อรับรหัสลูกค้าและเริ่มใช้งาน')}</p></section>}
