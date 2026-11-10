@@ -15,6 +15,7 @@ test('deleting a member clears contact and login data while retries preserve a l
   customer:{findUnique:async()=>customer,update:async({data}:any)=>Object.assign(customer,data)},
   customerDeliveryAddress:{deleteMany:async()=>{addresses=0;}},
   customerAccessLink:{deleteMany:async()=>{links=0;}},
+  lineMessageRecipient:{deleteMany:async({where}:any)=>{assert.equal(where.lineUserKey,customer.lineUserKey);}},
   auditLog:{findFirst:async({where}:any)=>audits.find(row=>row.details.requestKey===where.details.equals),create:async({data}:any)=>{audits.push(data);}},
  };
  db.$transaction=((work:any)=>work(tx)) as typeof db.$transaction;

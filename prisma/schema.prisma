@@ -175,6 +175,13 @@ model MetaConnection {
  id String @id
  datasetId String
 }
+model LineMessageRecipient {
+ lineUserKey String @id
+ botId String
+ encryptedUserId String
+ updatedAt DateTime @updatedAt
+}
+
 model Customer {
  portalRegistrationPending Boolean @default(false)
  portalProfileIncomplete Boolean @default(false)

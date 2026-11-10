@@ -1,4 +1,5 @@
 import {bindDatabase} from '@/lib/db';
+import {saveLineMessageRecipient} from '@/lib/line-message-recipient';
 import {bindProfitReportRecipient} from '@/lib/owner-profit-report';
 import {processPendingStockDispatches} from '@/lib/stock-dispatch';
 import {NextRequest} from "next/server";
@@ -26,6 +27,10 @@ export async function POST(req:NextRequest){
  const intakeBot=parsed.data.events.some(e=>e.source.type==="group")?await db.orderBot.findUnique({where:{botId:connection.settings.botId},select:{active:true,encrypted:true,receiveOrders:true}}):null;
  const orders:string[]=[];
  for(const e of parsed.data.events){
+  if(e.source.type==='user'&&e.source.userId&&['message','follow'].includes(e.type)){
+   const recipientKey=userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?e.source.userId:connection.settings.botId+':'+e.source.userId);
+   await saveLineMessageRecipient(recipientKey,connection.settings.botId,e.source.userId);
+  }
   if(e.source.type==='user'&&e.source.userId&&e.type==='message'&&e.message?.type==='text'){
    const bound=await bindProfitReportRecipient({botId:connection.settings.botId,userId:e.source.userId,text:e.message.text??''});
    if(bound){

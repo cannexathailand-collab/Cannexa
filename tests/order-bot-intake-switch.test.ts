@@ -6,11 +6,12 @@ import ts from 'typescript';
 import {z} from 'zod';
 
 function webhook(file:string,receiveOrders:boolean){
- const calls={orders:0,orderReplies:0,expenses:0,expenseReplies:0};
+ const calls={orders:0,orderReplies:0,expenses:0,expenseReplies:0,recipients:0};
  const connection={active:true,receiveOrders,botId:'bot',encrypted:'encrypted'};
  const settings={botId:'bot',messagingSecret:'secret',accessToken:'token'};
  const mocks:Record<string,unknown>={
   '@/lib/owner-profit-report':{bindProfitReportRecipient:async()=>false},
+  '@/lib/line-message-recipient':{saveLineMessageRecipient:async()=>{calls.recipients++;}},
   'next/server':{after:()=>{}},
   zod:{z},
   '@/lib/db':{bindDatabase:(work:unknown)=>work,db:{orderBot:{findUnique:async()=>connection}}},
@@ -40,6 +41,14 @@ for(const file of ['src/app/api/line/webhook/route.ts','src/app/api/line/orders/
    assert.equal(response.status,200);
    assert.equal(calls.orders,enabled?1:0);assert.equal(calls.orderReplies,enabled?1:0);
    assert.equal(calls.expenses,1);assert.equal(calls.expenseReplies,1);
+   assert.equal(calls.recipients,0);
   });
  }
 }
+
+test('verified direct messages and follow events save a LINE recipient',async()=>{
+ const {calls,post}=webhook('src/app/api/line/webhook/route.ts',false);
+ const events=['message','follow'].map((type,index)=>({webhookEventId:'event-'+index,type,timestamp:1,source:{type:'user',userId:'test-user'},...(type==='message'?{message:{type:'text',id:'message',text:'hello'}}:{})}));
+ const response=await post(new Request('https://example.test/webhook',{method:'POST',body:JSON.stringify({destination:'bot',events})}));
+ assert.equal(response.status,200);assert.equal(calls.recipients,2);
+});

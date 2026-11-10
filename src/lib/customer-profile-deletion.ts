@@ -17,10 +17,11 @@ export async function deleteCustomerProfile(actor:string,input:unknown){
   await userLock(tx,'customer-profile:'+code);
   const previous=await tx.auditLog.findFirst({where:{action:'CUSTOMER_PROFILE_DELETED',entityId:code,details:{path:['requestKey'],equals:requestKey}},select:{id:true}});
   if(previous)return {code};
-  const customer=await tx.customer.findUnique({where:{code},select:{code:true}});
+  const customer=await tx.customer.findUnique({where:{code},select:{code:true,lineUserKey:true}});
   if(!customer)throw Error('CUSTOMER_NOT_FOUND');
   await tx.customerAccessLink.deleteMany({where:{customerCode:code}});
   await tx.customerDeliveryAddress.deleteMany({where:{customerCode:code}});
+  if(customer.lineUserKey)await tx.lineMessageRecipient.deleteMany({where:{lineUserKey:customer.lineUserKey}});
   await tx.customer.update({where:{code},data:{
    title:null,name:null,phone:null,address:null,identityKey:null,
    portalUsername:null,portalPasswordSalt:null,portalPasswordHash:null,
