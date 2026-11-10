@@ -2,7 +2,7 @@ import {NextResponse} from 'next/server';
 import {admin,sameOrigin,cookieOptions} from '@/lib/auth';
 import {baseUrl} from '@/lib/config';
 import {signToken} from '@/lib/crypto';
-import {createProfitReportBinding,toggleProfitReport} from '@/lib/owner-profit-report';
+import {createProfitReportBinding,toggleProfitReport,disconnectProfitReport} from '@/lib/owner-profit-report';
 export async function POST(request:Request){
  let actor:string;
  try{actor=await admin();await sameOrigin();}catch{return new Response('Forbidden',{status:403})}
@@ -13,6 +13,12 @@ export async function POST(request:Request){
    const binding=await createProfitReportBinding(actor);
    const response=redirect('binding');
    response.cookies.set('profit_report_binding',signToken({purpose:'profit-report-binding',actor,code:binding.code,exp:+binding.expiresAt}),{...cookieOptions,maxAge:900});
+   return response;
+  }
+  if(form.get('action')==='disconnect'){
+   await disconnectProfitReport(actor);
+   const response=redirect('disconnected');
+   response.cookies.delete('profit_report_binding');
    return response;
   }
   if(!['enable','disable'].includes(String(form.get('action'))))return redirect('error');

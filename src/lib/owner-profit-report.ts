@@ -38,6 +38,14 @@ export async function toggleProfitReport(actor:string,enabled:boolean){
   await tx.auditLog.create({data:{actor,action:'PROFIT_REPORT_UPDATED',entityId:actor,details:{enabled}}});
  });
 }
+export async function disconnectProfitReport(actor:string){
+ return transaction(async tx=>{
+  await userLock(tx,'owner-profit-report');
+  await tx.ownerProfitReport.updateMany({where:{id:actor},data:{recipientUserId:null,botId:null,enabled:false,enabledAt:null,bindingHash:null,bindingExpiresAt:null}});
+  await tx.profitReportDelivery.updateMany({where:{status:{in:['PENDING','FAILED','SENDING']}},data:{status:'CANCELLED',leaseUntil:null,lastError:'RECIPIENT_DISCONNECTED'}});
+  await tx.auditLog.create({data:{actor,action:'PROFIT_REPORT_UNLINKED',entityId:actor,details:{enabled:false}}});
+ });
+}
 export async function sendDueProfitReport(now=new Date()){
  const setting=await db.ownerProfitReport.findUnique({where:{id:'owner'}});
  if(!setting?.enabled||!setting.recipientUserId||!setting.botId||!setting.enabledAt)return {status:'disabled'};
