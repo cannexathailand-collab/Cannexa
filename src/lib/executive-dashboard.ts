@@ -13,7 +13,7 @@ import {loadCustomerCrm} from './customer-crm';
 
 export async function executiveDashboard(input:{from?:string;to?:string;seller?:string},now=new Date()){
  const settings=await loadOrderRoundSettings();
- const today=orderRoundClosingDay(now,settings.closeMinutes),from=input.from||today.slice(0,7)+'-01',to=input.to||today;
+ const today=orderRoundClosingDay(now,settings.closeMinutes),from=input.from||today,to=input.to||today;
  const days=Math.round((+dayStart(to)-+dayStart(from))/DAY_MS)+1;
  if(days<1||days>366||from>today||to>today)throw Error('INVALID_EXECUTIVE_RANGE');
  const start=orderRoundBounds(from,settings.closeMinutes).start;
@@ -41,6 +41,6 @@ export async function executiveDashboard(input:{from?:string;to?:string;seller?:
   const summary=executivePeriodSummary(booked.orderRows,filteredSales,costs,bucketStart,bucketEnd);
   trend.push({from:day,to:last,orders:summary.orderCount,orderedSatang:summary.unknownAmounts?null:summary.orderedSatang,completedSatang:summary.completedSatang,profitSatang:summary.profitSatang});
  }
- return {from,to,today,previousFrom,previousTo,start:start.toISOString(),end:end.toISOString(),previousStart:previousStart.toISOString(),previousEnd:previousEnd.toISOString(),partial:+end<+orderRoundBounds(to,settings.closeMinutes).end,closeTime:settings.closeTime,seller:input.seller??'',sellerOptions:booked.sellerOptions,current,previous,trend,inventory,inactive,customerCount:customers.length,updatedAt:now.toISOString()};
+ return {from,to,today,availableDays:booked.availableDays,previousFrom,previousTo,start:start.toISOString(),end:end.toISOString(),previousStart:previousStart.toISOString(),previousEnd:previousEnd.toISOString(),partial:+end<+orderRoundBounds(to,settings.closeMinutes).end,closeTime:settings.closeTime,seller:input.seller??'',sellerOptions:booked.sellerOptions,current,previous,trend,inventory,inactive,customerCount:customers.length,updatedAt:now.toISOString()};
 }
 export type ExecutiveDashboardData=Awaited<ReturnType<typeof executiveDashboard>>;

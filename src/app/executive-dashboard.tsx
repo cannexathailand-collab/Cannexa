@@ -1,11 +1,13 @@
 'use client';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
+import {useRouter} from 'next/navigation';
 import type {ExecutiveDashboardData} from '@/lib/executive-dashboard';
 import './executive-dashboard.css';
 const money=(value:number)=>value.toLocaleString('th-TH',{style:'currency',currency:'THB',minimumFractionDigits:2});
 const baht=(satang:number)=>money(satang/100);
 const date=(value:string)=>new Date(value).toLocaleString('th-TH',{timeZone:'Asia/Bangkok',dateStyle:'medium',timeStyle:'short'});
+const roundDate=(day:string)=>new Date(day+'T12:00:00+07:00').toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short',year:'numeric'});
 const sections=[['trend','แนวโน้มยอดออเดอร์'],['operations','งานที่ต้องติดตาม'],['sellers','ยอดออเดอร์รายผู้ขาย'],['customers','ลูกค้า'],['stock','สต๊อกสินค้า']] as const;
 type Section=typeof sections[number][0];
 function Change({current,previous}:{current:number|null;previous:number|null}){
@@ -15,11 +17,17 @@ function Change({current,previous}:{current:number|null;previous:number|null}){
  return <small className={difference<0?'comparison-down':'comparison-up'}>{difference===0?'เท่าเดิม 0.0%':(difference>0?'เพิ่มขึ้น ':'ลดลง ')+(Math.abs(difference)/Math.abs(previous)*100).toFixed(1)+'%'} เทียบช่วงก่อนหน้า</small>;
 }
 export function ExecutiveDashboard({data}:{data:ExecutiveDashboardData}){
+ const router=useRouter();
  const [visible,setVisible]=useState<Section[]>(sections.map(([key])=>key));
  const [customizing,setCustomizing]=useState(false);
+ const [advanced,setAdvanced]=useState(data.from!==data.to||!!data.seller);
  const [trendMetric,setTrendMetric]=useState<'orderedSatang'|'completedSatang'|'profitSatang'>('orderedSatang');
  useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem('executive-panels')??'null');if(Array.isArray(saved))setVisible(saved.filter(key=>sections.some(([valid])=>valid===key)));}catch{}},[]);
  function update(next:Section[]){setVisible(next);try{localStorage.setItem('executive-panels',JSON.stringify(next));}catch{}}
+ useEffect(()=>{setAdvanced(data.from!==data.to||!!data.seller);},[data.from,data.to,data.seller]);
+ const roundHref=(day:string)=>'/admin/executive?'+new URLSearchParams({from:day,to:day,...(data.seller?{seller:data.seller}:{})});
+ const availableDays=[...new Set([data.today,data.from,data.to,...data.availableDays])].filter(day=>day<=data.today).sort().reverse();
+ const singleRound=data.from===data.to;
  const query=new URLSearchParams({from:data.from,to:data.to,...(data.seller?{seller:data.seller}:{})});
  const salesHref='/admin/sales?'+query;
  const trendLabel={orderedSatang:'ยอดออเดอร์',completedSatang:'รับเงินสำเร็จ',profitSatang:'กำไรหลังต้นทุนสินค้า'}[trendMetric];
@@ -27,9 +35,28 @@ export function ExecutiveDashboard({data}:{data:ExecutiveDashboardData}){
  const minimum=Math.min(0,...values),maximum=Math.max(0,...values),extent=maximum-minimum||1,zero=-minimum/extent*150;
  return <div className="executive-dashboard">
   <header className="executive-heading"><div><h1>แดชบอร์ดผู้บริหาร</h1><p>ข้อมูล ณ {date(data.updatedAt)}</p></div><button className="secondary" onClick={()=>setCustomizing(!customizing)} aria-expanded={customizing}>ปรับแดชบอร์ด</button></header>
-  <form action="/admin/executive" className="executive-filters card"><label>ตั้งแต่รอบ<input type="date" name="from" defaultValue={data.from} max={data.today} required/></label><label>ถึงรอบ<input type="date" name="to" defaultValue={data.to} max={data.today} required/></label><label>ผู้ขาย<select name="seller" defaultValue={data.seller}><option value="">ทุกคน</option>{data.sellerOptions.map(name=><option key={name}>{name}</option>)}</select></label><button>ดูข้อมูล</button><Link className="button secondary" href="/admin/executive">เดือนนี้</Link></form>
+  <section className="card executive-round-picker" aria-label="เลือกรอบรายวัน">
+   <div className="executive-round-controls">
+    <label>เลือกรอบวันที่<select value={singleRound?data.from:''} onChange={event=>{if(event.target.value)router.push(roundHref(event.target.value));}}>
+     {!singleRound&&<option value="">กำลังดูหลายรอบ · เลือกเพื่อดูรอบเดียว</option>}
+     {availableDays.map(day=><option key={day} value={day}>{roundDate(day)}{day===data.today?' · รอบปัจจุบัน':''}</option>)}
+    </select></label>
+    <Link className="button" href={roundHref(data.today)}>วันนี้ · รอบปัจจุบัน</Link>
+    <button type="button" className="secondary" aria-expanded={advanced} aria-controls="executive-more-filters" onClick={()=>setAdvanced(!advanced)}>ตัวกรองเพิ่มเติม{advanced?' −':' +'}</button>
+   </div>
+   <nav className="executive-recent-rounds" aria-label="รอบล่าสุด">{availableDays.slice(0,7).map(day=><Link key={day} href={roundHref(day)} aria-current={singleRound&&data.from===day?'page':undefined}>{roundDate(day)}{day===data.today&&<small>รอบปัจจุบัน</small>}</Link>)}</nav>
+   <p className="muted small">รอบปัจจุบันคือ {roundDate(data.today)} · ตัดรอบเวลา {data.closeTime} น. · เลือกวันที่เพื่อแสดงข้อมูลรอบนั้นทั้งหน้า</p>
+   {advanced&&<form action="/admin/executive" className="executive-filters" id="executive-more-filters" key={data.from+data.to+data.seller}>
+    <label>ตั้งแต่รอบ<input type="date" name="from" defaultValue={data.from} max={data.today} required/></label>
+    <label>ถึงรอบ<input type="date" name="to" defaultValue={data.to} max={data.today} required/></label>
+    <label>ผู้ขาย<select name="seller" defaultValue={data.seller}><option value="">ทุกคน</option>{data.sellerOptions.map(name=><option key={name}>{name}</option>)}</select></label>
+    <button>ดูข้อมูลตามตัวกรอง</button>
+    <Link className="button secondary" href={'/admin/executive?'+new URLSearchParams({from:data.today.slice(0,7)+'-01',to:data.today,...(data.seller?{seller:data.seller}:{})})}>เดือนนี้</Link>
+   </form>}
+  </section>
   {customizing&&<section className="card executive-customize"><h2>ชุดข้อมูลที่แสดง</h2>{sections.map(([key,label])=><label key={key}><input type="checkbox" checked={visible.includes(key)} onChange={event=>update(event.target.checked?[...visible,key]:visible.filter(value=>value!==key))}/>{label}</label>)}<button className="secondary" onClick={()=>update(sections.map(([key])=>key))}>คืนค่าทุกชุดข้อมูล</button></section>}
   <p className="executive-period">เลือกรอบรับออเดอร์ แล้วดูยอดรับเงินและกำไรล่าสุดของออเดอร์ชุดนั้น<br/>ช่วงนี้ {date(data.start)} – {date(data.end)}<br/>เทียบ {date(data.previousStart)} – {date(data.previousEnd)} · เวลาตัดรอบ {data.closeTime} น.{data.partial&&' · รอบปัจจุบันยังไม่จบ เทียบด้วยระยะเวลาที่ผ่านไปเท่ากัน'}</p>
+  <h2 className="executive-selected-round">{singleRound?'รอบวันที่ '+roundDate(data.from):'รวมรอบวันที่ '+roundDate(data.from)+' – '+roundDate(data.to)}{data.seller&&<small>ผู้ขาย {data.seller}</small>}</h2>
   <section className="executive-kpis" aria-label="ตัวชี้วัดผู้บริหาร">
    <article className="card"><span>ยอดออเดอร์</span><strong>{baht(data.current.orderedSatang)}</strong><Change current={data.current.unknownAmounts?null:data.current.orderedSatang} previous={data.previous.unknownAmounts?null:data.previous.orderedSatang}/><p>{data.current.orderCount} ออเดอร์ · รวมโอนและ COD ที่บันทึก</p>{data.current.unknownAmounts>0&&<p className="notice">ยังไม่ทราบยอด {data.current.unknownAmounts} ออเดอร์</p>}<Link href={salesHref}>ดูออเดอร์ →</Link></article>
    <article className="card"><span>รับเงินสำเร็จ</span><strong>{baht(data.current.completedSatang)}</strong><Change current={data.current.completedSatang} previous={data.previous.completedSatang}/><p>{data.current.completedCount} ออเดอร์ · ของรอบที่เลือก ซึ่งจัดส่งแล้วและรับเงินครบ</p></article>
