@@ -25,7 +25,7 @@ export async function previewManualShipments(rows:ManualShipmentRow[]){
  if(rows.some(row=>row.amountSatang===undefined))throw Error('ไฟล์ต้องมีคอลัมน์ยอดเงิน เพื่อจับคู่ด้วยเบอร์โทรและยอดขาย');
  const [orders,shipments,rejections]=await Promise.all([
   db.orderIntake.findMany({orderBy:[{eventAt:'asc'},{id:'asc'}],select:{id:true,orderNumber:true,recipient:true,phone:true,payment:true,eventAt:true,rawText:true,address:true,status:true,affiliateId:true}}),
-  db.shipment.findMany({select:{tracking:true,orderId:true}}),
+  db.shipment.findMany({select:{tracking:true,orderId:true,reportAt:true}}),
   db.auditLog.findMany({where:{action:'ORDER_REJECTED'},orderBy:{createdAt:'desc'},select:{id:true,createdAt:true,details:true}}),
  ]);
  return assignManualShipmentOrders(rows.map(row=>{
@@ -33,7 +33,8 @@ export async function previewManualShipments(rows:ManualShipmentRow[]){
   const rejectedOrders=matchingRejectedOrders(row,rejections);
   const phoneOrders=orders.filter(order=>!!order.phone&&phonesMatch(order.phone,row.phone));
   const amountOrders=phoneOrders.filter(order=>manualShipmentMatches(row,order));
-  const readyOrders=amountOrders.filter(order=>eligible.includes(order.status)&&order.affiliateId);
+  const eligibleOrders=amountOrders.filter(order=>eligible.includes(order.status)&&order.affiliateId);
+  const readyOrders=eligibleOrders.filter(order=>!existing?.reportAt||order.eventAt<=existing.reportAt);
   const candidates=readyOrders.filter(order=>!shipments.some(shipment=>shipment.orderId===order.id&&shipment.tracking!==row.tracking)).map(({rawText,status,affiliateId,...order})=>({...order,eventAt:order.eventAt.toISOString(),amountSatang:quotedTotal(rawText??''),addressMatches:!!row.address&&compatibleAddress(parseOrderAddress(rawText??'')??order.address??'',row.address)}));
   let matchMessage='';
   if(existing?.orderId)matchMessage='เลขพัสดุนี้ผูกออเดอร์แล้ว';
@@ -42,6 +43,7 @@ export async function previewManualShipments(rows:ManualShipmentRow[]){
    const totals=[...new Set(phoneOrders.map(order=>quotedTotal(order.rawText??'')).filter(total=>total!==null))];
    matchMessage='พบเบอร์โทร แต่ยอดขายไม่ตรง'+(totals.length?' · ยอดในระบบ '+totals.map(total=>(total/100).toLocaleString('th-TH')+' บาท').join(', '):' · ออเดอร์ไม่มีข้อมูลยอดขายที่อ่านได้');
   }
+  else if(eligibleOrders.length&&!readyOrders.length)matchMessage='รายงานของเลขพัสดุนี้อยู่ก่อนวันที่รับออเดอร์ กรุณาตรวจเลขพัสดุและวันที่';
   else if(!readyOrders.length)matchMessage='พบเบอร์และยอดตรงกัน แต่ออเดอร์ไม่อยู่ในสถานะที่นำเข้าส่งได้';
   else if(!candidates.length)matchMessage='ออเดอร์ที่เบอร์และยอดตรงกันผูกกับเลขพัสดุอื่นแล้ว';
   return {...row,candidates,existingOrderId:existing?.orderId??null,matchMessage,rejectedOrders};
@@ -65,6 +67,7 @@ export async function importManualShipments(actor:string,value:unknown){
    await userLock(tx,order.messageKey);
    const [existing,other]=await Promise.all([tx.shipment.findUnique({where:{tracking:row.tracking}}),tx.shipment.findUnique({where:{orderId:order.id}})]);
    if(other&&other.tracking!==row.tracking||existing?.orderId&&existing.orderId!==order.id)throw Error('เลขพัสดุหรือออเดอร์นี้ถูกผูกกับรายการอื่นแล้ว');
+   if(existing&&existing.reportAt<order.eventAt)throw Error('รายงานของเลขพัสดุ '+row.tracking+' อยู่ก่อนวันที่รับออเดอร์ กรุณาตรวจเลขพัสดุและวันที่');
    if(existing&&['RETURNED','CANCELLED'].includes(existing.status))throw Error('เลขพัสดุนี้ถูกยกเลิกหรือตีกลับแล้ว');
    if(existing?.orderId===order.id&&existing.fulfillmentStatus==='DISPATCHED')continue;
    if(!eligible.includes(order.status))throw Error('ออเดอร์ '+order.orderNumber+' ไม่อยู่ในสถานะรอส่ง');

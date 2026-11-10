@@ -1,6 +1,17 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {manualShipmentMatches,assignManualShipmentOrders} from '../src/lib/manual-shipments';
+import {manualShipmentMatches,assignManualShipmentOrders,previewManualShipments} from '../src/lib/manual-shipments';
+import {db} from '../src/lib/db';
+
+test('manual preview refuses a known parcel report that predates the order',async t=>{
+ const original={orders:db.orderIntake.findMany,shipments:db.shipment.findMany,audit:db.auditLog.findMany};
+ t.after(()=>{db.orderIntake.findMany=original.orders;db.shipment.findMany=original.shipments;db.auditLog.findMany=original.audit;});
+ db.orderIntake.findMany=(async()=>[{id:'new',orderNumber:'NEW',recipient:'Customer',phone:'0812345678',payment:'COD',eventAt:new Date('2026-11-10'),rawText:'ยอดรวม: 100',address:'address',status:'WAITING_SHIPMENT',affiliateId:'seller'}]) as any;
+ db.shipment.findMany=(async()=>[{tracking:'OLDTRACK',orderId:null,reportAt:new Date('2026-11-01')}]) as any;
+ db.auditLog.findMany=(async()=>[]) as any;
+ const [result]=await previewManualShipments([{tracking:'OLDTRACK',phone:'0812345678',recipient:'Customer',amountSatang:10000}]);
+ assert.equal(result.selectedOrderId,null);assert.equal(result.candidates.length,0);assert.match(result.matchMessage,/ก่อนวันที่รับออเดอร์/);
+});
 
 test('manual matching uses telephone and sale total regardless of recipient spelling',()=>{
  const row={phone:'+66 81 234 5678',amountSatang:105000,recipient:'New name'};
