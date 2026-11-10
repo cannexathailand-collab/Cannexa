@@ -8,17 +8,32 @@ const booked=(id:string,change:Partial<BookedSale>={})=>({id,eventAt:at,revenueS
 const sale=(id:string,change:Partial<SaleRow>={})=>({id,orderId:id,revenueSatang:10000,status:'PENDING',paymentMethod:'TRANSFER',recognizedAt:at,tracking:'TRACK-'+id,order:{id,orderNumber:id,payment:'โอน',status:'TRANSFER_RECORDED'},shipment:{tracking:'TRACK-'+id,orderId:id,fulfillmentStatus:'DISPATCHED',status:'MATCHED_TRANSFER',dispatchedAt:at,dispatchEvidence:'Receipt',freightSatang:1000,freightReportAt:at},...change}) as SaleRow;
 test('executive summary separates demand and completed profit and counts buyers distinctly',()=>{
  const result=executivePeriodSummary([booked('1'),booked('2',{paymentMethod:'COD',hasTracking:false})],[sale('1')],[{orderId:'1',status:'POSTED',totalCostSatang:6000}],start,end);
- assert.equal(result.orderedSatang,20000);assert.equal(result.completedSatang,10000);assert.equal(result.profitSatang,3000);
+ assert.equal(result.orderedSatang,20000);assert.equal(result.completedSatang,10000);assert.equal(result.profitSatang,4000);assert.equal(result.freightSatang,1000);
  assert.equal(result.buyers,1);assert.equal(result.repeatBuyers,1);assert.equal(result.waitingShipment,1);assert.equal(result.waitingCod,1);
  assert.equal(result.sellers[0].amountSatang,20000);
 });
-test('missing freight keeps total profit unknown and identifies affected order',()=>{
+test('missing freight does not block product profit and identifies affected order',()=>{
  const row=sale('1');row.shipment!.freightSatang=null;
  const result=executivePeriodSummary([booked('1')],[row],[{orderId:'1',status:'POSTED',totalCostSatang:6000}],start,end);
- assert.equal(result.profitSatang,null);assert.equal(result.missingFreight,1);assert.equal(result.missingProductCosts,0);assert.equal(result.pendingProfitOrders[0].reason,'รอค่าส่ง');
+ assert.equal(result.profitSatang,4000);assert.equal(result.freightSatang,0);assert.equal(result.missingFreight,1);assert.equal(result.missingProductCosts,0);assert.equal(result.pendingProfitOrders[0].reason,'รอค่าส่ง');
 });
 test('round end is exclusive and unconfirmed sales are excluded',()=>{
  const excluded=sale('unconfirmed');excluded.recognizedAt=null;
  const result=executivePeriodSummary([booked('outside',{eventAt:end})],[excluded],[],start,end);
  assert.equal(result.orderCount,0);assert.equal(result.completedCount,0);assert.equal(result.profitSatang,0);
+});
+
+test('late freight reports do not change profit after product costs',()=>{
+ const row=sale('late');row.shipment!.freightSatang=null;row.shipment!.freightReportAt=null;
+ const costs=[{orderId:'late',status:'POSTED',totalCostSatang:6000}];
+ const before=executivePeriodSummary([booked('late')],[row],costs,start,end);
+ row.shipment!.freightSatang=1500;row.shipment!.freightReportAt=at;
+ const after=executivePeriodSummary([booked('late')],[row],costs,start,end);
+ assert.equal(before.profitSatang,4000);assert.equal(after.profitSatang,4000);
+ assert.equal(after.freightSatang,1500);assert.equal(after.missingFreight,0);
+});
+
+test('missing product cost remains unknown',()=>{
+ const result=executivePeriodSummary([booked('missing')],[sale('missing')],[],start,end);
+ assert.equal(result.profitSatang,null);assert.equal(result.missingProductCosts,1);
 });
