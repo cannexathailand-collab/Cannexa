@@ -35,7 +35,6 @@ export function CustomerSignInForm(){
   }
  }}>
   <label>{t("ชื่อผู้ใช้หรือรหัสลูกค้า")}<input name="code" maxLength={64} autoComplete="username" autoCapitalize="none" spellCheck={false}/></label>
-  <small>{t("เจ้าของระบบใช้ชื่อผู้ใช้ owner และรหัสผ่านเจ้าของระบบ")}</small>
   <label>{t("รหัสผ่าน")}<input name="password" type="password" required maxLength={256} autoComplete="current-password"/></label>
   {error&&<p className="portal-alert" role="alert">{t(error)}</p>}
   <button disabled={!ready||busy}>{t(busy?'กำลังเข้าสู่ระบบ…':'เข้าสู่ระบบ')}</button>

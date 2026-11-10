@@ -6,7 +6,7 @@ export function StoreBrandProvider({brand,children}:{brand:DocumentBrandingSnaps
  const style=brand?{'--store-color':brand.color} as CSSProperties:undefined;
  return <BrandingContext.Provider value={brand}><div className={brand?'store-branded':undefined} style={style}>{children}</div></BrandingContext.Provider>;
 }
-export function StoreBrand({fallback='Affiliate OS'}:{fallback?:string}){
+export function StoreBrand({fallback='Affiliate OS',children}:{fallback?:string;children?:React.ReactNode}){
  const brand=useContext(BrandingContext);
- return <span className="store-brand">{brand?.logoPath&&<img src={brand.logoPath} alt=""/>}<span>{brand?.name||fallback}</span></span>;
+ return <span className="store-brand">{brand?.logoPath&&<img src={brand.logoPath} alt=""/>}<span>{brand?.name||fallback}{children}</span></span>;
 }
