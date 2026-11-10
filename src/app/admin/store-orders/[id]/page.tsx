@@ -27,6 +27,6 @@ export default async function StoreOrder({params}:{params:Promise<{id:string}>})
   <header className="intro"><div><h1>{order.orderNumber}</h1><p>สร้าง {order.createdAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p></div></header>
   <h2>ข้อมูลจัดส่ง</h2><OrderShippingDetails sellerName={order.sellerUsername} teamName={teamName} data={{recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:amount,items}} tracking={shipment?.tracking}/>
   {parsed.issues.map(issue=><p key={issue} className="notice">{issue}</p>)}{parsed.issues.length>0&&<pre>{order.rawText}</pre>}
-  <Link className="button" href="/admin/orders/upload">อัปโหลดรายการจัดส่ง</Link>
+  <div className="actions"><Link className="button secondary" href={'/admin/store-orders/'+encodeURIComponent(id)+'/review'}>ตรวจสอบสถานะและหลักฐาน</Link><Link className="button" href="/admin/orders/upload">อัปโหลดรายการจัดส่ง</Link></div>
  </section>;
 }

@@ -30,7 +30,7 @@ export function orderRoundRange(input:{from?:string;to?:string;page?:string}={},
  if(from>to)throw Error('INVALID_DATE_RANGE');
  return {from,to,...orderRoundBounds(shiftDay(to,1),closeMinutes)};
 }
-export async function orderManagement(input:OrderFilters={},options:{searchAllRounds?:boolean}={}){
+export async function orderManagement(input:OrderFilters={},options:{searchAllRounds?:boolean;reviewAllRounds?:boolean}={}){
  const roundSettings=await loadOrderRoundSettings();
  const duplicateReviews=await loadDuplicateOrderReviews();
  const groups=await db.orderGroup.findMany({where:{purpose:'ORDER'},select:{id:true,name:true},orderBy:{name:'asc'}});
@@ -51,7 +51,7 @@ export async function orderManagement(input:OrderFilters={},options:{searchAllRo
  const page=focusRound?Math.max(1,Math.round((+latestRound.start-+focusRound.start)/86400000)+1):requestedPage;
  const roundPage=Math.min(page,roundPages);
  const round=orderRoundRange({page:String(roundPage)},at,roundSettings.closeMinutes);
- if(!options.searchAllRounds||!q)where.eventAt={gte:round.start,lt:round.end};
+ if(!options.reviewAllRounds&&(!options.searchAllRounds||!q))where.eventAt={gte:round.start,lt:round.end};
  if(team)where.groupKey=team;
  const orders=await db.orderIntake.findMany({where,orderBy:[{eventAt:sort==='oldest'?'asc':'desc'},{id:'asc'}]});
  const ids=orders.map(o=>o.id),[shipments,sales]=await Promise.all([db.shipment.findMany({where:{orderId:{in:ids}}}),db.salesOrder.findMany({where:{orderId:{in:ids}}})]);
@@ -59,7 +59,7 @@ export async function orderManagement(input:OrderFilters={},options:{searchAllRo
  const [receipts,reports]=await Promise.all([db.codReceipt.findMany({where:{tracking:{in:shipments.map(s=>s.tracking)}}}),db.gmailImport.findMany({where:{id:{in:shipments.map(s=>s.importId)},kind:'SHIPMENT'},select:{id:true}})]),verifiedReports=new Set(reports.map(report=>report.id)),receiptMap=new Map(receipts.map(r=>[r.tracking,r])),now=new Date();
  const stockReviews=await db.stockDispatch.findMany({where:{orderId:{in:ids},status:{in:['NEEDS_REVIEW','WAITING_COST','HISTORY_SAVED']}},select:{orderId:true,issues:true,status:true}});
  const stockReviewMap=new Map(stockReviews.map(review=>[review.orderId,review]));
- const all=orders.map(order=>{const shipment=shipping.get(order.id),sale=saleMap.get(order.id),receipt=shipment?receiptMap.get(shipment.tracking):undefined,closed=['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(order.status),shipped=!closed&&!!shipment&&hasActualDispatch(shipment);const stockReview=!closed&&shipment?.tracking?stockReviewMap.get(order.id):undefined;const duplicateMatches=duplicateReviews.get(order.id)??[];return {order,stockReview,duplicateMatches,teamName:teamNames.get(order.groupKey)??'ยังไม่ระบุทีม',shipment,sale,receipt,shipped,shipmentVerified:shipped&&!!shipment&&verifiedReports.has(shipment.importId),awaitingConfirmation:shipped&&!!shipment&&!verifiedReports.has(shipment.importId),awaitingShipment:!closed&&!shipped,state:stockReview||duplicateMatches.length?'REVIEW' as const:orderState(order,shipment,sale,now,receipt,!!shipment&&verifiedReports.has(shipment.importId)),amountSatang:quotedTotal(order.rawText??'')??sale?.revenueSatang??null};});
+ const all=orders.map(order=>{const shipment=shipping.get(order.id),sale=saleMap.get(order.id),receipt=shipment?receiptMap.get(shipment.tracking):undefined,closed=['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(order.status),shipped=!closed&&!!shipment&&hasActualDispatch(shipment);const stockReview=!closed&&shipment?.tracking?stockReviewMap.get(order.id):undefined;const duplicateMatches=duplicateReviews.get(order.id)??[];return {order,stockReview,duplicateMatches,confirmationReview:needsDispatchConfirmationReview(order,shipment,!!shipment&&verifiedReports.has(shipment.importId),now),codReview:needsCodReceiptReview(order,shipment,receipt,now,!!shipment&&verifiedReports.has(shipment.importId)),teamName:teamNames.get(order.groupKey)??'ยังไม่ระบุทีม',shipment,sale,receipt,shipped,shipmentVerified:shipped&&!!shipment&&verifiedReports.has(shipment.importId),awaitingConfirmation:shipped&&!!shipment&&!verifiedReports.has(shipment.importId),awaitingShipment:!closed&&!shipped,state:stockReview||duplicateMatches.length?'REVIEW' as const:orderState(order,shipment,sale,now,receipt,!!shipment&&verifiedReports.has(shipment.importId)),amountSatang:quotedTotal(order.rawText??'')??sale?.revenueSatang??null};});
  const counts=Object.fromEntries(Object.keys(orderStates).map(key=>[key,all.filter(row=>orderMatchesState(row,key)).length])) as Record<keyof typeof orderStates,number>;
  const filtered=all.filter(row=>orderMatchesState(row,status));
  const active=all.filter(row=>row.state!=='CANCELLED');
