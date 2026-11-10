@@ -822,3 +822,28 @@ model ProfitReportDelivery {
  lastError String?
  createdAt DateTime @default(now())
 }
+
+model PlatformAdministrator {
+ username String @id
+ active Boolean @default(true)
+ createdAt DateTime @default(now())
+}
+
+model PlatformShop {
+ id String @id @default(cuid())
+ slug String @unique
+ name String
+ schemaName String @unique
+ ownerUsername String
+ active Boolean @default(true)
+ createdAt DateTime @default(now())
+}
+
+model PlatformAuditLog {
+ id String @id @default(cuid())
+ actor String
+ action String
+ shopId String?
+ details Json
+ createdAt DateTime @default(now())
+}
