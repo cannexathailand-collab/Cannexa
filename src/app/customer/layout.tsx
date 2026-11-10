@@ -1,3 +1,7 @@
+import {cookies} from 'next/headers';
+import {customerLanguageCookie,readCustomerLanguage} from '@/lib/customer-language';
+import {CustomerLanguageProvider} from './language';
+import './portal.css';
 import localFont from 'next/font/local';
 
 const customerFont=localFont({
@@ -6,6 +10,7 @@ const customerFont=localFont({
  display:'swap',
 });
 
-export default function CustomerLayout({children}:{children:React.ReactNode}){
- return <div className={customerFont.variable+' customer-shell'}>{children}</div>;
+export default async function CustomerLayout({children}:{children:React.ReactNode}){
+ const language=readCustomerLanguage((await cookies()).get(customerLanguageCookie)?.value);
+ return <div className={customerFont.variable+' customer-shell'}><CustomerLanguageProvider initialLanguage={language}>{children}</CustomerLanguageProvider></div>;
 }

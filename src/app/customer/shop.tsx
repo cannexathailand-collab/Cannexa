@@ -1,4 +1,5 @@
 'use client';
+import {useCustomerLanguage} from '@/app/customer/language';
 
 import {useEffect, useRef, useState} from 'react';
 import {useRouter} from 'next/navigation';
@@ -16,6 +17,7 @@ function ShopProduct({product, disabled, onAdd}: {
   disabled: boolean;
   onAdd: (product: CustomerCatalogProduct, pack: string) => boolean;
 }) {
+ const {t}=useCustomerLanguage();
   const [pack, setPack] = useState(product.prices.find(price => price.priceSatang > 0)?.pack ?? '');
   const [added, setAdded] = useState<{
     sequence: number;
@@ -35,30 +37,28 @@ function ShopProduct({product, disabled, onAdd}: {
   return <article className="shop-product">
     <div className="shop-product-picture">
       {product.imageVersion
-        ? <img src={imageUrl(product)} alt={'รูปสินค้า ' + product.code} loading="lazy" width={240} height={240}/>
-        : <span>ไม่มีรูปสินค้า</span>}
+        ? <img src={imageUrl(product)} alt={t('รูปสินค้า ' + product.code)} loading="lazy" width={240} height={240}/>
+        : <span>{t("ไม่มีรูปสินค้า")}</span>}
     </div>
     <div className="shop-product-details">
       <span className="shop-product-code">{product.code}</span>
-      <h3>{product.name || 'ยังไม่ระบุชื่อสินค้า'}</h3>
-      {product.prices.length > 0 ? <label className="shop-package-label">ขนาดสินค้า
-        <select aria-label={'ขนาด ' + product.code} value={selected?.pack ?? ''} onChange={event => setPack(event.target.value)}>
+      <h3>{product.name || t('ยังไม่ระบุชื่อสินค้า')}</h3>
+      {product.prices.length > 0 ? <label className="shop-package-label">{t("ขนาดสินค้า ")}<select aria-label={t('ขนาด ' + product.code)} value={selected?.pack ?? ''} onChange={event => setPack(event.target.value)}>
           {product.prices.map(price => <option key={price.pack} value={price.pack} disabled={price.priceSatang <= 0}>
-            {price.pack} · {money(price.priceSatang)} บาท
-          </option>)}
+            {price.pack} · {money(price.priceSatang)}{t(" บาท ")}</option>)}
         </select>
-      </label> : <p className="shop-unavailable">ยังไม่มีราคาขาย</p>}
-      <p className="shop-product-price">{selected ? money(selected.priceSatang) + ' บาท' : 'รอระบุราคา'}</p>
+      </label> : <p className="shop-unavailable">{t("ยังไม่มีราคาขาย")}</p>}
+      <p className="shop-product-price">{t(selected ? money(selected.priceSatang) + ' บาท' : 'รอระบุราคา')}</p>
       <span className={'shop-availability' + (available ? ' available' : '')}>
-        {available ? 'พร้อมขาย' : product.available === null ? 'รอข้อมูลสต๊อก' : 'ขนาดนี้ยังไม่พร้อมขาย'}
+        {t(available ? 'พร้อมขาย' : product.available === null ? 'รอข้อมูลสต๊อก' : 'ขนาดนี้ยังไม่พร้อมขาย')}
       </span>
       <div className="shop-add-action">
         {added && <div key={added.sequence} className="shop-add-feedback" role="status">
-          <strong><span aria-hidden="true">✓</span> เพิ่มลงตะกร้าแล้ว</strong>
+          <strong><span aria-hidden="true">✓</span>{t(" เพิ่มลงตะกร้าแล้ว")}</strong>
           <span>{added.name}</span>
-          <span>จำนวน 1 · {added.pack} · {money(added.priceSatang)} บาท</span>
+          <span>{t("จำนวน 1 · ")}{added.pack} · {money(added.priceSatang)}{t(" บาท")}</span>
         </div>}
-        <button type="button" aria-label={'เพิ่มลงตะกร้า ' + product.code} disabled={disabled || !available} onClick={() => {
+        <button type="button" aria-label={t('เพิ่มลงตะกร้า ' + product.code)} disabled={disabled || !available} onClick={() => {
           if (selected && onAdd(product, selected.pack)) {
             setAdded(previous => ({
               sequence: (previous?.sequence ?? 0) + 1,
@@ -67,9 +67,7 @@ function ShopProduct({product, disabled, onAdd}: {
               priceSatang: selected.priceSatang,
             }));
           } else setAdded(null);
-        }}>
-          เพิ่มลงตะกร้า
-        </button>
+        }}>{t(" เพิ่มลงตะกร้า ")}</button>
       </div>
     </div>
   </article>;
@@ -80,6 +78,7 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
   initialCatalog: CustomerCatalog;
   readOnly?: boolean;
 }) {
+ const {t,locale}=useCustomerLanguage();
   const router = useRouter();
   const [catalog, setCatalog] = useState(initialCatalog);
   const [query, setQuery] = useState('');
@@ -346,13 +345,13 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
 
   return <section className="portal-section customer-shop">
     <div className="shop-heading">
-      <div><h2>Shop</h2><p className="portal-muted">เลือกสินค้าและจัดรายการในตะกร้า</p></div>
-      <button className="shop-cart-button" type="button" aria-label="ตะกร้า" onClick={() => {setError(''); cartDialog.current?.showModal();}}>
-        <span aria-hidden="true">🛒</span> ตะกร้า <strong aria-hidden="true">{count}</strong>
+      <div><h2>Shop</h2><p className="portal-muted">{t("เลือกสินค้าและจัดรายการในตะกร้า")}</p></div>
+      <button className="shop-cart-button" type="button" aria-label={t("ตะกร้า")} onClick={() => {setError(''); cartDialog.current?.showModal();}}>
+        <span aria-hidden="true">🛒</span>{t(" ตะกร้า ")}<strong aria-hidden="true">{count}</strong>
       </button>
     </div>
     <div className="shop-toolbar">
-      <label>ค้นหาสินค้า<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="รหัสหรือชื่อสินค้า"/></label>
+      <label>{t("ค้นหาสินค้า")}<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={t("รหัสหรือชื่อสินค้า")}/></label>
       <button type="button" className="secondary" disabled={refreshing} onClick={async () => {
         setRefreshing(true);
         setError('');
@@ -364,75 +363,75 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
         } catch (failure) {
           setError(failure instanceof Error ? failure.message : 'โหลดสินค้าไม่สำเร็จ');
         } finally { setRefreshing(false); }
-      }}>{refreshing ? 'กำลังอัปเดต…' : 'อัปเดตรายการ'}</button>
+      }}>{t(refreshing ? 'กำลังอัปเดต…' : 'อัปเดตรายการ')}</button>
     </div>
-    {catalog.readAt && <p className="shop-updated">ข้อมูลล่าสุด {new Date(catalog.readAt).toLocaleString('th-TH', {timeZone: 'Asia/Bangkok'})}</p>}
-    {readOnly && <p className="portal-muted">โหมดเจ้าของระบบ · ทดลองตะกร้า</p>}
-    {pending && <p className="portal-alert" role="status">มีคำขอส่งออเดอร์ที่ยังไม่ยืนยันผล เปิดตะกร้าแล้วกด “ลองส่งอีกครั้ง”</p>}
-    {error && <p className="portal-alert" role="alert">{error}</p>}
+    {catalog.readAt && <p className="shop-updated">{t("ข้อมูลล่าสุด ")}{new Date(catalog.readAt).toLocaleString(locale, {timeZone: 'Asia/Bangkok'})}</p>}
+    {readOnly && <p className="portal-muted">{t("โหมดเจ้าของระบบ · ทดลองตะกร้า")}</p>}
+    {pending && <p className="portal-alert" role="status">{t("มีคำขอส่งออเดอร์ที่ยังไม่ยืนยันผล เปิดตะกร้าแล้วกด “ลองส่งอีกครั้ง”")}</p>}
+    {error && <p className="portal-alert" role="alert">{t(error)}</p>}
     <div className="shop-product-grid">
       {visibleProducts.map(product => <ShopProduct key={product.code} product={product} disabled={locked} onAdd={add}/>)}
     </div>
-    {!visibleProducts.length && <p className="portal-empty">{query ? 'ไม่พบสินค้าที่ค้นหา' : 'ยังไม่มีสินค้าในรายการ'}</p>}
+    {!visibleProducts.length && <p className="portal-empty">{t(query ? 'ไม่พบสินค้าที่ค้นหา' : 'ยังไม่มีสินค้าในรายการ')}</p>}
     <dialog className="stock-modal shop-cart-dialog" ref={cartDialog} aria-labelledby="shop-cart-title">
-      <div className="shop-heading"><h2 id="shop-cart-title">ตะกร้า</h2><button type="button" className="secondary" onClick={() => cartDialog.current?.close()}>ปิด</button></div>
-      {confirmation && <div className="portal-success" role="status"><h3>ส่งออเดอร์แล้ว</h3><p>{confirmation.orderNumber}</p><p>{orderStatus[confirmation.status] ?? confirmation.status}</p></div>}
-      {error && <p className="portal-alert" role="alert">{error}</p>}
+      <div className="shop-heading"><h2 id="shop-cart-title">{t("ตะกร้า")}</h2><button type="button" className="secondary" onClick={() => cartDialog.current?.close()}>{t("ปิด")}</button></div>
+      {confirmation && <div className="portal-success" role="status"><h3>{t("ส่งออเดอร์แล้ว")}</h3><p>{confirmation.orderNumber}</p><p>{t(orderStatus[confirmation.status] ?? confirmation.status)}</p></div>}
+      {error && <p className="portal-alert" role="alert">{t(error)}</p>}
       {items.length ? <div className="shop-cart-items">{items.map(item => {
         const product = products.get(item.code);
         const price = product?.prices.find(candidate => candidate.pack === item.pack);
         const unitPrice = pending?.items.find(candidate => cartItemKey(candidate) === cartItemKey(item))?.expectedUnitPriceSatang ?? price?.priceSatang;
         const problem = pending ? null : product && price ? cartQuantityError(items, product, price, item.quantity) : 'สินค้าขนาดนี้ไม่อยู่ในรายการล่าสุด';
         return <article key={cartItemKey(item)} className="shop-cart-item">
-          <div><strong>{product?.name || 'ยังไม่ระบุชื่อสินค้า'}</strong><p>{item.code} · {item.pack}</p>{unitPrice !== undefined && <span>{money(unitPrice)} บาท / ชิ้น</span>}</div>
-          <label>จำนวน<input type="number" min={1} max={999} step={1} aria-label={'จำนวน ' + item.code + ' ' + item.pack} value={item.quantity} disabled={locked || !price} onChange={event => setQuantity(item, Number(event.target.value))}/></label>
-          <strong>{unitPrice !== undefined ? money(unitPrice * item.quantity) + ' บาท' : 'รอราคา'}</strong>
-          <button type="button" className="secondary" aria-label={'ลบ ' + item.code + ' ' + item.pack} disabled={locked} onClick={() => {
+          <div><strong>{product?.name || t('ยังไม่ระบุชื่อสินค้า')}</strong><p>{item.code} · {item.pack}</p>{unitPrice !== undefined && <span>{money(unitPrice)}{t(" บาท / ชิ้น")}</span>}</div>
+          <label>{t("จำนวน")}<input type="number" min={1} max={999} step={1} aria-label={t('จำนวน ' + item.code + ' ' + item.pack)} value={item.quantity} disabled={locked || !price} onChange={event => setQuantity(item, Number(event.target.value))}/></label>
+          <strong>{t(unitPrice !== undefined ? money(unitPrice * item.quantity) + ' บาท' : 'รอราคา')}</strong>
+          <button type="button" className="secondary" aria-label={t('ลบ ' + item.code + ' ' + item.pack)} disabled={locked} onClick={() => {
             if (locked || sending.current) return;
             setCart({key: storageKey, items: items.filter(candidate => cartItemKey(candidate) !== cartItemKey(item))});
             setError('');
-          }}>นำออก</button>
-          {problem && <p className="shop-cart-warning">{problem}</p>}
+          }}>{t("นำออก")}</button>
+          {problem && <p className="shop-cart-warning">{t(problem)}</p>}
         </article>;
-      })}</div> : <p className="portal-empty">ยังไม่มีสินค้าในตะกร้า</p>}
-      {items.length > 0 && <section className="shop-payment" aria-label="การชำระเงิน">
-        <h3>การชำระเงิน</h3>
-        <label>วิธีชำระเงิน<select aria-label="วิธีชำระเงิน" value={selectedPayment} disabled={locked} onChange={event => {
+      })}</div> : <p className="portal-empty">{t("ยังไม่มีสินค้าในตะกร้า")}</p>}
+      {items.length > 0 && <section className="shop-payment" aria-label={t("การชำระเงิน")}>
+        <h3>{t("การชำระเงิน")}</h3>
+        <label>{t("วิธีชำระเงิน")}<select aria-label={t("วิธีชำระเงิน")} value={selectedPayment} disabled={locked} onChange={event => {
           setPaymentMethod(event.target.value as WebsitePaymentMethod | '');
           setPaymentError('');
         }}>
-          <option value="">เลือกวิธีชำระเงิน</option>
-          <option value="TRANSFER">โอนเงิน · ค่าส่ง {money(websiteShippingFees.TRANSFER)} บาท</option>
-          <option value="COD">เก็บเงินปลายทาง (COD) · ค่าส่ง {money(websiteShippingFees.COD)} บาท</option>
+          <option value="">{t("เลือกวิธีชำระเงิน")}</option>
+          <option value="TRANSFER">{t("โอนเงิน · ค่าส่ง ")}{money(websiteShippingFees.TRANSFER)}{t(" บาท")}</option>
+          <option value="COD">{t("เก็บเงินปลายทาง (COD) · ค่าส่ง ")}{money(websiteShippingFees.COD)}{t(" บาท")}</option>
         </select></label>
         {selectedPayment === 'TRANSFER' && <>
           {pending && pending.bankVersion !== paymentDetails?.version
-            ? <p className="portal-muted">คำขอนี้ใช้บัญชีรับโอนที่ยืนยันไว้ตอนส่งครั้งแรก</p>
-            : paymentLoading ? <p className="portal-muted">กำลังโหลดข้อมูลบัญชีรับโอน…</p>
+            ? <p className="portal-muted">{t("คำขอนี้ใช้บัญชีรับโอนที่ยืนยันไว้ตอนส่งครั้งแรก")}</p>
+            : paymentLoading ? <p className="portal-muted">{t("กำลังโหลดข้อมูลบัญชีรับโอน…")}</p>
             : bankReady ? <dl className="shop-bank-details">
-              <div><dt>ธนาคาร</dt><dd>{paymentDetails!.bankName}</dd></div>
-              <div><dt>ชื่อบัญชี</dt><dd>{paymentDetails!.accountName}</dd></div>
-              <div><dt>เลขบัญชี</dt><dd>{paymentDetails!.accountNumber}</dd></div>
-            </dl> : <p className="portal-alert">รอร้านตั้งค่าบัญชีรับโอน</p>}
-          {!pending && <button type="button" className="secondary" disabled={paymentLoading} onClick={() => setPaymentRefresh(value => value + 1)}>อัปเดตข้อมูลบัญชี</button>}
-          <p className="portal-muted">ยอดโอนรวมค่าส่ง {money(total)} บาท</p>
-          {!pending && <label>แนบสลิปการโอนเงิน<input type="file" accept="image/jpeg,image/png,image/webp" disabled={locked || readingSlip || paymentLoading || !bankReady} onChange={event => {
+              <div><dt>{t("ธนาคาร")}</dt><dd>{paymentDetails!.bankName}</dd></div>
+              <div><dt>{t("ชื่อบัญชี")}</dt><dd>{paymentDetails!.accountName}</dd></div>
+              <div><dt>{t("เลขบัญชี")}</dt><dd>{paymentDetails!.accountNumber}</dd></div>
+            </dl> : <p className="portal-alert">{t("รอร้านตั้งค่าบัญชีรับโอน")}</p>}
+          {!pending && <button type="button" className="secondary" disabled={paymentLoading} onClick={() => setPaymentRefresh(value => value + 1)}>{t("อัปเดตข้อมูลบัญชี")}</button>}
+          <p className="portal-muted">{t("ยอดโอนรวมค่าส่ง ")}{money(total)}{t(" บาท")}</p>
+          {!pending && <label>{t("แนบสลิปการโอนเงิน")}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={locked || readingSlip || paymentLoading || !bankReady} onChange={event => {
             selectSlip(event.target.files?.[0]);
             event.target.value = '';
-          }}/><span className="portal-muted">JPG, PNG หรือ WebP ขนาดไม่เกิน 2 MB</span></label>}
-          {readingSlip && <p role="status">กำลังอ่านสลิป…</p>}
-          {shownSlip && <div className="shop-slip-preview"><img src={shownSlip} alt="สลิปการโอนเงิน"/><span>{slipName || 'สลิปการโอนเงิน'}</span></div>}
+          }}/><span className="portal-muted">{t("JPG, PNG หรือ WebP ขนาดไม่เกิน 2 MB")}</span></label>}
+          {readingSlip && <p role="status">{t("กำลังอ่านสลิป…")}</p>}
+          {shownSlip && <div className="shop-slip-preview"><img src={shownSlip} alt={t("สลิปการโอนเงิน")}/><span>{t(slipName || 'สลิปการโอนเงิน')}</span></div>}
         </>}
-        {selectedPayment === 'COD' && <p className="portal-muted">ชำระเงินปลายทางรวมค่าส่ง {money(total)} บาท</p>}
-        {paymentError && <p role="alert" className="portal-alert">{paymentError}</p>}
+        {selectedPayment === 'COD' && <p className="portal-muted">{t("ชำระเงินปลายทางรวมค่าส่ง ")}{money(total)}{t(" บาท")}</p>}
+        {paymentError && <p role="alert" className="portal-alert">{t(paymentError)}</p>}
       </section>}
-      <div className="shop-price-summary"><span>ยอดสินค้า</span><strong>{money(subtotal)} บาท</strong></div>
-      <div className="shop-price-summary"><span>ค่าจัดส่ง</span><strong>{selectedPayment || pending ? money(shipping) + ' บาท' : 'เลือกวิธีชำระเงิน'}</strong></div>
-      <div className="shop-cart-total"><span>ยอดรวม</span><strong>{Number.isSafeInteger(total) ? money(total) + ' บาท' : 'กรุณาตรวจสอบยอดรวม'}</strong></div>
-      <p className="portal-muted">{readOnly ? 'ตะกร้าทดลองสำหรับเจ้าของระบบ' : 'ออเดอร์ที่ส่งจะรอเจ้าหน้าที่ตรวจสอบ'}</p>
-      {pending && <p className="portal-muted">กำลังใช้รายการและราคาของคำขอเดิม กรุณายืนยันผลก่อนแก้ไขตะกร้า</p>}
+      <div className="shop-price-summary"><span>{t("ยอดสินค้า")}</span><strong>{money(subtotal)}{t(" บาท")}</strong></div>
+      <div className="shop-price-summary"><span>{t("ค่าจัดส่ง")}</span><strong>{t(selectedPayment || pending ? money(shipping) + ' บาท' : 'เลือกวิธีชำระเงิน')}</strong></div>
+      <div className="shop-cart-total"><span>{t("ยอดรวม")}</span><strong>{t(Number.isSafeInteger(total) ? money(total) + ' บาท' : 'กรุณาตรวจสอบยอดรวม')}</strong></div>
+      <p className="portal-muted">{t(readOnly ? 'ตะกร้าทดลองสำหรับเจ้าของระบบ' : 'ออเดอร์ที่ส่งจะรอเจ้าหน้าที่ตรวจสอบ')}</p>
+      {pending && <p className="portal-muted">{t("กำลังใช้รายการและราคาของคำขอเดิม กรุณายืนยันผลก่อนแก้ไขตะกร้า")}</p>}
       {items.length > 0 && <div className="actions">
-        {!readOnly && <button type="button" disabled={!ready || submitting || readingSlip || !pending && !paymentReady} onClick={sendOrder}>{submitting ? 'กำลังส่งออเดอร์…' : pending ? 'ลองส่งอีกครั้ง' : 'ส่งออเดอร์ให้ตรวจสอบ'}</button>}
+        {!readOnly && <button type="button" disabled={!ready || submitting || readingSlip || !pending && !paymentReady} onClick={sendOrder}>{t(submitting ? 'กำลังส่งออเดอร์…' : pending ? 'ลองส่งอีกครั้ง' : 'ส่งออเดอร์ให้ตรวจสอบ')}</button>}
         <button type="button" className="secondary" disabled={locked} onClick={() => {
           if (locked || sending.current) return;
           slipReader.current?.abort();
@@ -440,7 +439,7 @@ export function CustomerShop({customerCode, initialCatalog, readOnly = false}: {
           setReadingSlip(false);
           setCart({key: storageKey, items: []}); setError('');
           setPaymentMethod(''); setSlip(null); setSlipName('');
-        }}>ล้างตะกร้า</button>
+        }}>{t("ล้างตะกร้า")}</button>
       </div>}
     </dialog>
   </section>;

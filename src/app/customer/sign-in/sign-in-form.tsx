@@ -1,8 +1,10 @@
 'use client';
+import {useCustomerLanguage} from '@/app/customer/language';
 
 import {useEffect,useState} from 'react';
 
 export function CustomerSignInForm(){
+ const {t}=useCustomerLanguage();
  const [ready,setReady]=useState(false);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
@@ -32,11 +34,11 @@ export function CustomerSignInForm(){
    setBusy(false);
   }
  }}>
-  <label>รหัสลูกค้า<input name="code" maxLength={64} autoComplete="username" autoCapitalize="characters" spellCheck={false}/></label>
-  <small>เจ้าของระบบใช้ชื่อผู้ใช้ owner และรหัสผ่านเจ้าของระบบ</small>
-  <label>รหัสผ่าน<input name="password" type="password" required maxLength={256} autoComplete="current-password"/></label>
-  {error&&<p className="portal-alert" role="alert">{error}</p>}
-  <button disabled={!ready||busy}>{busy?'กำลังเข้าสู่ระบบ…':'เข้าสู่ระบบ'}</button>
-  <a href="/api/customer/login">ลืมรหัสผ่าน · ยืนยันผ่าน LINE</a>
+  <label>{t("รหัสลูกค้า")}<input name="code" maxLength={64} autoComplete="username" autoCapitalize="characters" spellCheck={false}/></label>
+  <small>{t("เจ้าของระบบใช้ชื่อผู้ใช้ owner และรหัสผ่านเจ้าของระบบ")}</small>
+  <label>{t("รหัสผ่าน")}<input name="password" type="password" required maxLength={256} autoComplete="current-password"/></label>
+  {error&&<p className="portal-alert" role="alert">{t(error)}</p>}
+  <button disabled={!ready||busy}>{t(busy?'กำลังเข้าสู่ระบบ…':'เข้าสู่ระบบ')}</button>
+  <a href="/api/customer/login">{t("ลืมรหัสผ่าน · ยืนยันผ่าน LINE")}</a>
  </form>;
 }
