@@ -1,3 +1,4 @@
+import {activeCustomerProfileFilter} from '@/lib/customer-profile-deletion';
 import {StoreBrand} from '@/app/store-brand';
 import {loadCustomerDeliveryAddresses} from '@/lib/customer-delivery-addresses';
 import {pointTierKey} from '@/lib/crm-tier-points';
@@ -22,7 +23,7 @@ export async function OwnerCustomerView({params}:{params:{q?:string;customer?:st
  const selectedCode=typeof params.customer==='string'&&params.customer.length<=30?canonicalCustomerCode(params.customer):'';
  const [customers,selected]=await Promise.all([
   db.customer.findMany({
-   where:query?{OR:[{code:{contains:canonicalCustomerCode(query),mode:'insensitive'}},{name:{contains:query,mode:'insensitive'}},{portalUsername:{contains:query.toLowerCase(),mode:'insensitive'}},{phone:{contains:query}}]}:{},
+   where:{AND:[activeCustomerProfileFilter,...(query?[{OR:[{code:{contains:canonicalCustomerCode(query),mode:'insensitive' as const}},{name:{contains:query,mode:'insensitive' as const}},{portalUsername:{contains:query.toLowerCase(),mode:'insensitive' as const}},{phone:{contains:query}}]}]:[])]},
    select:{code:true,name:true},orderBy:{code:'asc'},take:30,
   }),
   selectedCode?db.customer.findUnique({where:{code:selectedCode},select:{code:true,title:true,name:true,phone:true,address:true,portalRegistrationPending:true,portalUsername:true}}):Promise.resolve(null),

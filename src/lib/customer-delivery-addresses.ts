@@ -11,11 +11,12 @@ export async function saveCustomerDeliveryAddresses(tx:Prisma.TransactionClient,
 }
 
 export async function loadCustomerDeliveryAddresses(customerCode:string){
- const [saved,websiteOrders,orders,current]=await Promise.all([
+ const current=await db.customer.findUnique({where:{code:customerCode},select:{name:true,address:true,phone:true,createdAt:true,profileResetAt:true}});
+ const sinceReset=current?.profileResetAt?{gt:current.profileResetAt}:undefined;
+ const [saved,websiteOrders,orders]=await Promise.all([
   db.customerDeliveryAddress.findMany({where:{customerCode},orderBy:{createdAt:'desc'},select:{name:true,address:true,phone:true,createdAt:true,updatedAt:true}}),
-  db.websiteOrder.findMany({where:{customerCode},orderBy:{createdAt:'desc'},select:{recipient:true,address:true,phone:true,createdAt:true}}),
-  db.orderIntake.findMany({where:{customerCode},orderBy:{createdAt:'desc'},select:{recipient:true,address:true,phone:true,createdAt:true}}),
-  db.customer.findUnique({where:{code:customerCode},select:{name:true,address:true,phone:true,createdAt:true}}),
+  db.websiteOrder.findMany({where:{customerCode,...(sinceReset?{createdAt:sinceReset}:{})},orderBy:{createdAt:'desc'},select:{recipient:true,address:true,phone:true,createdAt:true}}),
+  db.orderIntake.findMany({where:{customerCode,...(sinceReset?{eventAt:sinceReset}:{})},orderBy:{createdAt:'desc'},select:{recipient:true,address:true,phone:true,createdAt:true}}),
  ]);
  const history=[
   ...saved.map(entry=>({...entry,date:entry.updatedAt,firstUsedAt:entry.createdAt})),

@@ -181,6 +181,8 @@ model Customer {
  portalUsername String? @unique
   discoverySource String?
   registrationPhone String?
+   profileResetAt DateTime?
+   registeredAt DateTime?
  portalPasswordSalt String?
  portalPasswordHash String?
  code String @id @default(dbgenerated("customer_code()"))

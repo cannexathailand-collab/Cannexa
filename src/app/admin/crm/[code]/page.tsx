@@ -1,3 +1,4 @@
+import {CustomerDeleteButton} from '../../customer-delete-button';
 import {customerDiscoverySources} from '@/lib/customer-discovery-source';
 import {CustomerDashboard} from '@/app/customer-dashboard';
 import {buildCustomerDashboard} from '@/lib/customer-dashboard';
@@ -17,7 +18,7 @@ import {CustomerAccessButton} from '../customer-access-button';
 import {MembershipEditor} from '../membership-editor';
 
 export default async function CustomerProfile({params,searchParams}:{params:Promise<{code:string}>;searchParams:Promise<CrmFilters>}){
- await requireAdminPage(managers);
+ const actor=await requireAdminPage(managers);
  const code=canonicalCustomerCode((await params).code);
  const customer=await db.customer.findFirst({where:{code,OR:[{conversionId:null},{conversion:{source:'LINE'}}]},include:{referrer:{select:{name:true,code:true}}}});
  if(!customer)notFound();
@@ -34,7 +35,7 @@ export default async function CustomerProfile({params,searchParams}:{params:Prom
  const teams=customerOrderTeams(summary.allHistory.map(h=>h.order),groups,bots);
  const membership=await crmTierReport(),tier=membership.tiers.get(code);
  return <div className="crm-customer-profile"><Link href="/admin/crm">← กลับ CRM</Link><h1>ลูกค้า {displayCustomerCode(code)}</h1>
- <CustomerAccessButton code={code} linked={!!customer.lineUserKey}/>
+ <div className="actions"><CustomerAccessButton code={code} linked={!!customer.lineUserKey}/>{(actor.role==='owner'||actor.role==='admin')&&<CustomerDeleteButton code={code} name={customer.name}/>}</div>
  <MembershipEditor code={code} level={tier?.name??'ลูกค้าใหม่'} locked={tier?.decision==='MANUAL_LOCKED'}/>
  <section className="card"><h2>Member: {tier?.name??'ลูกค้าใหม่'}</h2>{tier?.rank&&<p>อันดับยอดซื้อสะสม {tier.rank} จากลูกค้าที่ซื้อสำเร็จ {tier.buyers} คน</p>}<p className="muted">ระดับประจำเดือน {tier?.reviewMonth} · ประเมินจากเดือน {tier?.assessedMonth} · ไม่ผ่านต่อเนื่อง {tier?.failedMonths??0}/2 เดือน{tier?.decision==='WAITING_COST'?' · รอต้นทุน คงระดับเดิม':''}</p><h2>แท็กลูกค้าอัตโนมัติ</h2>{[tier?.name??'ลูกค้าใหม่',...customerTags(customer,teams),...crmBehaviorTags(summary)].filter((tag,index,tags)=>tags.indexOf(tag)===index).map(tag=><span className="pill" style={{margin:4}} key={tag}>{tag}</span>)}<p className="muted">อัปเดตจากประวัติทั้งหมดของลูกค้าใน CRM ไม่เปลี่ยนตามตัวกรองวันที่</p></section>
  <section className="card"><h2>{customer.name??'ยังไม่ผูกชื่อผู้รับ'}</h2><p>เบอร์โทร: {customer.phone??'ยังไม่ผูกเบอร์'}{customer.registrationPhone&&<><br/>เบอร์โทรตอนสมัคร: {customer.registrationPhone}</>}<br/>รู้จักเราจาก: {customerDiscoverySources[customer.discoverySource as keyof typeof customerDiscoverySources]??'ยังไม่ระบุ'}<br/>ผู้แนะนำ: {customer.legacy?'ลูกค้าเก่า':customer.referrer?customer.referrer.name+' · '+customer.referrer.code:'ยังไม่ระบุ'}<br/>ทีม/ร้าน: {teams.join(', ')||'ยังไม่มีออเดอร์ระบุทีม'}<br/>เป็นลูกค้าตั้งแต่ (ข้อมูลแรกที่มี): {crmDate(life.since)} · {life.days} วัน<br/>สร้างรหัสเมื่อ: {crmDate(customer.createdAt)}</p></section>

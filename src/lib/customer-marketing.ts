@@ -72,8 +72,8 @@ export async function completeCustomerMarketing(clickId:string,key:string,conver
   const bare=existing&&!existing.name&&!existing.phone&&!existing.address&&!existing.identityKey&&!existing.portalPasswordHash;
   const approved=bare?await tx.auditLog.findFirst({where:{entityId:existing.code,action:'CUSTOMER_REGISTRATION_APPROVED'},select:{id:true}}):null;
   const orders=bare?await tx.orderIntake.count({where:{customerCode:existing.code}}):0;
-  const needsActivation=!existing||!!bare&&!approved&&!orders;
-  const customer=existing?await tx.customer.update({where:{code:existing.code},data:{conversionId:existing.conversionId??verified.id,...(needsActivation?{portalRegistrationPending:false,portalProfileIncomplete:false}:{})}}):await tx.customer.create({data:{code:verified.customerCode,lineUserKey:key,conversionId:verified.id,portalRegistrationPending:false,portalProfileIncomplete:false}});
+  const needsActivation=!existing||!!bare&&!approved&&!orders&&!existing.profileResetAt;
+  const customer=existing?await tx.customer.update({where:{code:existing.code},data:{conversionId:existing.conversionId??verified.id,...(needsActivation?{registeredAt:existing.registeredAt??new Date(),portalRegistrationPending:false,portalProfileIncomplete:false}:{})}}):await tx.customer.create({data:{code:verified.customerCode,lineUserKey:key,conversionId:verified.id,registeredAt:new Date(),portalRegistrationPending:false,portalProfileIncomplete:false}});
   await tx.click.updateMany({where:{id:clickId,customerEnteredAt:null},data:{customerEnteredAt:new Date(),marketingCustomerCode:customer.code}});
   return customer;
  });

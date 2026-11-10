@@ -1,3 +1,4 @@
+import {activeCustomerProfileFilter} from '@/lib/customer-profile-deletion';
 import {customerProductPurchases} from '@/lib/crm-product-purchases';
 import {customerOrderRecency,inactiveCustomerLabel} from '@/lib/crm-customer-recency';
 import Link from 'next/link';
@@ -16,7 +17,7 @@ export default async function Crm({searchParams}:{searchParams:Promise<Record<st
  await requireAdminPage(managers);
  const now=new Date();
  const p=await searchParams,q=typeof p.q==='string'?p.q.trim().slice(0,100):'',page=Math.max(1,Math.min(100000,Math.trunc(Number(p.page))||1));
- const where={AND:[{OR:[{conversionId:null},{conversion:{source:'LINE'}}]},...(q?[{OR:[{code:{contains:canonicalCustomerCode(q),mode:'insensitive' as const}},{name:{contains:q,mode:'insensitive' as const}},{phone:{contains:q}},{referrer:{code:{contains:q,mode:'insensitive' as const}}}]}]:[])]};
+ const where={AND:[activeCustomerProfileFilter,{OR:[{conversionId:null},{conversion:{source:'LINE'}}]},...(q?[{OR:[{code:{contains:canonicalCustomerCode(q),mode:'insensitive' as const}},{name:{contains:q,mode:'insensitive' as const}},{phone:{contains:q}},{referrer:{code:{contains:q,mode:'insensitive' as const}}}]}]:[])]};
  const [candidates,membership,stockProducts]=await Promise.all([db.customer.findMany({where,include:{referrer:{select:{name:true,code:true}}},orderBy:{code:'asc'}}),crmTierReport(),db.stockProduct.findMany({select:{code:true,name:true},orderBy:{code:'asc'}})]);
  const product=(p.product??'').trim().toUpperCase();
  const productNames=new Map(stockProducts.map(item=>[item.code,item.name]));

@@ -73,12 +73,13 @@ function ShopProduct({product, disabled, onAdd}: {
   </article>;
 }
 
-export function CustomerShop({customerCode, initialCatalog, initialDelivery={name:'',address:'',phone:''}, savedAddresses=[], readOnly = false}: {
+export function CustomerShop({customerCode, initialCatalog, initialDelivery={name:'',address:'',phone:''}, savedAddresses=[], readOnly = false,profileVersion=''}: {
   customerCode: string;
   initialCatalog: CustomerCatalog;
   initialDelivery?: {name:string;address:string;phone:string};
   savedAddresses?: {id:string;name:string;address:string;phone:string}[];
   readOnly?: boolean;
+  profileVersion?: string;
 }) {
  const {t,locale}=useCustomerLanguage();
   const router = useRouter();
@@ -104,8 +105,9 @@ export function CustomerShop({customerCode, initialCatalog, initialDelivery={nam
   const bankVersion = useRef<string | null>(null);
   const sending = useRef(false);
   const cartDialog = useRef<HTMLDialogElement>(null);
-  const storageKey = readOnly ? null : 'cannexa:shop-cart:v1:' + customerCode;
-  const checkoutKey = readOnly ? null : 'cannexa:shop-checkout:v1:' + customerCode;
+  const profileKey=customerCode+(profileVersion?':'+profileVersion:'');
+  const storageKey = readOnly ? null : 'cannexa:shop-cart:v1:' + profileKey;
+  const checkoutKey = readOnly ? null : 'cannexa:shop-checkout:v1:' + profileKey;
   const activeKey = useRef(checkoutKey);
   activeKey.current = checkoutKey;
   const ready = cart.key === storageKey && checkout.key === checkoutKey;
