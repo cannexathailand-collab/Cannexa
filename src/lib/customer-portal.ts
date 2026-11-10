@@ -16,13 +16,16 @@ export const portalPasswordCookie='customer_password_session';
 export function portalAccessToken(key:string,code:string){return signToken({purpose:'CUSTOMER_ACCESS',key,code,exp:Date.now()+portalDuration*1000});}
 export async function hasPortalAccess(key:string|null,code:string){
  const session=await portalCustomer();
- return session.key===key&&session.customer?.code===code&&!session.customer.portalRegistrationPending&&!session.customer.portalProfileIncomplete&&!!validContactPhones(session.customer.phone??'');
+ return session.key===key&&session.customer?.code===code&&!session.customer.portalRegistrationPending&&!session.customer.portalProfileIncomplete&&(session.marketingEntry||!!validContactPhones(session.customer.phone??''));
 }
 export const portalDuration=86400;
-export function portalToken(key:string){return signToken({purpose:'CUSTOMER_PORTAL',key,exp:Date.now()+portalDuration*1000});}
+export function portalToken(key:string,entry:'standard'|'marketing'='standard'){return signToken({purpose:'CUSTOMER_PORTAL',key,...(entry==='marketing'?{marketingEntry:true}:{}),exp:Date.now()+portalDuration*1000});}
 export function readPortalToken(value:string){
  const token=readToken<{purpose?:string;key?:string;exp?:number}>(value);
  return token?.purpose==='CUSTOMER_PORTAL'&&typeof token.key==='string'&&/^[a-f0-9]{64}$/.test(token.key)&&typeof token.exp==='number'&&token.exp>Date.now()?token.key:null;
+}
+export function readPortalMarketingEntry(value:string){
+ return !!readPortalToken(value)&&readToken<{marketingEntry?:unknown}>(value)?.marketingEntry===true;
 }
 export async function portalKey(){return readPortalToken((await cookies()).get(portalCookie)?.value??'');}
 export function portalPasswordVersion(customer:{portalPasswordSalt:string|null;portalPasswordHash:string|null}){
@@ -32,17 +35,18 @@ export function portalPasswordToken(customer:{code:string;portalPasswordSalt:str
  return signToken({purpose:'CUSTOMER_PASSWORD_SESSION',code:customer.code,version:portalPasswordVersion(customer),exp:Date.now()+portalDuration*1000});
 }
 export async function portalCustomer(){
- const key=await portalKey();
+ const value=(await cookies()).get(portalCookie)?.value??'';
+ const key=readPortalToken(value);
  if(key){
   const customer=await db.customer.findUnique({where:{lineUserKey:key}});
-  return {key,customer:customer??await linkPortalCustomer(key),method:'line' as const};
+  return {key,customer:customer??await linkPortalCustomer(key),method:'line' as const,marketingEntry:readPortalMarketingEntry(value)};
  }
  const token=readToken<{purpose?:string;code?:string;version?:string;exp?:number}>((await cookies()).get(portalPasswordCookie)?.value??'');
  if(token?.purpose==='CUSTOMER_PASSWORD_SESSION'&&typeof token.code==='string'&&token.code.length<=30&&typeof token.version==='string'&&/^[a-f0-9]{64}$/.test(token.version)&&typeof token.exp==='number'&&token.exp>Date.now()){
   const customer=await db.customer.findUnique({where:{code:token.code}});
-  if(customer&&!customer.portalRegistrationPending&&!customer.portalProfileIncomplete&&customer.portalPasswordSalt&&customer.portalPasswordHash&&equal(token.version,portalPasswordVersion(customer)))return {key:null,customer,method:'password' as const};
+  if(customer&&!customer.portalRegistrationPending&&!customer.portalProfileIncomplete&&customer.portalPasswordSalt&&customer.portalPasswordHash&&equal(token.version,portalPasswordVersion(customer)))return {key:null,customer,method:'password' as const,marketingEntry:false};
  }
- return {key:null,customer:null,method:null};
+ return {key:null,customer:null,method:null,marketingEntry:false};
 }
 export function portalProfile(input:{title?:unknown;name?:unknown;phone?:unknown;address?:unknown;houseNumber?:unknown;road?:unknown;subdistrict?:unknown;district?:unknown;province?:unknown;postalCode?:unknown}){
  const name=typeof input.name==='string'?input.name.trim():'';

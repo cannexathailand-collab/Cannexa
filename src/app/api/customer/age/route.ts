@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     const response = NextResponse.redirect(baseUrl() + '/customer', 303);
     clearMarketingCustomerSessions(response);
     response.cookies.delete(marketingCookie);
-    response.cookies.set(portalCookie, portalToken(challenge.claims.key), {...cookieOptions, maxAge: portalDuration});
+    response.cookies.set(portalCookie, portalToken(challenge.claims.key,'marketing'), {...cookieOptions, maxAge: portalDuration});
     if (!customer.portalRegistrationPending && !customer.portalProfileIncomplete) {
       response.cookies.set(portalAccessCookie, portalAccessToken(challenge.claims.key, customer.code), {
         ...cookieOptions, maxAge: portalDuration,

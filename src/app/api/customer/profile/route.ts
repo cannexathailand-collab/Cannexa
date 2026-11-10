@@ -5,8 +5,8 @@ import {portalCustomer,hasPortalAccess,savePortalProfile,savePortalPhone} from '
 import {limit} from '@/lib/rate-limit';
 export async function POST(req:Request){
  try{await sameOrigin();}catch{return NextResponse.json({error:'ไม่อนุญาตให้ส่งข้อมูลจากเว็บไซต์อื่น'},{status:403});}
- const {key,customer,method}=await portalCustomer();if(!method)return NextResponse.json({error:'กรุณาเข้าสู่ระบบอีกครั้ง'},{status:401});
- const completing=!!customer&&(customer.portalProfileIncomplete||!validContactPhones(customer.phone??''));
+ const {key,customer,method,marketingEntry}=await portalCustomer();if(!method)return NextResponse.json({error:'กรุณาเข้าสู่ระบบอีกครั้ง'},{status:401});
+ const completing=!!customer&&!marketingEntry&&(customer.portalProfileIncomplete||!validContactPhones(customer.phone??''));
  if(customer?.portalRegistrationPending&&!completing)return NextResponse.json({error:'กำลังรอร้านอนุมัติสมาชิก'},{status:403});
  if(customer&&!completing&&!await hasPortalAccess(key,customer.code))return NextResponse.json({error:'กรุณาเข้าสู่ระบบอีกครั้ง'},{status:401});
  if(!await limit('customer-profile:'+(customer?.code??key),30))return NextResponse.json({error:'กรุณารอสักครู่แล้วลองใหม่'},{status:429});

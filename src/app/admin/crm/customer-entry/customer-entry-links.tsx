@@ -7,7 +7,7 @@ export function CustomerEntryLinks({baseUrl}:{baseUrl:string}){
  const entrances=[
   {id:'password',title:'รหัสลูกค้าและรหัสผ่าน',description:'ลูกค้าใช้รหัสและรหัสผ่านที่ตั้งไว้ เข้าจากมือถือหรือคอมพิวเตอร์ได้',path:'/customer/sign-in',tag:'Customer'},
   {id:'line',title:'เข้าสู่ระบบด้วย LINE',description:'ลูกค้าใช้บัญชี LINE ที่ผูกไว้เพื่อเข้าข้อมูลสมาชิกของตนเอง',path:'/customer',tag:'LINE'},
-  {id:'marketing',title:'ลิงก์การตลาด',description:'LINE Login พร้อมเพิ่มเพื่อน แล้วเข้าสู่หน้าลูกค้า พร้อมติดตามที่มาและยอดขาย',path:'/marketing',tag:'Marketing'},
+  {id:'marketing',title:'ลิงก์การตลาด',description:'LINE Login เพิ่มเพื่อนและยืนยันอายุ แล้วเข้าสู่หน้าลูกค้าได้เลย กรอกข้อมูลจัดส่งตอนสั่งซื้อ พร้อมติดตามที่มาและยอดขาย',path:'/marketing',tag:'Marketing'},
  ];
  return <>
   <div className="customer-entry-grid">{entrances.map(entrance=>{

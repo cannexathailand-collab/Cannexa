@@ -1,8 +1,17 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {portalProfile,portalToken,readPortalToken,portalPasswordToken,portalPasswordVersion} from '../src/lib/customer-portal';
+import {portalProfile,portalToken,readPortalToken,readPortalMarketingEntry,portalPasswordToken,portalPasswordVersion} from '../src/lib/customer-portal';
 import {readToken,signToken} from '../src/lib/crypto';
 process.env.SESSION_SECRET||='customer-portal-unit-test-only';
+
+test('only a valid signed marketing entry skips the initial contact step',()=>{
+ const key='a'.repeat(64);
+ assert.equal(readPortalMarketingEntry(portalToken(key)),false);
+ assert.equal(readPortalMarketingEntry(portalToken(key,'marketing')),true);
+ assert.equal(readPortalMarketingEntry(portalToken(key,'marketing')+'x'),false);
+ assert.equal(readPortalMarketingEntry(signToken({purpose:'CUSTOMER_PORTAL',key,marketingEntry:true,exp:Date.now()-1})),false);
+ assert.equal(readPortalMarketingEntry(signToken({purpose:'admin',key,marketingEntry:true,exp:Date.now()+60000})),false);
+});
 test('customer sessions reject wrong purpose, expired tokens, tampering and invalid keys',()=>{
  const key='a'.repeat(64),token=portalToken(key);
  assert.equal(readPortalToken(token),key);

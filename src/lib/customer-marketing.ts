@@ -69,11 +69,11 @@ export async function completeCustomerMarketing(clickId:string,key:string,conver
   if(!verified||verified.userKey!==key||verified.source!=='LINE')throw Error('INVALID_MARKETING_CONVERSION');
   const existing=await tx.customer.findUnique({where:{lineUserKey:key}});
   if(existing&&existing.code!==verified.customerCode)throw Error('LINK_CONFLICT');
-  const bare=existing&&existing.createdAt>=click.createdAt&&!existing.name&&!existing.phone&&!existing.address&&!existing.identityKey&&!existing.portalPasswordHash;
+  const bare=existing&&!existing.name&&!existing.phone&&!existing.address&&!existing.identityKey&&!existing.portalPasswordHash;
   const approved=bare?await tx.auditLog.findFirst({where:{entityId:existing.code,action:'CUSTOMER_REGISTRATION_APPROVED'},select:{id:true}}):null;
   const orders=bare?await tx.orderIntake.count({where:{customerCode:existing.code}}):0;
-  const incomplete=!existing||!!bare&&!approved&&!orders;
-  const customer=existing?await tx.customer.update({where:{code:existing.code},data:{conversionId:existing.conversionId??verified.id,...(incomplete?{portalRegistrationPending:true,portalProfileIncomplete:true}:{})}}):await tx.customer.create({data:{code:verified.customerCode,lineUserKey:key,conversionId:verified.id,portalRegistrationPending:true,portalProfileIncomplete:true}});
+  const needsActivation=!existing||!!bare&&!approved&&!orders;
+  const customer=existing?await tx.customer.update({where:{code:existing.code},data:{conversionId:existing.conversionId??verified.id,...(needsActivation?{portalRegistrationPending:false,portalProfileIncomplete:false}:{})}}):await tx.customer.create({data:{code:verified.customerCode,lineUserKey:key,conversionId:verified.id,portalRegistrationPending:false,portalProfileIncomplete:false}});
   await tx.click.updateMany({where:{id:clickId,customerEnteredAt:null},data:{customerEnteredAt:new Date(),marketingCustomerCode:customer.code}});
   return customer;
  });
