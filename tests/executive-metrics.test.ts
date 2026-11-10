@@ -6,9 +6,9 @@ import type {SaleRow} from '../src/lib/sales-report';
 const at=new Date('2026-11-10T04:00:00Z'),start=new Date('2026-11-09T05:00:00Z'),end=new Date('2026-11-10T05:00:00Z');
 const booked=(id:string,change:Partial<BookedSale>={})=>({id,eventAt:at,revenueSatang:10000,customer:{code:'C1'},sellerUsername:'staff',paymentMethod:'TRANSFER',hasTracking:true,codPaid:false,...change}) as BookedSale;
 const sale=(id:string,change:Partial<SaleRow>={})=>({id,orderId:id,revenueSatang:10000,status:'PENDING',paymentMethod:'TRANSFER',recognizedAt:at,tracking:'TRACK-'+id,order:{id,orderNumber:id,payment:'โอน',status:'TRANSFER_RECORDED'},shipment:{tracking:'TRACK-'+id,orderId:id,fulfillmentStatus:'DISPATCHED',status:'MATCHED_TRANSFER',dispatchedAt:at,dispatchEvidence:'Receipt',freightSatang:1000,freightReportAt:at},...change}) as SaleRow;
-test('executive summary separates demand and completed profit and counts buyers distinctly',()=>{
- const result=executivePeriodSummary([booked('1'),booked('2',{paymentMethod:'COD',hasTracking:false})],[sale('1')],[{orderId:'1',status:'POSTED',totalCostSatang:6000}],start,end);
- assert.equal(result.orderedSatang,20000);assert.equal(result.completedSatang,10000);assert.equal(result.profitSatang,4000);
+test('executive profit includes all booked orders while completed receipts remain separate',()=>{
+ const result=executivePeriodSummary([booked('1'),booked('2',{paymentMethod:'COD',hasTracking:false,costSatang:4500,estimatedCost:true})],[sale('1')],[{orderId:'1',status:'POSTED',totalCostSatang:6000}],start,end);
+ assert.equal(result.orderedSatang,20000);assert.equal(result.completedSatang,10000);assert.equal(result.profitSatang,9500);assert.equal(result.productCostSatang,10500);assert.equal(result.estimatedCostCount,1);
  assert.equal(result.buyers,1);assert.equal(result.repeatBuyers,1);assert.equal(result.waitingShipment,1);assert.equal(result.waitingCod,1);
  assert.equal(result.sellers[0].amountSatang,20000);
 });
@@ -47,4 +47,20 @@ test('selected order round keeps later dispatch and collection in the same order
 test('a sale dispatched in the selected period is excluded when its order belongs to another round',()=>{
  const result=executivePeriodSummary([booked('older',{eventAt:new Date(+start-1)})],[sale('older')],[{orderId:'older',status:'POSTED',totalCostSatang:6000}],start,end);
  assert.equal(result.orderCount,0);assert.equal(result.completedCount,0);assert.equal(result.profitSatang,0);
+});
+
+test('profit includes every transfer and unpaid COD in the selected round, preferring posted costs',()=>{
+ const orders=Array.from({length:27},(_,i)=>booked(String(i),{orderNumber:'ORDER-'+i,paymentMethod:i<16?'TRANSFER':'COD',costSatang:1000,estimatedCost:true}));
+ const posted=orders.map(row=>({orderId:row.id,status:'POSTED',totalCostSatang:6000}));
+ const result=executivePeriodSummary(orders,orders.slice(0,16).map(row=>sale(row.id)),posted,start,end);
+ assert.equal(result.orderCount,27);assert.equal(result.completedCount,16);
+ assert.equal(result.profitSatang,108000);assert.equal(result.productCostSatang,162000);
+ assert.equal(result.estimatedCostCount,0);assert.equal(result.waitingCod,11);
+});
+
+test('unknown revenue cannot turn into a zero-value profit while zero cost remains valid',()=>{
+ const result=executivePeriodSummary([booked('unknown',{orderNumber:'Unknown',revenueSatang:null,costSatang:0,estimatedCost:false}),booked('free',{orderNumber:'Free',costSatang:0,estimatedCost:false})],[],[],start,end);
+ assert.equal(result.profitSatang,null);assert.equal(result.knownProfitSatang,10000);
+ assert.equal(result.missingProfit,1);assert.equal(result.missingProductCosts,0);
+ assert.equal(result.pendingProfitOrders[0].reason,'รอยอดออเดอร์');
 });
