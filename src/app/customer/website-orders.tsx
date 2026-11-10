@@ -4,10 +4,12 @@ import {loadOrderTeamNames} from '@/lib/order-team';
 import {OrderShippingDetails} from '@/app/order-shipping-details';
 import {loadWebsiteOrdersForCustomer} from '@/lib/website-orders';
 import {websiteOrderStatusLabels} from '@/lib/website-order-status';
+import {ReceiptButton} from '@/app/receipt-button';
 
 export async function CustomerWebsiteOrders({customerCode}: {customerCode: string}) {
  const {t,language,locale}=await customerLanguage();
   const orders = await loadWebsiteOrdersForCustomer(customerCode);
+  const receiptSettings=await db.receiptSettings.findUnique({where:{id:'active'},select:{enabled:true}});
   const ids=orders.flatMap(order=>order.intakeOrderId?[order.intakeOrderId]:[]);
   const intakes=ids.length?await db.orderIntake.findMany({where:{id:{in:ids}},select:{id:true,groupKey:true}}):[];
   const intakeById=new Map(intakes.map(row=>[row.id,row]));
@@ -25,6 +27,7 @@ export async function CustomerWebsiteOrders({customerCode}: {customerCode: strin
       {order.bankDetails && <p className="portal-muted">{order.bankDetails.bankName} · {order.bankDetails.accountName} · {order.bankDetails.accountNumber}</p>}
       {order.slipVersion && <p><a href={'/api/customer/website-orders/'+encodeURIComponent(order.id)+'/slip?v='+order.slipVersion} target="_blank" rel="noopener noreferrer">{t("ดูสลิปโอนเงิน")}</a></p>}
       {order.reviewNote && <p className="portal-muted">{t("หมายเหตุจากผู้ตรวจสอบ ")}{order.reviewNote}</p>}
+      {receiptSettings?.enabled&&order.intakeOrderId&&<ReceiptButton orderId={order.intakeOrderId} english={language==='en'}/>}
     </article>)}</div> : <p className="portal-empty">{t("ยังไม่มีออเดอร์จากเว็บไซต์")}</p>}
   </section>;
 }

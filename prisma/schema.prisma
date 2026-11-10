@@ -824,6 +824,33 @@ model ProfitReportDelivery {
  createdAt DateTime @default(now())
 }
 
+model ReceiptSettings {
+ id String @id @default("active")
+ name String
+ address String
+ phone String @default("")
+ taxId String @default("")
+ enabled Boolean @default(false)
+ version String @default(uuid())
+ updatedAt DateTime @updatedAt
+}
+
+model ReceiptCounter {
+ year Int @id
+ number Int @default(0)
+}
+
+model CustomerReceipt {
+ id String @id @default(cuid())
+ number String @unique
+ orderId String @unique
+ customerCode String?
+ amountSatang Int
+ snapshot Json
+ issuedAt DateTime @default(now())
+ @@index([customerCode,issuedAt])
+}
+
 model PlatformAdministrator {
  username String @id
  active Boolean @default(true)
