@@ -1,3 +1,4 @@
+import {bindProfitReportRecipient} from '@/lib/owner-profit-report';
 import {processPendingStockDispatches} from '@/lib/stock-dispatch';
 import {NextRequest} from "next/server";
 import {after} from 'next/server';
@@ -24,6 +25,14 @@ export async function POST(req:NextRequest){
  const intakeBot=parsed.data.events.some(e=>e.source.type==="group")?await db.orderBot.findUnique({where:{botId:connection.settings.botId},select:{active:true,encrypted:true,receiveOrders:true}}):null;
  const orders:string[]=[];
  for(const e of parsed.data.events){
+  if(e.source.type==='user'&&e.source.userId&&e.type==='message'&&e.message?.type==='text'){
+   const bound=await bindProfitReportRecipient({botId:connection.settings.botId,userId:e.source.userId,text:e.message.text??''});
+   if(bound){
+    if(e.replyToken&&connection.settings.accessToken)await fetch('https://api.line.me/v2/bot/message/reply',{method:'POST',headers:{Authorization:'Bearer '+connection.settings.accessToken,'Content-Type':'application/json'},body:JSON.stringify({replyToken:e.replyToken,messages:[{type:'text',text:'ผูก LINE รับรายงานยอดขายและกำไรขั้นต้นแล้ว จะส่งทุกวันตอนตัดรอบ'}]}),signal:AbortSignal.timeout(8000)}).catch(()=>{});
+    continue;
+   }
+  }
+
   if(intakeBot?.active){
    const accessToken=unseal(intakeBot.encrypted).accessToken;
    if(intakeBot.receiveOrders){

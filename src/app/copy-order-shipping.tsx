@@ -1,9 +1,9 @@
 'use client';
 import {useState} from 'react';
-export function CopyOrderShipping({text,label='คัดลอกข้อมูลจัดส่ง'}:{text:string;label?:string}){
+export function CopyOrderShipping({text,label='คัดลอกข้อมูลจัดส่ง',successMessage='คัดลอกข้อมูลออเดอร์แล้ว'}:{text:string;label?:string;successMessage?:string}){
  const [copied,setCopied]=useState(false),[manual,setManual]=useState(false);
  return <div className="order-shipping-copy"><button type="button" onClick={async()=>{
   try{await navigator.clipboard.writeText(text);setCopied(true);setManual(false);}
   catch{setCopied(false);setManual(true);}
- }}>{copied?'คัดลอกแล้ว ✓':label}</button>{copied&&<p role="status">คัดลอกข้อมูลออเดอร์แล้ว</p>}{manual&&<label>เลือกข้อความเพื่อคัดลอก<textarea readOnly value={text} rows={10} onFocus={event=>event.currentTarget.select()}/></label>}</div>;
+ }}>{copied?'คัดลอกแล้ว ✓':label}</button>{copied&&<p role="status">{successMessage}</p>}{manual&&<label>เลือกข้อความเพื่อคัดลอก<textarea readOnly value={text} rows={10} onFocus={event=>event.currentTarget.select()}/></label>}</div>;
 }

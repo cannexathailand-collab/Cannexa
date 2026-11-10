@@ -796,3 +796,29 @@ model RecurringExpenseEntry {
  @@unique([recurringExpenseId,month])
  @@index([incurredAt,status])
 }
+
+model OwnerProfitReport {
+ id String @id
+ recipientUserId String?
+ botId String?
+ enabled Boolean @default(false)
+ enabledAt DateTime?
+ bindingHash String? @unique
+ bindingExpiresAt DateTime?
+ updatedAt DateTime @updatedAt
+}
+
+model ProfitReportDelivery {
+ day String @id
+ recipientUserId String
+ botId String
+ text String
+ retryKey String @unique
+ status String @default("PENDING")
+ attempts Int @default(0)
+ lastAttemptAt DateTime?
+ leaseUntil DateTime?
+ sentAt DateTime?
+ lastError String?
+ createdAt DateTime @default(now())
+}

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import {PopupDetails} from '@/app/popup-details';
 import {requireAdminPage} from "@/lib/auth";
 import {baseUrl,mockMode} from "@/lib/config";
@@ -18,7 +19,7 @@ export default async function LinePage({searchParams}:{searchParams:Promise<{sta
  await requireAdminPage();
  const current=mockMode()?null:await lineSettings();
  const {status}=await searchParams;
- return <><h1>เชื่อมต่อ LINE</h1><div className="card">
+ return <><h1>เชื่อมต่อ LINE</h1><p><Link className="button secondary" href="/admin/sales/line-report">ผูก LINE รับรายงานยอดขายและกำไร</Link></p><div className="card">
  <p>{current?"บัญชีที่ตั้งค่าไว้ "+current.settings.basicId:"ยังไม่มีบัญชี LINE ที่ตั้งค่าไว้"}</p>
  {status==="saved"&&<p role="status">บันทึกแล้วและตรวจ Token ของ OA ผ่าน กรุณาทดสอบ LINE Login และ Verify Webhook ใน LINE Developers</p>}
  {status==="cleared"&&<p role="status">ล้างข้อมูลเชื่อมต่อแล้ว</p>}

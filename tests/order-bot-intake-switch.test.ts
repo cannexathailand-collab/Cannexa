@@ -10,6 +10,7 @@ function webhook(file:string,receiveOrders:boolean){
  const connection={active:true,receiveOrders,botId:'bot',encrypted:'encrypted'};
  const settings={botId:'bot',messagingSecret:'secret',accessToken:'token'};
  const mocks:Record<string,unknown>={
+  '@/lib/owner-profit-report':{bindProfitReportRecipient:async()=>false},
   'next/server':{after:()=>{}},
   zod:{z},
   '@/lib/db':{db:{orderBot:{findUnique:async()=>connection}}},
