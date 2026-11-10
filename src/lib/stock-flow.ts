@@ -1,6 +1,6 @@
 import {createHash,randomInt} from 'node:crypto';
 import {Prisma} from '@prisma/client';
-import {db} from './db';
+import {db,databaseTable} from './db';
 import {readStockSheet,stockGoogleClient} from './stock-google';
 import {flowBaselinePlan,flowReservationPlan,flowReplaceReservationPlan} from './stock-flow-plan';
 import {applyFlowOperation} from './stock-flow-operation';
@@ -80,9 +80,9 @@ export async function syncStockReservationLocked(orderId:string,actor='line-unse
 }
 export async function processPendingReservations(limit=2){
  const config=await db.stockWorkflow.findUnique({where:{id:'active'}});if(!config?.enabled)return;
- const candidates=await db.$queryRawUnsafe<{id:string}[]>('SELECT o.id FROM "OrderIntake" o LEFT JOIN "StockReservation" r ON r."orderId"=o.id LEFT JOIN "StockDispatch" d ON d."orderId"=o.id WHERE r."orderId" IS NULL AND (d.status IS NULL OR d.status<>\'POSTED\') AND o."createdAt">=$1 AND o."eventAt">=$1 AND o.status NOT IN (\'CANCELLED\',\'WITHDRAWN\',\'EXPIRED\',\'RETURNED\') ORDER BY o."createdAt" LIMIT 10',config.activeFrom);
+ const candidates=await db.$queryRaw<{id:string}[]>`SELECT o.id FROM ${databaseTable('OrderIntake')} o LEFT JOIN ${databaseTable('StockReservation')} r ON r."orderId"=o.id LEFT JOIN ${databaseTable('StockDispatch')} d ON d."orderId"=o.id WHERE r."orderId" IS NULL AND (d.status IS NULL OR d.status<>'POSTED') AND o."createdAt">=${config.activeFrom} AND o."eventAt">=${config.activeFrom} AND o.status NOT IN ('CANCELLED','WITHDRAWN','EXPIRED','RETURNED') ORDER BY o."createdAt" LIMIT 10`;
  for(const order of candidates)await queueStockOrder(order.id);
- const orphaned=await db.$queryRawUnsafe<{orderId:string}[]>('SELECT r."orderId" FROM "StockReservation" r LEFT JOIN "OrderIntake" o ON o.id=r."orderId" LEFT JOIN "StockDispatch" d ON d."orderId"=r."orderId" WHERE d."historySavedAt" IS NULL AND r.status IN (\'QUEUED\',\'RESERVED\') AND (o.id IS NULL OR o.status IN (\'CANCELLED\',\'WITHDRAWN\',\'EXPIRED\',\'RETURNED\')) ORDER BY r."updatedAt" LIMIT 10');
+ const orphaned=await db.$queryRaw<{orderId:string}[]>`SELECT r."orderId" FROM ${databaseTable('StockReservation')} r LEFT JOIN ${databaseTable('OrderIntake')} o ON o.id=r."orderId" LEFT JOIN ${databaseTable('StockDispatch')} d ON d."orderId"=r."orderId" WHERE d."historySavedAt" IS NULL AND r.status IN ('QUEUED','RESERVED') AND (o.id IS NULL OR o.status IN ('CANCELLED','WITHDRAWN','EXPIRED','RETURNED')) ORDER BY r."updatedAt" LIMIT 10`;
  const queued=await db.stockReservation.findMany({where:{status:'QUEUED'},orderBy:{updatedAt:'asc'},take:limit});
  for(const id of [...new Set([...orphaned.map(r=>r.orderId),...queued.map(r=>r.orderId)])].slice(0,limit))await syncStockReservation(id).catch(()=>{});
 }

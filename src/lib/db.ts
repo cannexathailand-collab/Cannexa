@@ -13,7 +13,12 @@ export function currentDatabaseSchema(){
   if(!schema)throw Error('UNREGISTERED_SHOP_DATABASE');
   return schema;
  }
- return new URL(process.env.DATABASE_URL!).searchParams.get('schema')||'public';
+ return process.env.DATABASE_URL?new URL(process.env.DATABASE_URL).searchParams.get('schema')||'public':'public';
+}
+export function databaseTable(name:string){
+ const schema=currentDatabaseSchema();
+ if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(schema)||!/^[A-Za-z][A-Za-z0-9_]*$/.test(name))throw Error('INVALID_DATABASE_IDENTIFIER');
+ return Prisma.raw('"'+schema+'"."'+name+'"');
 }
 export const db=new Proxy(primaryDatabase,{
  get(target,key){

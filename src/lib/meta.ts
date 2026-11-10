@@ -1,10 +1,11 @@
 import {randomUUID, createHash} from "node:crypto";
 import {baseUrl} from "./config";
-import {db} from "./db";
+import {db,isSeparateShopDatabase} from "./db";
 
 export const metaDatasetPattern = /^\d{1,32}$/;
 
 export function metaSettings() {
+ if(isSeparateShopDatabase())return null;
  const {META_ACCESS_TOKEN: token, META_GRAPH_VERSION: version} = process.env;
  return token && version && /^v\d+\.\d+$/.test(version)
   ? {token, version} : null;

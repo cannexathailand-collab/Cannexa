@@ -3,6 +3,16 @@ import {db,transaction} from './db';
 import {stockServiceConfig,readStockSheet,stockGoogleClient} from './stock-google';
 import {activateStockWorkbook} from './stock-workbook-sync';
 import {encryptGmail} from './gmail';
+import {activateStockFlow} from './stock-flow';
+
+export async function activateShopStock(actor:string){
+ await activateStockWorkbook(actor);
+ await activateStockFlow(actor);
+ await transaction(async tx=>{
+  const workflow=await tx.stockWorkflow.findUniqueOrThrow({where:{id:'active'}});
+  await tx.stockIntegrationConfig.upsert({where:{id:'active'},create:{id:'active',enabled:true,activeFrom:workflow.activeFrom},update:{enabled:true}});
+ });
+}
 
 export async function connectShopStock(form:FormData,actor:string){
  const spreadsheetId=String(form.get('spreadsheetId')??'').trim();
@@ -20,5 +30,5 @@ export async function connectShopStock(form:FormData,actor:string){
   await tx.stockSheetsConnection.upsert({where:{id:'active'},create:{id:'active',...data},update:data});
   await tx.auditLog.create({data:{actor,action:'STOCK_SHEETS_CONNECTED',entityId:'stock-sheet',details:{spreadsheetId,email:config.client_email}}});
  });
- await activateStockWorkbook(actor);
+ await activateShopStock(actor);
 }
