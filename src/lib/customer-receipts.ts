@@ -7,12 +7,13 @@ import {quotedTotal} from './shipment-matching';
 import {orderStockItems} from './order-stock-items';
 import {receiptPaymentAmount} from './receipt-payment';
 import {documentBrandingSchema,documentBrandingSnapshot} from './document-branding';
+import {pricedReceiptItems} from './receipt-document-values';
 
 export const receiptSnapshotSchema=z.object({
  issuer:z.object({name:z.string(),address:z.string(),phone:z.string(),taxId:z.string()}),
  customer:z.object({name:z.string(),address:z.string(),code:z.string().nullable()}),
  orderNumber:z.string(),payment:z.string(),
- items:z.array(z.object({description:z.string(),quantity:z.string()})),
+ items:z.array(z.object({description:z.string(),quantity:z.string(),unitPriceSatang:z.number().int().nonnegative().optional(),totalSatang:z.number().int().nonnegative().optional()})),
  branding:documentBrandingSchema.optional(),
 });
 export type ReceiptSnapshot=z.infer<typeof receiptSnapshotSchema>;
@@ -60,6 +61,9 @@ export async function issueCustomerReceipt(orderId:string,actor:string,customerC
   };
   // Legacy orders may not contain parseable item lines. Keep their source order reference and total.
   if(!snapshot.items.length)snapshot.items.push({description:'สินค้าและค่าจัดส่งตามออเดอร์ '+order.orderNumber,quantity:'1'});
+  const website=await tx.websiteOrder.findUnique({where:{intakeOrderId:orderId},select:{items:true,shippingSatang:true}});
+  const pricedItems=website?pricedReceiptItems(website.items,website.shippingSatang,amount):null;
+  if(pricedItems)snapshot.items=pricedItems;
   const issuedAt=new Date();
   const year=Number(issuedAt.toLocaleDateString('en-CA',{timeZone:'Asia/Bangkok',year:'numeric'}));
   const counter=await tx.receiptCounter.upsert({where:{year},create:{year,number:1},update:{number:{increment:1}}});
