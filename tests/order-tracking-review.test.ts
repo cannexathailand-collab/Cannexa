@@ -7,7 +7,7 @@ test('tracking review begins strictly after three days and stops when tracking e
  assert.equal(needsTrackingReview(order,null,new Date(+createdAt+3*86400000+1)),true);
  assert.equal(needsTrackingReview(order,'TRACK',new Date(+createdAt+8*86400000)),false);
  assert.equal(orderState(order,undefined,undefined,new Date(+createdAt+4*86400000)),'REVIEW');
- assert.equal(orderState(order,{tracking:'TRACK',fulfillmentStatus:'UNCONFIRMED',dispatchedAt:null},undefined,new Date(+createdAt+4*86400000)),'REVIEW');
+ assert.equal(orderState(order,{tracking:'TRACK',fulfillmentStatus:'UNCONFIRMED',dispatchedAt:null},undefined,new Date(+createdAt+4*86400000),undefined,false),'REVIEW');
  for(const status of ['RETURNED','CANCELLED','WITHDRAWN','EXPIRED'])assert.equal(needsTrackingReview({...order,status},null,new Date(+createdAt+9*86400000)),false);
 });
 test('COD review starts at ten days after confirmed dispatch and clears only for a matching receipt',()=>{

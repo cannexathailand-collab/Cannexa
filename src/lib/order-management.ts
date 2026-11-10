@@ -16,10 +16,10 @@ export type OrderFilters={q?:string;from?:string;to?:string;payment?:string;stat
 export function orderMatchesState(row:{state:string;shipped:boolean;awaitingShipment:boolean;awaitingConfirmation?:boolean;shipmentVerified?:boolean},state:string){
  return state==='ALL'?row.state!=='CANCELLED':(state==='CONFIRMED'?!!row.shipmentVerified:state==='VERIFY'?!!row.awaitingConfirmation:state==='SHIPPED'?row.shipped:state==='WAITING'?row.awaitingShipment:row.state===state);
 }
-export function orderState(order:Pick<OrderIntake,'status'|'payment'|'issues'>&{createdAt?:Date},shipment?:Pick<Shipment,'fulfillmentStatus'|'dispatchedAt'>&{tracking?:string;codSatang?:number;createdAt?:Date;status?:string},sale?:Pick<SalesOrder,'status'>,now=new Date(),receipt?:{tracking:string;amountSatang:number},shipmentVerified=true):Exclude<keyof typeof orderStates,'ALL'>{
+export function orderState(order:Pick<OrderIntake,'status'|'payment'|'issues'>&{createdAt?:Date},shipment?:Pick<Shipment,'fulfillmentStatus'|'dispatchedAt'>&{tracking?:string;codSatang?:number;createdAt?:Date;status?:string},sale?:Pick<SalesOrder,'status'>,now=new Date(),receipt?:{tracking:string;amountSatang:number},shipmentVerified?:boolean):Exclude<keyof typeof orderStates,'ALL'>{
  if(order.status==='RETURNED'||shipment?.fulfillmentStatus==='RETURNED')return 'RETURNED';
  if(['CANCELLED','WITHDRAWN','EXPIRED'].includes(order.status)||shipment?.fulfillmentStatus==='CANCELLED')return 'CANCELLED';
- if(needsDispatchConfirmationReview(order,shipment,shipmentVerified,now)||needsTrackingReview(order,shipment?.tracking,now)||needsCodReceiptReview(order,shipment,receipt,now,shipmentVerified)||order.status==='NEEDS_REVIEW'||order.status==='COD_AMOUNT_MISMATCH'||sale?.status==='WAITING_COST'||Array.isArray(order.issues)&&order.issues.length>0)return 'REVIEW';
+ if(shipmentVerified!==undefined&&needsDispatchConfirmationReview(order,shipment,shipmentVerified,now)||needsTrackingReview(order,shipment?.tracking,now)||needsCodReceiptReview(order,shipment,receipt,now,shipmentVerified)||order.status==='NEEDS_REVIEW'||order.status==='COD_AMOUNT_MISMATCH'||sale?.status==='WAITING_COST'||Array.isArray(order.issues)&&order.issues.length>0)return 'REVIEW';
  if(order.payment==='COD'&&(sale?.status==='WAITING_COD'||order.status==='MATCHED_SHIPMENT_WAITING_COD'))return 'COD';
  return shipment?.fulfillmentStatus==='DISPATCHED'&&shipment.dispatchedAt?'SHIPPED':'WAITING';
 }
