@@ -4,7 +4,8 @@ import {isRecognizedSale,type SaleRow} from './sales-report';
 type Cost={orderId:string;status:string;totalCostSatang:number|null};
 export function executivePeriodSummary(booked:BookedSale[],sales:SaleRow[],costs:Cost[],start:Date,end:Date){
  const orders=booked.filter(row=>row.eventAt>=start&&row.eventAt<end);
- const completed=sales.filter(row=>isRecognizedSale(row)&&row.shipment!.dispatchedAt!>=start&&row.shipment!.dispatchedAt!<end);
+ const orderIds=new Set(orders.map(row=>row.id));
+ const completed=sales.filter(row=>orderIds.has(row.orderId)&&isRecognizedSale(row));
  const byCost=new Map(costs.map(row=>[row.orderId,row]));
  const pendingProfitOrders:{id:string;number:string;tracking:string|null;reason:string}[]=[];
  let knownProfitSatang=0,missingProductCosts=0;

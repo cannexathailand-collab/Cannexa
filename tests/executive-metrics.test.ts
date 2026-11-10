@@ -37,3 +37,14 @@ test('missing product cost remains unknown',()=>{
  const result=executivePeriodSummary([booked('missing')],[sale('missing')],[],start,end);
  assert.equal(result.profitSatang,null);assert.equal(result.missingProductCosts,1);
 });
+
+test('selected order round keeps later dispatch and collection in the same order set',()=>{
+ const row=sale('later');const later=new Date(+end+2*86400000);row.recognizedAt=later;row.shipment!.dispatchedAt=later;
+ const result=executivePeriodSummary([booked('later')],[row],[{orderId:'later',status:'POSTED',totalCostSatang:6000}],start,end);
+ assert.equal(result.orderCount,1);assert.equal(result.completedCount,1);assert.equal(result.completedSatang,10000);assert.equal(result.profitSatang,4000);
+});
+
+test('a sale dispatched in the selected period is excluded when its order belongs to another round',()=>{
+ const result=executivePeriodSummary([booked('older',{eventAt:new Date(+start-1)})],[sale('older')],[{orderId:'older',status:'POSTED',totalCostSatang:6000}],start,end);
+ assert.equal(result.orderCount,0);assert.equal(result.completedCount,0);assert.equal(result.profitSatang,0);
+});
