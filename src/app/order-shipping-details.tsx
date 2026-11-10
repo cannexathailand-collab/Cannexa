@@ -3,7 +3,7 @@ import {CopyOrderShipping} from './copy-order-shipping';
 import {orderSummaryText,type OrderCopyDetails,shippingSummaryText,shippingPaymentLabel,shippingAmountLabel,type ShippingSummary} from '@/lib/order-shipping-summary';
 import {customerLanguageTools,type CustomerLanguage} from '@/lib/customer-language';
 
-export function OrderShippingDetails({data,tracking,children,copyDetails,teamName,sellerName,language='th'}:{data:ShippingSummary;tracking?:string|null;children?:ReactNode;copyDetails?:Omit<OrderCopyDetails,'tracking'>;teamName?:string|null;sellerName?:string|null;language?:CustomerLanguage}){
+export function OrderShippingDetails({data,tracking,children,documentActions,copyDetails,teamName,sellerName,language='th'}:{data:ShippingSummary;tracking?:string|null;children?:ReactNode;documentActions?:ReactNode;copyDetails?:Omit<OrderCopyDetails,'tracking'>;teamName?:string|null;sellerName?:string|null;language?:CustomerLanguage}){
  const {t,locale}=customerLanguageTools(language);
  const seller=sellerName!==undefined?sellerName:copyDetails?.seller;
  return <div className="order-shipping-details">
@@ -21,6 +21,6 @@ export function OrderShippingDetails({data,tracking,children,copyDetails,teamNam
    <div><dt>{t('ยอดรวม')}</dt><dd>{t(shippingAmountLabel(data.amountSatang))}</dd></div>
    <div><dt>{t('เลขพัสดุ')}</dt><dd>{tracking||t('ยังไม่มีเลขพัสดุ')}</dd></div>
   </dl>
-  <div className="shipping-actions"><CopyOrderShipping language={language} text={copyDetails?orderSummaryText(data,{...copyDetails,seller,tracking,teamName:teamName||t('ยังไม่ระบุทีม')},language):shippingSummaryText(data,language)} label={copyDetails?'คัดลอกรายละเอียดออเดอร์':undefined}/>{children}</div>
+  <div className="shipping-actions"><CopyOrderShipping language={language} text={copyDetails?orderSummaryText(data,{...copyDetails,seller,tracking,teamName:teamName||t('ยังไม่ระบุทีม')},language):shippingSummaryText(data,language)} label={copyDetails?'คัดลอกรายละเอียดออเดอร์':undefined}/>{children}{documentActions}</div>
  </div>;
 }

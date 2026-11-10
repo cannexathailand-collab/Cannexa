@@ -39,7 +39,7 @@ export function OrderCard({order:o,sale,sellerName,groupName,tracking,fulfillmen
   <p>รับออเดอร์ {o.eventAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
   <p>สถานะออเดอร์ / ค่าคอม: {financialStatus(o,sale)}</p>
   {o.status!=='WITHDRAWN'&&<>
-   <OrderShippingDetails teamName={groupName} copyDetails={{orderNumber:o.orderNumber,seller:sellerName??o.sellerUsername??o.sellerCode,createdAt:o.createdAt,status:match.label,extraLines:['สถานะออเดอร์ / ค่าคอม '+financialStatus(o,sale)]}} data={{recipient:o.recipient,phone:o.phone,address:o.address,payment:o.payment,amountSatang:total,items:orderStockItems(o.rawText).items}} tracking={tracking}/>
+   <OrderShippingDetails documentActions={<OrderDocumentButtons orderId={o.id}/>} teamName={groupName} copyDetails={{orderNumber:o.orderNumber,seller:sellerName??o.sellerUsername??o.sellerCode,createdAt:o.createdAt,status:match.label,extraLines:['สถานะออเดอร์ / ค่าคอม '+financialStatus(o,sale)]}} data={{recipient:o.recipient,phone:o.phone,address:o.address,payment:o.payment,amountSatang:total,items:orderStockItems(o.rawText).items}} tracking={tracking}/>
    {Array.isArray(o.issues)&&o.issues.length>0&&<p className="muted">{o.issues.map(String).join(' · ')}</p>}
    {o.payment==='โอน'&&!(fulfillmentStatus==='DISPATCHED'&&dispatchedAt)&&<p>ยอดขายรอยืนยันจากรายงานจัดส่ง</p>}
    {o.status==='RETURNED'&&<p>ต้นทุนพัสดุตีกลับ: รอข้อมูลจากระบบสต็อก</p>}
@@ -49,5 +49,5 @@ export function OrderCard({order:o,sale,sellerName,groupName,tracking,fulfillmen
    <p className="small muted">ตอบยืนยัน: {o.replyStatus==='SENT'?'ส่งแล้ว':o.replyStatus==='FAILED'?'ส่งไม่สำเร็จ':o.replyStatus==='NOT_CONFIGURED'?'ยังไม่มี Access Token':'ยังไม่ส่ง'}</p>
    <PopupDetails summary={<> ดูข้อความต้นฉบับ </>}><p className="muted">รหัสผู้ขายที่ส่งมา: {o.sellerCode} (เก็บตามข้อความเดิม)</p><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{o.rawText}</pre></PopupDetails>
   </>}
- <OrderDocumentButtons orderId={o.id}/></article>;
+ {o.status==='WITHDRAWN'&&<OrderDocumentButtons orderId={o.id}/>}</article>;
 }

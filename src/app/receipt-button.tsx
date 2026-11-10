@@ -12,5 +12,5 @@ export function ReceiptButton({orderId,english=false,endpoint='/api/receipts',re
    window.location.assign(receiptBase+'/'+encodeURIComponent(result.id));
   }catch(failure){setError(failure instanceof Error?failure.message:'เปิดใบเสร็จไม่สำเร็จ');setBusy(false);}
  }
- return <div style={{marginTop:12}}><button type="button" className="secondary" disabled={busy} onClick={open}>{busy?(english?'Preparing…':'กำลังเตรียม…'):(english?'Receipt':'ใบเสร็จรับเงิน')}</button>{error&&<p role="alert">{error}</p>}</div>;
+ return <div className="receipt-button"><button type="button" className="secondary" disabled={busy} onClick={open}>{busy?(english?'Preparing…':'กำลังเตรียม…'):(english?'Receipt':'ใบเสร็จรับเงิน')}</button>{error&&<p role="alert">{error}</p>}</div>;
 }
