@@ -19,9 +19,7 @@ export async function CustomerOrderHistory({history,title='ออเดอร์
   {history.length?<div className="portal-orders">{history.map(row=><article key={row.order.id} className="portal-order">
    <header><strong>{row.order.orderNumber}</strong><span className="portal-status">{t(row.status)}</span></header>
    <p className="portal-muted">{customerDate(row.order.eventAt)}</p>
-   <OrderShippingDetails language={language} teamName={teams.get(row.order.groupKey)} copyDetails={{orderNumber:row.order.orderNumber,createdAt:row.order.createdAt,status:row.status}} data={{recipient:row.order.recipient,phone:row.order.phone,address:row.order.address,payment:row.order.payment,amountSatang:row.amountSatang,items:orderStockItems(row.order.rawText).items}} tracking={row.tracking}/>
-   {invoiceByOrder.has(row.order.id)&&<a className="button secondary" href={'/tax-invoices/'+invoiceByOrder.get(row.order.id)}>{language==='en'?'Tax invoice':'ใบกำกับภาษี'}</a>}
-   {receiptSettings?.enabled&&!row.excluded&&<ReceiptButton orderId={row.order.id} english={language==='en'}/>}
+   <OrderShippingDetails documentActions={(receiptSettings?.enabled&&!row.excluded||invoiceByOrder.has(row.order.id))?<div className="order-document-buttons" aria-label={language==='en'?'Order documents':'เอกสารออเดอร์'}>{receiptSettings?.enabled&&!row.excluded&&<ReceiptButton orderId={row.order.id} english={language==='en'}/>}{invoiceByOrder.has(row.order.id)&&<a className="button secondary" href={'/tax-invoices/'+invoiceByOrder.get(row.order.id)}>{language==='en'?'Tax invoice':'ใบกำกับภาษี'}</a>}</div>:undefined} language={language} teamName={teams.get(row.order.groupKey)} copyDetails={{orderNumber:row.order.orderNumber,createdAt:row.order.createdAt,status:row.status}} data={{recipient:row.order.recipient,phone:row.order.phone,address:row.order.address,payment:row.order.payment,amountSatang:row.amountSatang,items:orderStockItems(row.order.rawText).items}} tracking={row.tracking}/>
   </article>)}</div>:<div className="portal-empty">{t(emptyText)}<br/><small>{t("แจ้งรหัสลูกค้านี้กับพนักงานเมื่อสั่งซื้อ เพื่อให้แสดงออเดอร์ที่นี่")}</small></div>}
  </section>;
 }
