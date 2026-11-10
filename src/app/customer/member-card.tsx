@@ -18,7 +18,7 @@ export async function MemberCard({level,name,code}:{level:string;name:string;cod
  return <section className="portal-member" aria-label={t("บัตร Member")}>
   <h2>Member</h2>
   <div className={'portal-member-card portal-member-'+badgeTier}>
-   <Image src={'/member/'+badgeTier+'.png'} alt={'Member '+pointTierNames[badgeTier]} width={1600} height={1024} sizes="(max-width: 600px) 60vw, 540px" preload/>
+   <Image src={'/member/'+badgeTier+'.png'} alt={'Member '+pointTierNames[badgeTier]} width={1600} height={1024} sizes="(max-width: 700px) 90vw, 550px" preload/>
    <h1 className="portal-member-name">{name}</h1>
    <p className="portal-member-code"><span>{t("รหัสลูกค้า")}</span> <strong>{code}</strong></p>
   </div>
