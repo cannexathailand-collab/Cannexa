@@ -2,10 +2,10 @@
 import {useState} from 'react';
 type User={username:string;role:string;active:boolean;affiliateId:string|null};
 type Affiliate={id:string;name:string;code:string};
-export function UserForm({user,affiliates,roleOptions}:{user?:User;affiliates:Affiliate[];roleOptions:{value:string;label:string}[]}){
+export function UserForm({user,affiliates,roleOptions,action='/api/admin/users'}:{user?:User;affiliates:Affiliate[];roleOptions:{value:string;label:string}[];action?:string}){
  const [role,setRole]=useState(user?.role??'employee');
  const needsAffiliate=role==='employee'||role==='sales';
- return <form action="/api/admin/users" method="post" className="form-grid">
+ return <form action={action} method="post" className="form-grid">
   <input type="hidden" name="action" value={user?'edit':'create'}/>
   <label>ชื่อผู้ใช้<input name="username" defaultValue={user?.username} readOnly={!!user} required minLength={3} maxLength={64} pattern="[a-zA-Z0-9._\-]{3,64}" autoCapitalize="none" autoComplete="off" title="ใช้อักษรอังกฤษ ตัวเลข จุด ขีดกลาง หรือขีดล่าง 3–64 ตัว"/><small>ใช้อักษรอังกฤษ ตัวเลข จุด ขีดกลาง หรือขีดล่าง 3–64 ตัว</small></label>
   <label>บทบาท<select name="role" value={role} onChange={event=>setRole(event.target.value)}>{roleOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>

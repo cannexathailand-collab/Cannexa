@@ -18,6 +18,10 @@ function endpoint({allowed=true,duplicate=false}={}){
   '@/lib/crypto':{passwordHash:()=> 'hashed'},
   '@/lib/db':{transaction:async(fn:any)=>fn({affiliate:{findUnique:async()=>{throw Error('Store must not query Affiliate')}},userAccount:{create:async({data}:any)=>{if(duplicate)throw {code:'P2002'};saved.push(data)},update:async({data}:any)=>saved.push(data)},auditLog:{create:async()=>{}}})},
  };
+ const helperExports:any={};
+ const helperCode=ts.transpileModule(readFileSync('src/lib/save-user-account.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+ vm.runInNewContext(helperCode,{exports:helperExports,require:(name:string)=>{const key=name.startsWith('./')?'@/lib/'+name.slice(2):name;assert.ok(key in mocks,key);return mocks[key]},Response,URLSearchParams,Error});
+ mocks['@/lib/save-user-account']=helperExports;
  const exports:any={};
  const code=ts.transpileModule(readFileSync('src/app/api/admin/users/route.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
  vm.runInNewContext(code,{exports,require:(name:string)=>{assert.ok(name in mocks,name);return mocks[name]},Response,URLSearchParams,Error});

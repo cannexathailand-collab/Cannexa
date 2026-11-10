@@ -1,28 +1,8 @@
 import {stockEditors} from '@/lib/accounts';
-import {after} from 'next/server';
 import {admin,sameOrigin} from '@/lib/auth';
-import {parseManualShipmentFile} from '@/lib/manual-shipment-file';
-import {previewManualShipments,importManualShipments} from '@/lib/manual-shipments';
-import {enqueueStockDispatches} from '@/lib/stock-dispatch-worker';
-import {recordRejectedShipmentMatches} from '@/lib/rejected-shipments';
-
+import {uploadShipmentFile} from '@/lib/upload-shipment-file';
 export const maxDuration=60;
 export async function POST(request:Request){
- let actor:string;
- try{actor=await admin(stockEditors);await sameOrigin();}catch{return Response.json({error:'ไม่มีสิทธิ์อัปโหลดรายการจัดส่ง'},{status:403});}
- try{
-  if(Number(request.headers.get('content-length')??0)>3*1024*1024)throw Error('ไฟล์ต้องมีขนาดไม่เกิน 2 MB');
-  if(request.headers.get('content-type')?.includes('multipart/form-data')){
-   const form=await request.formData(),file=form.get('file');
-   if(!(file instanceof File))throw Error('กรุณาเลือกไฟล์ Excel หรือ CSV');
-   const rows=await parseManualShipmentFile(Buffer.from(await file.arrayBuffer()),file.name);
-   const preview=await previewManualShipments(rows);
-   await recordRejectedShipmentMatches(actor,file.name,preview);
-   return Response.json({rows:preview},{headers:{'Cache-Control':'private, no-store'}});
-  }
-  const text=await request.text();if(text.length>200000)throw Error('ข้อมูลนำเข้ามีขนาดใหญ่เกินไป');
-  const result=await importManualShipments(actor,JSON.parse(text));
-  after(async()=>{for(let i=0;i<result.orderIds.length;i+=200)await enqueueStockDispatches(result.orderIds.slice(i,i+200)).catch(()=>{});});
-  return Response.json({ok:true,count:result.count},{headers:{'Cache-Control':'private, no-store'}});
- }catch(error){return Response.json({error:error instanceof Error?error.message:'นำเข้าไม่สำเร็จ กรุณาลองใหม่'},{status:400});}
+ let actor:string;try{actor=await admin(stockEditors);await sameOrigin();}catch{return Response.json({error:'ไม่มีสิทธิ์อัปโหลดรายการจัดส่ง'},{status:403});}
+ return uploadShipmentFile(request,actor);
 }

@@ -1,3 +1,4 @@
+import {bindDatabase} from '@/lib/db';
 import {bindProfitReportRecipient} from '@/lib/owner-profit-report';
 import {processPendingStockDispatches} from '@/lib/stock-dispatch';
 import {NextRequest} from "next/server";
@@ -52,6 +53,6 @@ export async function POST(req:NextRequest){
   await webhook({id:e.webhookEventId,key,type:e.type,at:new Date(e.timestamp),unblocked:e.follow?.isUnblocked??null});
   if(e.type==='follow'&&e.source.type==='user')await replyCustomerCode({key,eventId:e.webhookEventId,replyToken:e.replyToken,unblocked:e.follow?.isUnblocked??null,accessToken:connection.settings.accessToken});
  }
- if(intakeBot?.active)after(async()=>{for(const id of orders)await queueStockOrder(id).catch(()=>{});await processPendingReservations(2).catch(()=>{});await processPendingStockDispatches('line-order',1).catch(()=>{});});
+ if(intakeBot?.active)after(bindDatabase(async()=>{for(const id of orders)await queueStockOrder(id).catch(()=>{});await processPendingReservations(2).catch(()=>{});await processPendingStockDispatches('line-order',1).catch(()=>{});}));
  return Response.json({ok:true});
 }

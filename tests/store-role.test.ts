@@ -13,6 +13,7 @@ function loadRoute(file:string,role:string){
   '@/lib/auth':{admin:async(allowed=['owner'])=>{if(!allowed.includes(role))throw Error('FORBIDDEN');return 'test-store';},sameOrigin:async()=>{}},
   '@/lib/stock-product-update':{stockProductUpdateInput:{safeParse:()=>({success:false})}},
   '@/lib/stock-dispatch':{},
+  '@/lib/upload-shipment-file':{uploadShipmentFile:async()=>new Response('Invalid test input',{status:400})},
   '@/lib/stock-cost-update':{stockCostUpdate:{safeParse:()=>({success:false})}},
   '@/lib/stock-input-error':{},
   '@/lib/stock-product-input':{newStockProduct:{safeParse:()=>({success:false,error:{issues:[]}})}},

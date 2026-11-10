@@ -6,16 +6,16 @@ import {transaction} from "./db";
 import {seal} from "./line-settings";
 const input=z.object({loginId:z.string().trim().regex(/^\d{5,20}$/),loginSecret:z.string().trim().min(16).max(128),messagingSecret:z.string().trim().min(16).max(128),token:z.string().trim().min(16).max(4096)});
 const bot=z.object({userId:z.string().regex(/^U[a-f0-9]{32}$/i),basicId:z.string().regex(/^@[\w.-]+$/)});
-export async function saveLineConnection(req:Request){
+export async function saveLineConnection(req:Request,options:{returnPath?:string;actor?:string}={}){
  if(mockMode())return new Response("Disabled in mock mode",{status:409});
- const redirect=(status:string)=>NextResponse.redirect(baseUrl()+"/admin/line?status="+status,303);
+ const redirect=(status:string)=>NextResponse.redirect(baseUrl()+(options.returnPath??"/admin/line")+"?status="+status,303);
  try{
   const form=await req.formData();
   if(form.get("action")==="disconnect"){
    const revision=randomUUID();
    await transaction(async tx=>{
     await tx.lineConnection.upsert({where:{id:"active"},create:{id:"active",encrypted:"",revision},update:{encrypted:"",revision}});
-    await tx.auditLog.create({data:{actor:"admin",action:"LINE_CONNECTION_CLEARED",entityId:"active",details:{}}});
+    await tx.auditLog.create({data:{actor:options.actor??"admin",action:"LINE_CONNECTION_CLEARED",entityId:"active",details:{}}});
    });
    return redirect("cleared");
   }
@@ -35,7 +35,7 @@ export async function saveLineConnection(req:Request){
   const revision=randomUUID();
   await transaction(async tx=>{
    await tx.lineConnection.upsert({where:{id:"active"},create:{id:"active",encrypted,revision},update:{encrypted,revision}});
-   await tx.auditLog.create({data:{actor:"admin",action:"LINE_CONNECTION_UPDATED",entityId:basicId,details:{loginId:f.loginId}}});
+   await tx.auditLog.create({data:{actor:options.actor??"admin",action:"LINE_CONNECTION_UPDATED",entityId:basicId,details:{loginId:f.loginId}}});
   });
   return redirect("saved");
  }catch{return redirect("save-error");}

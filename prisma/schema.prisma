@@ -644,6 +644,7 @@ model StockDeleteBatch {
 }
 model StockSheetsConnection {
  id String @id
+ spreadsheetId String?
  systemPrimary Boolean @default(false)
  encryptedConfig String
  email String
@@ -827,6 +828,11 @@ model PlatformAdministrator {
  username String @id
  active Boolean @default(true)
  createdAt DateTime @default(now())
+}
+
+model PlatformJobCursor {
+ id String @id
+ nextOffset Int @default(0)
 }
 
 model PlatformShop {

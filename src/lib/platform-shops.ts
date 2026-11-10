@@ -1,7 +1,7 @@
 import {randomBytes,randomUUID} from 'node:crypto';
 import {Prisma,PrismaClient} from '@prisma/client';
 import {z} from 'zod';
-import {db,transaction} from './db';
+import {db,transaction,registerDatabaseSchema} from './db';
 import {requireAccount} from './auth';
 import {env} from './config';
 import {passwordHash} from './crypto';
@@ -65,6 +65,7 @@ export function shopDatabase(schemaName:string){
   const url=new URL(env('DATABASE_URL'));url.searchParams.set('schema',schemaName);url.searchParams.set('connection_limit','2');
   client=new PrismaClient({datasources:{db:{url:url.toString()}}});clients.set(schemaName,client);
  }
+ registerDatabaseSchema(client,schemaName);
  return client;
 }
 export async function platformShopData(actor:string,id:string){

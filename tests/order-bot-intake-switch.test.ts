@@ -13,7 +13,7 @@ function webhook(file:string,receiveOrders:boolean){
   '@/lib/owner-profit-report':{bindProfitReportRecipient:async()=>false},
   'next/server':{after:()=>{}},
   zod:{z},
-  '@/lib/db':{db:{orderBot:{findUnique:async()=>connection}}},
+  '@/lib/db':{bindDatabase:(work:unknown)=>work,db:{orderBot:{findUnique:async()=>connection}}},
   '@/lib/config':{mockMode:()=>false},
   '@/lib/crypto':{validSignature:()=>true,userKey:(value:string)=>value},
   '@/lib/line-settings':{unseal:()=>settings,lineSettings:async()=>({settings})},

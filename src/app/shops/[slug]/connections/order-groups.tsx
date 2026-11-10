@@ -1,0 +1,5 @@
+import {shopPath} from '@/lib/shop-session';
+export function LineOrderGroups({slug,enabled,groups}:{slug:string;enabled:boolean;groups:{id:string;name:string;enabled:boolean}[]}){
+ const action=shopPath(slug)+'/connections/orders';
+ return <section className="card"><h2>รับออเดอร์จากกลุ่ม LINE</h2><form action={action} method="post"><input type="hidden" name="action" value="bot"/><label><input name="enabled" type="checkbox" defaultChecked={enabled}/> เปิดรับข้อความออเดอร์จาก OA ที่เชื่อมไว้</label><button>บันทึกการรับออเดอร์</button></form><p>เชิญ OA เข้ากลุ่มแล้วส่งข้อความหนึ่งครั้ง จากนั้นเลือกเปิดรับออเดอร์ของกลุ่มด้านล่าง</p>{groups.map(group=><form key={group.id} action={action} method="post" className="form-grid"><input type="hidden" name="action" value="group"/><input type="hidden" name="id" value={group.id}/><label>ชื่อกลุ่ม<input name="name" maxLength={100} defaultValue={group.name}/></label><label><input name="enabled" type="checkbox" defaultChecked={group.enabled}/> รับออเดอร์กลุ่มนี้</label><div><button>บันทึกกลุ่ม</button></div></form>)}</section>;
+}

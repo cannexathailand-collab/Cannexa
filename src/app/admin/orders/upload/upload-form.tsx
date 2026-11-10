@@ -6,7 +6,7 @@ import type {RejectedOrderMatch} from '@/lib/rejected-shipments';
 type Candidate={id:string;orderNumber:string;recipient:string|null;phone:string|null;payment:string|null;eventAt:string;amountSatang:number|null;address:string|null;addressMatches:boolean};
 type Row={tracking:string;recipient:string;phone:string;address?:string;payment?:'COD'|'โอน';amountSatang?:number;candidates:Candidate[];existingOrderId:string|null;selectedOrderId:string|null;matchMessage?:string;rejectedOrders?:RejectedOrderMatch[]};
 const localNow=()=>new Date(Date.now()+7*3600000).toISOString().slice(0,16);
-export function ShipmentUpload({ordersHref='/admin/orders/list'}:{ordersHref?:string}={}){
+export function ShipmentUpload({ordersHref='/admin/orders/list',endpoint='/api/admin/shipments/upload'}:{ordersHref?:string;endpoint?:string}={}){
  const [rows,setRows]=useState<Row[]>([]),[selected,setSelected]=useState<Record<string,string>>({});
  const [filename,setFilename]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const [date,setDate]=useState(localNow),[confirmed,setConfirmed]=useState(false),[done,setDone]=useState<number|null>(null);
@@ -20,7 +20,7 @@ export function ShipmentUpload({ordersHref='/admin/orders/list'}:{ordersHref?:st
   setBusy(true);setError('');setRows([]);setDone(null);setConfirmed(false);
   try{
    const form=new FormData();form.set('file',file);
-   const response=await fetch('/api/admin/shipments/upload',{method:'POST',body:form,signal:AbortSignal.timeout(60000)});
+   const response=await fetch(endpoint,{method:'POST',body:form,signal:AbortSignal.timeout(60000)});
    const result=await response.json();if(!response.ok)throw Error(result.error);
    const next:Row[]=result.rows;setRows(next);setFilename(file.name);key.current=crypto.randomUUID();pending.current=null;setRetrying(false);
    setSelected(Object.fromEntries(next.map(row=>[row.tracking,row.existingOrderId?'SKIP':row.selectedOrderId??''])));
@@ -32,7 +32,7 @@ export function ShipmentUpload({ordersHref='/admin/orders/list'}:{ordersHref?:st
   try{
    pending.current??=JSON.stringify({requestKey:key.current,filename,dispatchedAt:date,confirmed,rows:rows.filter(row=>selected[row.tracking]!=='SKIP').map(row=>({tracking:row.tracking,recipient:row.recipient,phone:row.phone,orderId:selected[row.tracking],payment:row.payment,amountSatang:row.amountSatang}))});
    setRetrying(true);
-   const response=await fetch('/api/admin/shipments/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:pending.current,signal:AbortSignal.timeout(60000)});
+   const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:pending.current,signal:AbortSignal.timeout(60000)});
    const result=await response.json();if(!response.ok){pending.current=null;setRetrying(false);throw Error(result.error);}
    setDone(result.count);
   }catch(failure){setError(failure instanceof Error?failure.message:'ยังยืนยันผลนำเข้าไม่ได้ กรุณาลองคำขอเดิมอีกครั้ง');}finally{sending.current=false;setBusy(false);}

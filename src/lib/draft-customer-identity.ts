@@ -1,5 +1,5 @@
 import {Prisma} from '@prisma/client';
-import {db,transaction,userLock} from './db';
+import {db,transaction,userLock,currentDatabaseSchema} from './db';
 import {contactPhones,validContactPhones} from './contact-phones';
 import {customerIdentity} from './order-customer';
 import {displayCustomerCode} from './customer-code';
@@ -7,7 +7,7 @@ type Client=Prisma.TransactionClient;
 export function validCustomerPhone(value:string){const phones=validContactPhones(value);return phones?phones.join(' / '):null;}
 export async function matchingCustomerPhones(tx:Client,phone:string){
  const variants=contactPhones(phone).flatMap(number=>[number,'66'+number.slice(1)]);
- const schema=new URL(process.env.DATABASE_URL!).searchParams.get('schema')??'public';if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(schema))throw Error('INVALID_SCHEMA');
+ const schema=currentDatabaseSchema();if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(schema))throw Error('INVALID_SCHEMA');
  const customers=Prisma.raw('"'+schema+'"."Customer"'),orders=Prisma.raw('"'+schema+'"."OrderIntake"');
  const rows=await tx.$queryRaw<{code:string}[]>(Prisma.sql`SELECT DISTINCT c.code FROM ${customers} c LEFT JOIN ${orders} o ON o."customerCode"=c.code WHERE regexp_split_to_array(regexp_replace(COALESCE(c.phone,''),'[^0-9/,;|]','','g'),'[/,;|]+') && ARRAY[${Prisma.join(variants)}]::text[] OR regexp_split_to_array(regexp_replace(COALESCE(o.phone,''),'[^0-9/,;|]','','g'),'[/,;|]+') && ARRAY[${Prisma.join(variants)}]::text[] ORDER BY c.code LIMIT 20`);
  return tx.customer.findMany({where:{code:{in:rows.map(r=>r.code)}},orderBy:{createdAt:'asc'},select:{code:true,name:true,phone:true,address:true}});

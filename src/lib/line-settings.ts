@@ -1,5 +1,5 @@
 import {createCipheriv,createDecipheriv,createHmac,randomBytes} from "node:crypto";
-import {db} from "./db";
+import {db,isSeparateShopDatabase} from "./db";
 import {env} from "./config";
 
 export type LineSettings={loginId:string;loginSecret:string;messagingSecret:string;botId:string;basicId:string;accessToken?:string};
@@ -19,6 +19,7 @@ export async function lineSettings():Promise<{settings:LineSettings;revision:str
  const row=await db.lineConnection.findUnique({where:{id:"active"}});
  if(row?.encrypted==="")return null;
  if(row)return {settings:unseal(row.encrypted),revision:row.revision};
+ if(isSeparateShopDatabase())return null;
  const settings={loginId:process.env.LINE_LOGIN_CHANNEL_ID??"",loginSecret:process.env.LINE_LOGIN_CHANNEL_SECRET??"",messagingSecret:process.env.LINE_MESSAGING_CHANNEL_SECRET??"",botId:process.env.LINE_BOT_USER_ID??"",basicId:process.env.LINE_OA_BASIC_ID??""};
  return Object.values(settings).every(Boolean)?{settings,revision:"environment"}:null;
 }

@@ -1,3 +1,5 @@
+import {currentShopSlug} from './db';
+import {shopPath} from './shop-session';
 import {createHmac} from 'node:crypto';
 import {z} from 'zod';
 import {baseUrl,env} from './config';
@@ -7,7 +9,7 @@ const key=()=>createHmac('sha256',env('SESSION_SECRET')).update('stock-dispatch-
 export const validStockDispatchWorker=(value:string|null)=>!!value&&equal(value,key());
 export async function enqueueStockDispatches(orderIds:string[]){
  const unique=[...new Set(orderIds)];if(!unique.length)return;
- const response=await fetch(baseUrl()+'/api/internal/stock/dispatch',{method:'POST',headers:{'Content-Type':'application/json','x-stock-worker-key':key()},body:JSON.stringify(stockDispatchJob.parse({orderIds:unique})),signal:AbortSignal.timeout(4000),cache:'no-store'});
+ const response=await fetch(baseUrl()+(currentShopSlug()?shopPath(currentShopSlug()!):'')+'/api/internal/stock/dispatch',{method:'POST',headers:{'Content-Type':'application/json','x-stock-worker-key':key()},body:JSON.stringify(stockDispatchJob.parse({orderIds:unique})),signal:AbortSignal.timeout(4000),cache:'no-store'});
  if(!response.ok)throw Error('STOCK_WORKER_UNAVAILABLE');
 }
 export async function runStockDispatchJob(orderIds:string[],process:(id:string)=>Promise<unknown>,enqueue:(ids:string[])=>Promise<unknown>){
