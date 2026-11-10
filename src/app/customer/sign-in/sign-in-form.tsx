@@ -34,11 +34,11 @@ export function CustomerSignInForm(){
    setBusy(false);
   }
  }}>
-  <label>{t("รหัสลูกค้า")}<input name="code" maxLength={64} autoComplete="username" autoCapitalize="characters" spellCheck={false}/></label>
+  <label>{t("ชื่อผู้ใช้หรือรหัสลูกค้า")}<input name="code" maxLength={64} autoComplete="username" autoCapitalize="none" spellCheck={false}/></label>
   <small>{t("เจ้าของระบบใช้ชื่อผู้ใช้ owner และรหัสผ่านเจ้าของระบบ")}</small>
   <label>{t("รหัสผ่าน")}<input name="password" type="password" required maxLength={256} autoComplete="current-password"/></label>
   {error&&<p className="portal-alert" role="alert">{t(error)}</p>}
   <button disabled={!ready||busy}>{t(busy?'กำลังเข้าสู่ระบบ…':'เข้าสู่ระบบ')}</button>
-  <a href="/api/customer/login">{t("ลืมรหัสผ่าน · ยืนยันผ่าน LINE")}</a>
+  <div className="portal-login-links"><a href="/api/customer/login?reset=1">{t("ลืมรหัสผ่าน")}</a><a href="/api/customer/login?register=1">{t("สมัครสมาชิก")}</a></div>
  </form>;
 }

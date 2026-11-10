@@ -18,9 +18,16 @@ export async function GET(req:NextRequest){
   if(!row||row.usedAt||row.expiresAt<=new Date())return NextResponse.redirect(baseUrl()+'/customer?error=link');
  }
  if(!await limit('customer-login',1000))return new Response('กรุณาลองใหม่ภายหลัง',{status:429});
+ const purpose=req.nextUrl.searchParams.get('register')==='1'?'CUSTOMER_REGISTER':req.nextUrl.searchParams.get('reset')==='1'?'CUSTOMER_PASSWORD_RESET':'CUSTOMER';
  const state=random(),browser=random(),verifier=random(),nonce=random();
- await db.oAuthAttempt.create({data:{purpose:'CUSTOMER',customerLinkHash:linkHash,lineRevision:connection.revision,stateHash:sha(state),browserHash:sha(browser),verifier,nonce,expiresAt:new Date(Date.now()+600000)}});
- const res=NextResponse.redirect(authorizationUrl(state,nonce,verifier,connection.settings));
+ await db.oAuthAttempt.create({data:{purpose,customerLinkHash:linkHash,lineRevision:connection.revision,stateHash:sha(state),browserHash:sha(browser),verifier,nonce,expiresAt:new Date(Date.now()+600000)}});
+ const authorization=new URL(authorizationUrl(state,nonce,verifier,connection.settings));
+ if(req.nextUrl.searchParams.get('qr')==='1'){
+  authorization.searchParams.set('initial_amr_display','lineqr');
+  authorization.searchParams.set('disable_auto_login','true');
+  authorization.searchParams.set('prompt','login');
+ }
+ const res=NextResponse.redirect(authorization);
  res.cookies.delete(customerAgeCookie);
  res.cookies.set('oauth_'+sha(state).slice(0,16),browser,{...cookieOptions,maxAge:600});return res;
 }

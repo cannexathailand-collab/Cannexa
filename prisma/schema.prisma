@@ -178,6 +178,7 @@ model MetaConnection {
 model Customer {
  portalRegistrationPending Boolean @default(false)
  portalProfileIncomplete Boolean @default(false)
+ portalUsername String? @unique
  portalPasswordSalt String?
  portalPasswordHash String?
  code String @id @default(dbgenerated("customer_code()"))

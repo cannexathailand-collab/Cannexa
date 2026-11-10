@@ -15,8 +15,9 @@ export default async function CustomerSignInPage(){
    <p>{t("ขอบคุณที่ร่วมเป็นสมาชิกกับเรา")}</p>
    <CustomerSignInForm/>
    <div className="portal-sign-in-alternative">
-    <p>{t("ยังไม่เคยตั้งรหัสผ่าน เข้าผ่าน LINE เพื่อตั้งรหัสผ่านก่อน")}</p>
+    <p>{t("เข้าใช้งานด้วยบัญชี LINE ได้ทันที")}</p>
     <a className="button portal-line" href="/api/customer/login">{t("เข้าสู่ระบบด้วย LINE")}</a>
+    <a className="button portal-line portal-line-qr" href="/api/customer/login?qr=1">{t("เข้าสู่ระบบด้วยบัญชีอื่น — สแกน QR Code")}</a>
    </div>
   </section>
  </main>;

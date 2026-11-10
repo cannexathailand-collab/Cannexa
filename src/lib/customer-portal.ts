@@ -1,3 +1,5 @@
+import {customerUsername} from './customer-username';
+import {canonicalCustomerCode} from './customer-code';
 import {cookies} from 'next/headers';
 import {db,transaction,userLock} from './db';
 import {equal,readToken,sha,signToken} from './crypto';
@@ -71,7 +73,7 @@ export async function linkPortalCustomer(key:string,linkHash?:string|null){
   return saved;
  });
 }
-export async function savePortalProfile(key:string|null,input:Parameters<typeof portalProfile>[0]&{referrerCode?:unknown},customerCode?:string){
+export async function savePortalProfile(key:string|null,input:Parameters<typeof portalProfile>[0]&{referrerCode?:unknown;username?:unknown},customerCode?:string){
  const data=portalProfile(input);
  return transaction(async tx=>{
   if(!key&&!customerCode)throw Error('UNAUTHORIZED');
@@ -79,6 +81,13 @@ export async function savePortalProfile(key:string|null,input:Parameters<typeof 
   const existing=key?await tx.customer.findUnique({where:{lineUserKey:key}}):await tx.customer.findUnique({where:{code:customerCode}});
   if(!key&&(!existing||existing.portalRegistrationPending))throw Error('UNAUTHORIZED');
   if(existing)await userLock(tx,'customer-profile:'+existing.code);
+  const username=input.username===undefined?existing?.portalUsername??null:customerUsername(input.username);
+  if(username){
+   await userLock(tx,'customer-username:'+username);
+   const owner=await tx.customer.findUnique({where:{portalUsername:username},select:{code:true}});
+   const reserved=await tx.customer.findUnique({where:{code:canonicalCustomerCode(username)},select:{code:true}});
+   if(owner&&owner.code!==existing?.code||reserved&&reserved.code!==existing?.code)throw Error('กรุณาเลือกชื่อผู้ใช้อื่น ชื่อนี้ถูกใช้แล้ว');
+  }
   for(const phone of validContactPhones(data.phone)!.sort())await userLock(tx,'draft-customer-phone:'+phone);
   let referrerId:string|null=null;
   if((!existing||existing.portalProfileIncomplete&&!existing.referrerId)&&input.referrerCode){
@@ -93,7 +102,7 @@ export async function savePortalProfile(key:string|null,input:Parameters<typeof 
   const matches=await matchingCustomerPhones(tx,data.phone);
   if(matches.some(row=>row.code!==existing?.code))throw Error('EXISTING_CUSTOMER');
   const identityKey=customerIdentity(data.name,data.phone);
-  const saved=existing?await tx.customer.update({where:{code:existing.code},data:{...data,identityKey,...(existing.portalProfileIncomplete?{portalProfileIncomplete:false,portalRegistrationPending:true,...(referrerId?{referrerId}:{})}:{})}}):await tx.customer.create({data:{...data,identityKey,lineUserKey:key,portalRegistrationPending:true,referrerId}});
+  const saved=existing?await tx.customer.update({where:{code:existing.code},data:{...data,identityKey,portalUsername:username,...(existing.portalProfileIncomplete?{portalProfileIncomplete:false,portalRegistrationPending:true,...(referrerId?{referrerId}:{})}:{})}}):await tx.customer.create({data:{...data,identityKey,portalUsername:username,lineUserKey:key,portalRegistrationPending:true,referrerId}});
   await tx.auditLog.create({data:{actor:'customer',action:existing?'CUSTOMER_PROFILE_UPDATED':'CUSTOMER_REGISTERED',entityId:saved.code,details:{source:'customer-portal'}}});
   return saved;
  });

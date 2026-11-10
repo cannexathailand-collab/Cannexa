@@ -642,3 +642,8 @@
  .customer-portal .portal-login-brand .store-brand{--store-logo-height:72px;--store-logo-width:144px;gap:12px}
  .portal-login-card h1{font-size:23px}
 }
+
+.portal-login-links{grid-column:1/-1;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:14px}
+.portal-login-links a{color:#efdaa1;text-decoration:underline;text-underline-offset:4px;padding:4px 0}
+
+.portal-line-qr{background:transparent!important;color:#f0e5c5!important;border:1px solid #b9cbbe!important;margin-top:10px}

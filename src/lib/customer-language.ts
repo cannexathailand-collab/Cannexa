@@ -3,6 +3,16 @@ export const customerLanguageCookie='cannexa_customer_language';
 export function readCustomerLanguage(value:string|undefined):CustomerLanguage|null{return value==='th'||value==='en'?value:null;}
 
 const english:Record<string,string>={
+ "เข้าใช้งานด้วยบัญชี LINE ได้ทันที":"Sign in directly with your LINE account",
+ "เข้าสู่ระบบด้วยบัญชีอื่น — สแกน QR Code":"Sign in with another account — scan QR code",
+ "สมัครสมาชิก":"Sign up",
+ "รหัสลูกค้า / ชื่อผู้ใช้":"Customer login ID / username",
+ "ชื่อผู้ใช้หรือรหัสลูกค้า":"Username or customer ID",
+ "ตัวอักษร ตัวเลข จุด ขีดกลาง หรือขีดล่าง 3–32 ตัว":"3–32 letters, numbers, dots, hyphens or underscores",
+ "กรุณากรอกชื่อผู้ใช้ให้ถูกต้อง":"Please enter a valid username",
+ "กรุณาตั้งชื่อผู้ใช้ 3–32 ตัว ใช้ตัวอักษร ตัวเลข จุด ขีดกลาง หรือขีดล่าง":"Use 3–32 letters, numbers, dots, hyphens or underscores for your username",
+ "กรุณาเลือกชื่อผู้ใช้อื่น ชื่อนี้สงวนไว้สำหรับระบบ":"Please choose another username. This name is reserved",
+ "กรุณาเลือกชื่อผู้ใช้อื่น ชื่อนี้ถูกใช้แล้ว":"Please choose another username. This name is already in use",
  "หยุดแสงวิ่ง":"Pause border light",
  "เปิดแสงวิ่ง":"Enable border light",
  "สมาชิกระดับพิเศษ":"Private membership",

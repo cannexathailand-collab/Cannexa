@@ -21,10 +21,10 @@ export async function OwnerCustomerView({params}:{params:{q?:string;customer?:st
  const selectedCode=typeof params.customer==='string'&&params.customer.length<=30?canonicalCustomerCode(params.customer):'';
  const [customers,selected]=await Promise.all([
   db.customer.findMany({
-   where:query?{OR:[{code:{contains:canonicalCustomerCode(query),mode:'insensitive'}},{name:{contains:query,mode:'insensitive'}},{phone:{contains:query}}]}:{},
+   where:query?{OR:[{code:{contains:canonicalCustomerCode(query),mode:'insensitive'}},{name:{contains:query,mode:'insensitive'}},{portalUsername:{contains:query.toLowerCase(),mode:'insensitive'}},{phone:{contains:query}}]}:{},
    select:{code:true,name:true},orderBy:{code:'asc'},take:30,
   }),
-  selectedCode?db.customer.findUnique({where:{code:selectedCode},select:{code:true,title:true,name:true,phone:true,address:true,portalRegistrationPending:true}}):Promise.resolve(null),
+  selectedCode?db.customer.findUnique({where:{code:selectedCode},select:{code:true,title:true,name:true,phone:true,address:true,portalRegistrationPending:true,portalUsername:true}}):Promise.resolve(null),
  ]);
  const [summaries,member]=selected?await Promise.all([
   loadCustomerCrm([selected.code]),
@@ -52,9 +52,9 @@ export async function OwnerCustomerView({params}:{params:{q?:string;customer?:st
    {!selectedCode&&<p>{t("กรุณาเลือกลูกค้าจากรายการ")}</p>}
   </section>
   {selected&&<>
-   <p className="portal-muted">{t("กำลังดู ")}{displayCustomerCode(selected.code)} · {selected.name??t('ยังไม่ระบุชื่อ')}{t(selected.portalRegistrationPending?' · รออนุมัติสมาชิก':'')}</p>
+   <p className="portal-muted">{t("กำลังดู ")}{(selected.portalUsername||displayCustomerCode(selected.code))} · {selected.name??t('ยังไม่ระบุชื่อ')}{t(selected.portalRegistrationPending?' · รออนุมัติสมาชิก':'')}</p>
    <div className="portal-member-overview">
-    <MemberCard level={member?.level??'Bronze'} name={[selected.title??'คุณ',selected.name].filter(Boolean).join(' ')} code={displayCustomerCode(selected.code)}/>
+    <MemberCard level={member?.level??'Bronze'} name={[selected.title??'คุณ',selected.name].filter(Boolean).join(' ')} code={(selected.portalUsername||displayCustomerCode(selected.code))}/>
     <section className="portal-coin-balance" aria-label={t("ยอด Green Coin")}><h2>Green Coin</h2><span className="portal-coin-mark" aria-hidden="true">G</span><strong>{balance.toLocaleString(locale)}</strong><span>{t("เหรียญคงเหลือ")}</span></section>
    </div>
    <CustomerPanels key={selected.code} readOnly shop={<CustomerShop customerCode={selected.code} initialCatalog={catalog!} readOnly/>} orders={<><CustomerWebsiteOrders customerCode={selected.code}/><CustomerOrderHistory history={summary?.allHistory??[]} title={t("ออเดอร์จัดส่ง")} emptyText={t("ยังไม่มีออเดอร์จัดส่ง")}/></>} profile={

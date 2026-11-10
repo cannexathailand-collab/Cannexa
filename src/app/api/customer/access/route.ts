@@ -1,3 +1,4 @@
+import {customerUsername} from '@/lib/customer-username';
 import {NextResponse} from 'next/server';
 import {cookies} from 'next/headers';
 import {sameOrigin,cookieOptions} from '@/lib/auth';
@@ -10,8 +11,14 @@ export async function POST(request:Request){
  const {key,customer}=await portalCustomer();if(!key)return NextResponse.json({error:'กรุณาเข้าสู่ระบบด้วย LINE'},{status:401});
  if(customer?.portalRegistrationPending||customer?.portalProfileIncomplete)return NextResponse.json({error:'กำลังรอร้านอนุมัติสมาชิก'},{status:403});
  if(!await limit('customer-code:'+key,20))return NextResponse.json({error:'กรุณารอสักครู่แล้วลองใหม่'},{status:429});
- let code:string;try{const input=await request.json();if(typeof input.code!=='string'||input.code.length>30)throw Error();code=canonicalCustomerCode(input.code);}catch{return NextResponse.json({error:'กรุณากรอกรหัสลูกค้า'},{status:400});}
- if(!customer||customer.code!==code)return NextResponse.json({error:'รหัสนี้ยังไม่เชื่อมกับบัญชี LINE ของคุณ กรุณาติดต่อร้านเพื่อยืนยันรหัสลูกค้า'},{status:409});
- (await cookies()).set('customer_password_step',signToken({purpose:'CUSTOMER_PASSWORD_STEP',key,code,exp:Date.now()+600000}),{...cookieOptions,maxAge:Math.min(portalDuration,600)});
+ let code:string,username:string|null=null;
+ try{
+  const input=await request.json();
+  if(typeof input.code!=='string'||input.code.length>32)throw Error();
+  code=canonicalCustomerCode(input.code);
+  try{username=customerUsername(input.code);}catch{}
+ }catch{return NextResponse.json({error:'กรุณากรอกรหัสลูกค้า'},{status:400});}
+ if(!customer||customer.code!==code&&(!username||customer.portalUsername!==username))return NextResponse.json({error:'รหัสนี้ยังไม่เชื่อมกับบัญชี LINE ของคุณ กรุณาติดต่อร้านเพื่อยืนยันรหัสลูกค้า'},{status:409});
+ (await cookies()).set('customer_password_step',signToken({purpose:'CUSTOMER_PASSWORD_STEP',key,code:customer.code,exp:Date.now()+600000}),{...cookieOptions,maxAge:Math.min(portalDuration,600)});
  return NextResponse.json({ok:true});
 }

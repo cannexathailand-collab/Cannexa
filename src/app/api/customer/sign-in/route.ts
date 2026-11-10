@@ -1,3 +1,4 @@
+import {customerUsername} from '@/lib/customer-username';
 import {NextResponse} from 'next/server';
 import {cookies} from 'next/headers';
 import {cookieOptions,sameOrigin} from '@/lib/auth';
@@ -20,9 +21,11 @@ export async function POST(request:Request){
  if(identifier.length>64)return invalid();
  const ownerLogin=!identifier||identifier.toLowerCase()==='owner';
  const code=canonicalCustomerCode(ownerLogin?'owner':identifier);
+ let username:string|null=null;
+ try{username=customerUsername(identifier);}catch{}
  const ip=(request.headers.get('x-forwarded-for')?.split(',')[0]??request.headers.get('x-real-ip')??'unknown').trim().slice(0,100);
  const ipAllowed=await limit('customer-sign-in-ip:'+userKey(ip),50);
- const codeAllowed=await limit('customer-sign-in-code:'+userKey(code),10);
+ const codeAllowed=await limit('customer-sign-in-code:'+userKey(username??code),10);
  if(!ipAllowed||!codeAllowed)return NextResponse.json({error:'กรุณารอสักครู่แล้วลองใหม่'},{status:429});
  if(ownerLogin){
   const owner=await account('owner');
@@ -35,8 +38,7 @@ export async function POST(request:Request){
   jar.delete(customerAgeCookie);
   return NextResponse.json({ok:true,redirect:'/customer'});
  }
- if(identifier.length>30)return invalid();
- const customer=await db.customer.findUnique({where:{code}});
+ const customer=(code.length<=30?await db.customer.findUnique({where:{code}}):null)??(username?await db.customer.findUnique({where:{portalUsername:username}}):null);
  const actual=passwordHash(input.password,customer?.portalPasswordSalt??'customer-sign-in-unavailable');
  if(!customer||customer.portalRegistrationPending||customer.portalProfileIncomplete||!customer.portalPasswordSalt||!customer.portalPasswordHash||!equal(actual,customer.portalPasswordHash))return invalid();
  const jar=await cookies();

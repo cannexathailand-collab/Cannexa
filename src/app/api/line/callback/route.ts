@@ -1,3 +1,4 @@
+import {customerLoginDestination,customerLoginPurposes} from '@/lib/customer-login-intent';
 import {NextRequest,NextResponse} from "next/server";
 import {consume} from "@/lib/oauth";
 import {exchange} from "@/lib/line";
@@ -20,10 +21,10 @@ export async function GET(req:NextRequest){
  try{
   if(/^[A-Za-z0-9_-]{40,100}$/.test(state)){
    const pending=await db.oAuthAttempt.findUnique({where:{stateHash:sha(state)},select:{purpose:true}});
-   customerLogin=pending?.purpose==='CUSTOMER';
+   customerLogin=customerLoginPurposes.some(purpose=>purpose===pending?.purpose);
    marketingLogin=pending?.purpose==='CUSTOMER_MARKETING'||pending?.purpose==='CUSTOMER_MARKETING_RECHECK';
   }
-  const a=await consume(state);clickId=a.clickId??undefined;customerLogin=a.purpose==='CUSTOMER';marketingLogin=a.purpose==='CUSTOMER_MARKETING'||a.purpose==='CUSTOMER_MARKETING_RECHECK';
+  const a=await consume(state);clickId=a.clickId??undefined;customerLogin=customerLoginPurposes.includes(a.purpose);marketingLogin=a.purpose==='CUSTOMER_MARKETING'||a.purpose==='CUSTOMER_MARKETING_RECHECK';
   if(req.nextUrl.searchParams.has("error"))throw new Error("Login declined");
   const code=req.nextUrl.searchParams.get("code");if(!code)throw new Error("Missing code");
   const connection=await lineSettings();
@@ -54,7 +55,8 @@ export async function GET(req:NextRequest){
   }
   if(customerLogin){
    const customer=await linkPortalCustomer(key,a.customerLinkHash);
-   const res=NextResponse.redirect(baseUrl()+'/customer');
+   const destination=customerLoginDestination(a.purpose,customer);
+   const res=NextResponse.redirect(baseUrl()+destination);
    res.cookies.set(portalCookie,portalToken(key),{...cookieOptions,maxAge:portalDuration});
    res.cookies.delete(portalPasswordCookie);
    res.cookies.delete('admin_session');
