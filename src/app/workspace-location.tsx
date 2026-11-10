@@ -13,4 +13,5 @@ pages['/admin/orders/create']=['ออเดอร์','สร้างออเ
 pages['/admin/orders/settings']=['ออเดอร์','ตั้งค่าปิดรอบ'];
 pages['/admin/orders/payment']=['ออเดอร์','ตั้งค่าการชำระเงิน'];
 pages['/admin/crm/customer-entry']=['CRM','ลูกค้า'];
+pages['/admin/crm/create']=['CRM','สมัครสมาชิกให้ลูกค้า'];
 export function WorkspaceLocation(){const path=usePathname(),parts=pages[path]??(path.startsWith('/admin/crm/')?['CRM','รายละเอียดลูกค้า']:path.startsWith('/admin/orders/list/')?['ออเดอร์','รายละเอียดออเดอร์']:path.startsWith('/admin/orders/')&&path.endsWith('/edit')?['ออเดอร์','แก้ไขออเดอร์']:path.startsWith('/admin/orders/')?['ออเดอร์','ตรวจสอบออเดอร์']:['Workspace','หน้าปัจจุบัน']);return <nav className="workspace-location" aria-label="ตำแหน่งหน้า"><Link href="/admin">หน้าหลัก</Link><span aria-hidden="true">/</span><span>{parts[0]}</span><span aria-hidden="true">/</span><strong>{parts[1]}</strong></nav>;}

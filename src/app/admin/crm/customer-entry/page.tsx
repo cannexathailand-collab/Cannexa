@@ -5,6 +5,7 @@ import {CustomerEntryLinks} from './customer-entry-links';
 import {marketingReport} from '@/lib/marketing-report';
 import {MarketingSummary} from './marketing-summary';
 import './customer-entry.css';
+import Link from 'next/link';
 
 export default async function CustomerEntryPage({searchParams}:{searchParams:Promise<{from?:string;to?:string}>}){
  await requireAdminPage(managers);
@@ -14,6 +15,7 @@ export default async function CustomerEntryPage({searchParams}:{searchParams:Pro
  return <>
   <h1>ลูกค้า</h1>
   <p>ลิงก์เข้าสู่หน้า Customer สำหรับส่งให้ลูกค้า</p>
+  <p><Link className="button" href="/admin/crm/create">สมัครสมาชิกให้ลูกค้า</Link></p>
   <CustomerEntryLinks baseUrl={baseUrl()}/>
   {invalidRange&&<p role="alert" className="notice">ช่วงวันที่ไม่ถูกต้อง กำลังแสดงข้อมูลวันนี้</p>}
   <MarketingSummary report={report}/>

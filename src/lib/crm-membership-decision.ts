@@ -1,6 +1,7 @@
 const levels=['ยังไม่เข้าเกณฑ์','Bronze','Silver','Gold','VIP Platinum'];
 const rank=(level:string)=>Math.max(0,levels.indexOf(level));
-export function membershipDecision(previous:{level:string;failedMonths:number},qualified:string,currentPasses:boolean,pendingCosts=false){
+export function membershipDecision(previous:{level:string;failedMonths:number;decision?:string},qualified:string,currentPasses:boolean,pendingCosts=false){
+ if(previous.decision==='MANUAL_LOCKED')return {level:previous.level,failedMonths:0,decision:'MANUAL_LOCKED'};
  if(pendingCosts)return {...previous,failedMonths:0,decision:'WAITING_COST'};
  if(rank(qualified)>rank(previous.level))return {level:qualified,failedMonths:0,decision:'UPGRADED'};
  if(rank(previous.level)===0)return {level:previous.level,failedMonths:0,decision:'KEPT'};
