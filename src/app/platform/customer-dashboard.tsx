@@ -43,10 +43,10 @@ export function PlatformCustomerDashboard({rows,shopId}:{rows:PlatformCustomerRo
    <article className="card"><span>ไม่ได้สั่งซื้อ 90 วันขึ้นไป</span><strong>{rows.filter(row=>row.inactive).length.toLocaleString('th-TH')}</strong><span>คน</span></article>
   </div>
   <div className="customer-kpis customer-sales" aria-label="ยอดขายจากลูกค้าทั้งหมดของร้าน">
-   <article className="card"><span>ยอดขายรวมของลูกค้า</span><strong>{money(sales.ordered)}</strong><small>รวมโอนและ COD ที่บันทึกยอดแล้ว</small>{sales.unknown>0&&<p className="notice">ยังไม่ทราบยอด {sales.unknown} ออเดอร์</p>}</article>
+   <article className="card"><span>ยอดขายรวมของลูกค้า</span><strong>{money(sales.ordered)}</strong><small>รวมยอดรับเงินสำเร็จและยอดรอรับเงิน ทั้งโอนและ COD</small>{sales.unknown>0&&<p className="notice">ยังไม่ทราบยอด {sales.unknown} ออเดอร์</p>}</article>
    <article className="card"><span>รับเงินสำเร็จ</span><strong>{money(sales.received)}</strong><small>จากออเดอร์ลูกค้าชุดเดียวกัน</small></article>
    <article className="card"><span>ยอดรอรับเงิน</span><strong>{money(sales.pending)}</strong><small>จากออเดอร์ลูกค้าชุดเดียวกัน</small></article>
-   <article className="card"><span>กำไรหลังต้นทุนสินค้า</span><strong>{sales.missing?'รอต้นทุนสินค้า':money(sales.profit)}</strong>{sales.missing>0&&<small>กำไรส่วนที่มีต้นทุนแล้ว {money(sales.profit)} · รอต้นทุน {sales.missing} ออเดอร์</small>}</article>
+   <article className="card"><span>กำไรหลังต้นทุนสินค้า</span><strong>{sales.missing?'รอต้นทุนสินค้า':money(sales.profit)}</strong><small>เฉพาะออเดอร์ที่รับเงินสำเร็จ</small>{sales.missing>0?<small>กำไรส่วนที่มีต้นทุนแล้ว {money(sales.profit)} · รอต้นทุน {sales.missing} ออเดอร์</small>:<small>รับเงิน {money(sales.received)} − ต้นทุนสินค้า {money(sales.received-sales.profit)}</small>}</article>
   </div>
   <section className="card customer-explorer"><div className="customer-explorer-heading"><h3>สำรวจข้อมูลลูกค้า</h3><span>ค้นหาและจัดเรียงได้ทันที</span></div><div className="customer-filters">
    <label>ค้นหาลูกค้า<input value={search} onChange={event=>{setSearch(event.target.value);setPage(1)}} placeholder="ชื่อ เบอร์โทร รหัส หรือที่อยู่"/></label>
