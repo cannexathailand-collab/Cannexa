@@ -6,6 +6,7 @@ import {requirePlatformAdministrator,shopDatabase} from '@/lib/platform-shops';
 import {bookedSalesReport} from '@/lib/booked-sales';
 import {accountingReport} from '@/lib/accounting-report';
 import {readStockSheet} from '@/lib/stock-google';
+import {customerAddress} from '@/lib/customer-address';
 import {loadCustomerCrm} from '@/lib/customer-crm';
 
 type Filters={view?:string;q?:string;page?:string;order?:string;customer?:string;from?:string;to?:string};
@@ -21,11 +22,13 @@ async function Customers({client,q,page,path,selected}:{client:PrismaClient;q:st
   const customer=await client.customer.findUnique({where:{code:selected}});
   if(!customer)return <section className="card"><p>ไม่พบลูกค้าในร้านนี้</p></section>;
   const data=(await loadCustomerCrm([customer.code],undefined,client)).get(customer.code)!;
-  return <section className="card"><h2>{customer.name||customer.code}</h2><p>{customer.code} · {customer.phone||'ไม่มีเบอร์โทร'}</p><p>{customer.address||'ไม่มีที่อยู่'}</p><p>ออเดอร์ {data.orderCount} ครั้ง · รับเงินสำเร็จ {money(data.purchasedSatang)} บาท</p><p>กำไรหลังต้นทุนสินค้า {data.pendingCostCount?'รอต้นทุนสินค้า':money(data.profitSatang)+' บาท'}</p><h3>ประวัติออเดอร์</h3>{data.allHistory.map(row=><p key={row.order.id}><Link href={path+'?'+new URLSearchParams({view:'orders',order:row.order.id})}>{row.order.orderNumber}</Link> · {row.order.eventAt.toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok'})} · {row.amountSatang===null?'ยังไม่ทราบยอด':money(row.amountSatang)+' บาท'} · {row.status}</p>)}{!data.allHistory.length&&<p>ยังไม่มีประวัติออเดอร์</p>}</section>;
+  const resolvedAddress=customerAddress(customer.address,data.allHistory.map(row=>row.order));
+  return <section className="card"><h2>{customer.name||customer.code}</h2><p>{customer.code} · {customer.phone||'ไม่มีเบอร์โทร'}</p><p>{resolvedAddress.address||'ไม่มีที่อยู่'}{resolvedAddress.source&&<small className="muted"> · จาก{resolvedAddress.source}</small>}</p><p>ยอดขายรวม {money(data.orderedSatang)} บาท · ยอดรอรับเงิน {money(data.pendingSatang)} บาท</p><p>ออเดอร์ {data.orderCount} ครั้ง · รับเงินสำเร็จ {money(data.purchasedSatang)} บาท</p><p>กำไรหลังต้นทุนสินค้า {data.pendingCostCount?'รอต้นทุนสินค้า':money(data.profitSatang)+' บาท'}</p><h3>ประวัติออเดอร์</h3>{data.allHistory.map(row=><p key={row.order.id}><Link href={path+'?'+new URLSearchParams({view:'orders',order:row.order.id})}>{row.order.orderNumber}</Link> · {row.order.eventAt.toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok'})} · {row.amountSatang===null?'ยังไม่ทราบยอด':money(row.amountSatang)+' บาท'} · {row.status}</p>)}{!data.allHistory.length&&<p>ยังไม่มีประวัติออเดอร์</p>}</section>;
  }
  const where=q?{OR:[{code:{contains:q,mode:'insensitive' as const}},{name:{contains:q,mode:'insensitive' as const}},{phone:{contains:q}}]}:{};
  const rows=await client.customer.findMany({where,skip:(page-1)*50,take:50,orderBy:[{createdAt:'desc'},{code:'asc'}],select:{code:true,name:true,phone:true,address:true}});
- return <section className="card"><h2>ข้อมูลลูกค้า</h2><div className="table-wrap"><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>โทรศัพท์</th><th>ที่อยู่</th></tr></thead><tbody>{rows.map(row=><tr key={row.code}><td>{row.code}</td><td>{row.name??'—'}</td><td>{row.phone??'—'}</td><td>{row.address??'—'}</td></tr>)}</tbody></table></div>{!rows.length&&<p>ไม่มีรายการในหน้านี้</p>}</section>;
+ const histories=await loadCustomerCrm(rows.map(row=>row.code),undefined,client);
+ return <section className="card"><h2>ข้อมูลลูกค้า</h2><div className="table-wrap"><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>โทรศัพท์</th><th>ที่อยู่</th></tr></thead><tbody>{rows.map(row=><tr key={row.code}><td>{row.code}</td><td>{row.name??'—'}</td><td>{row.phone??'—'}</td><td>{customerAddress(row.address,histories.get(row.code)!.allHistory.map(entry=>entry.order)).address??'—'}</td></tr>)}</tbody></table></div>{!rows.length&&<p>ไม่มีรายการในหน้านี้</p>}</section>;
 }
 async function Orders({client,q,page,path,selected}:{client:PrismaClient;q:string;page:number;path:string;selected?:string}){
  const where=q?{OR:[{orderNumber:{contains:q,mode:'insensitive' as const}},{recipient:{contains:q,mode:'insensitive' as const}},{phone:{contains:q}}]}:{};

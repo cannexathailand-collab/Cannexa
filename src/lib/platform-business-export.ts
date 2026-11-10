@@ -41,7 +41,8 @@ export async function platformBusinessWorkbook(shops:PlatformShop[]){
    row.lastOrderAt?new Date(row.lastOrderAt):null,row.lastPurchaseAt?new Date(row.lastPurchaseAt):null,
    row.daysSinceLastOrder,row.inactive?'ใช่':'ไม่',row.returnedCount,row.unknownAmountCount,
   ]));
-  for(const row of customers)sheets.customers.addRow([...prefix,row.code,row.name,row.phone,row.address,row.createdAt]);
+  const addresses=new Map(summaries.map(row=>[row.code,row.address]));
+  for(const row of customers)sheets.customers.addRow([...prefix,row.code,row.name,row.phone,addresses.get(row.code)??null,row.createdAt]);
   for(const row of orders)sheets.orders.addRow([...prefix,row.id,row.orderNumber,row.customerCode,row.sellerUsername,row.recipient,row.phone,row.address,row.payment,row.status,row.rawText,row.eventAt]);
   if(stock){for(const row of stock.products)sheets.stock.addRow([...prefix,row.code,row.name,row.remainingQuantity,row.costSatang]);}
   else{for(const row of await client.stockProduct.findMany({orderBy:{code:'asc'}}))sheets.stock.addRow([...prefix,row.code,row.name,row.remainingQuantity?.toNumber(),row.costSatang]);}
