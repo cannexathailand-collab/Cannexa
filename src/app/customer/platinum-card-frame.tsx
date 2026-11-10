@@ -38,7 +38,7 @@ export function PlatinumCardFrame({children}:{children:ReactNode}){
       <stop offset="0" stopColor="#d1e8ff"/><stop offset=".3" stopColor="#e9d3f5"/><stop offset=".6" stopColor="#fff0be"/><stop offset="1" stopColor="#b9f0e5"/>
      </linearGradient>
      <linearGradient id={sparkleId+'-letter-highlight'} gradientTransform="rotate(12 .5 .5)">
-      <stop offset="0" stopColor="#b9e3ff" stopOpacity="0"/><stop offset=".2" stopColor="#18394d" stopOpacity=".65"/><stop offset=".35" stopColor="#d6edff" stopOpacity=".75"/><stop offset=".5" stopColor="#fffdf0"/><stop offset=".65" stopColor="#f9d8e8" stopOpacity=".75"/><stop offset=".8" stopColor="#294a59" stopOpacity=".5"/><stop offset="1" stopColor="#fff2c5" stopOpacity="0"/>
+      <stop offset="0" stopColor="#b9e3ff" stopOpacity="0"/><stop offset=".2" stopColor="#162e3c" stopOpacity=".82"/><stop offset=".35" stopColor="#def2ff" stopOpacity=".88"/><stop offset=".47" stopColor="#ffffff"/><stop offset=".53" stopColor="#fffef4"/><stop offset=".65" stopColor="#f9d8e8" stopOpacity=".75"/><stop offset=".8" stopColor="#263b48" stopOpacity=".7"/><stop offset="1" stopColor="#fff2c5" stopOpacity="0"/>
      </linearGradient>
     </defs>
     <g mask={'url(#'+sparkleId+'-letter-mask)'}>
