@@ -14,7 +14,7 @@ import {lineCustomerDestination} from "@/lib/line-customer-destination";
 import {linkPortalCustomer,portalCookie,portalAccessCookie,portalAccessToken,portalToken,portalDuration,portalPasswordCookie} from '@/lib/customer-portal';
 import {cookieOptions} from '@/lib/auth';
 import {ownerEmployeeCookie} from '@/lib/employee-view';
-import {clearMarketingCustomerSessions,marketingCookie,marketingDuration,marketingPendingToken} from '@/lib/customer-marketing';
+import {clearMarketingCustomerSessions,marketingCookie} from '@/lib/customer-marketing';
 import {customerAgeCookie,customerAgeDuration,customerAgeToken} from '@/lib/customer-age';
 export async function GET(req:NextRequest){
  if(mockMode())return new Response("Real callback disabled in mock mode",{status:409});
@@ -46,13 +46,10 @@ export async function GET(req:NextRequest){
     if(browser?.purpose!=='CUSTOMER_MARKETING_RECHECK'||browser.clickId!==a.clickId||browser.key!==key||typeof browser.exp!=='number'||browser.exp<=Date.now()||browser.retries!==undefined&&browser.retries!==0&&browser.retries!==1)throw Error('Marketing identity changed');
    }
    const conversion=await recordLogin(a.clickId,key,result.friendFlag,changed==='true'?true:changed==='false'?false:null);
-   const destination=baseUrl()+(friendFlag===true?'/customer/age':'/marketing/connect');
-   const response=NextResponse.redirect(destination);
+   const response=NextResponse.redirect(baseUrl()+'/customer/age');
    clearMarketingCustomerSessions(response);
-   if(friendFlag===true){
-    response.cookies.set(customerAgeCookie,customerAgeToken(key,a.clickId,conversion.id),{...cookieOptions,maxAge:customerAgeDuration});
-    response.cookies.delete(marketingCookie);
-   }else response.cookies.set(marketingCookie,marketingPendingToken(a.clickId,key,1),{...cookieOptions,maxAge:marketingDuration});
+   response.cookies.set(customerAgeCookie,customerAgeToken(key,a.clickId,conversion.id,friendFlag===true),{...cookieOptions,maxAge:customerAgeDuration});
+   response.cookies.delete(marketingCookie);
    response.cookies.delete('oauth_'+sha(state).slice(0,16));
    return response;
   }

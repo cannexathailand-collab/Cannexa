@@ -15,19 +15,20 @@ test('age challenges bind a verified LINE identity and do not grant a portal ses
   assert.equal(claims.key, key);
   assert.equal(claims.clickId, 'marketing-click');
   assert.equal(claims.conversionId, 'existing-conversion');
-  assert.equal(claims.friendVerified, true);
+  assert.equal(claims.lineVerified, true);
+  assert.equal(claims.friendVerified, undefined);
   assert.ok(claims.exp >= before + customerAgeDuration * 1000);
   assert.ok(claims.exp <= Date.now() + customerAgeDuration * 1000);
   assert.equal(readPortalToken(token), null);
 });
 
-test('age challenges reject tampering, expiry, missing friendship proof and invalid identity', () => {
+test('age challenges reject tampering, expiry, missing LINE identity proof and invalid identity', () => {
   const claims = {
     purpose: 'CUSTOMER_MARKETING_AGE',
     key: 'a'.repeat(64),
     clickId: 'marketing-click',
     conversionId: 'existing-conversion',
-    friendVerified: true,
+    lineVerified: true,
     exp: Date.now() + 600000,
   };
 
@@ -35,12 +36,17 @@ test('age challenges reject tampering, expiry, missing friendship proof and inva
   for (const change of [
     {purpose: 'CUSTOMER_PORTAL'},
     {exp: Date.now() - 1},
-    {friendVerified: false},
-    {friendVerified: undefined},
+    {lineVerified: false},
+    {lineVerified: undefined},
     {key: 'another-customer'},
     {clickId: ''},
     {conversionId: '../another-conversion'},
   ]) {
     assert.equal(readCustomerAgeToken(signToken({...claims, ...change})), null);
   }
+});
+
+test('previously issued verified-friend age challenges remain valid',()=>{
+ const token=signToken({purpose:'CUSTOMER_MARKETING_AGE',key:'a'.repeat(64),clickId:'click',conversionId:'conversion',friendVerified:true,exp:Date.now()+60000});
+ assert.ok(readCustomerAgeToken(token));
 });

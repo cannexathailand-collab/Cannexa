@@ -8,17 +8,19 @@ type CustomerAgeChallenge = {
   key: string;
   clickId: string;
   conversionId: string;
-  friendVerified: true;
+  lineVerified?: true;
+  friendVerified?: true;
   exp: number;
 };
 
-export function customerAgeToken(key: string, clickId: string, conversionId: string) {
+export function customerAgeToken(key: string, clickId: string, conversionId: string, friendVerified=false) {
   return signToken({
     purpose: 'CUSTOMER_MARKETING_AGE',
     key,
     clickId,
     conversionId,
-    friendVerified: true,
+    lineVerified: true,
+    ...(friendVerified?{friendVerified:true}:{}),
     exp: Date.now() + customerAgeDuration * 1000,
   });
 }
@@ -27,7 +29,7 @@ export function readCustomerAgeToken(value: string) {
   const token = readToken<CustomerAgeChallenge>(value);
   if (
     token?.purpose !== 'CUSTOMER_MARKETING_AGE' ||
-    token.friendVerified !== true ||
+    (token.lineVerified !== true && token.friendVerified !== true) ||
     typeof token.key !== 'string' || !/^[a-f0-9]{64}$/.test(token.key) ||
     typeof token.clickId !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(token.clickId) ||
     typeof token.conversionId !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(token.conversionId) ||

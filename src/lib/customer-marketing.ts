@@ -10,7 +10,8 @@ import {metaAdCode} from './meta-ad';
 import {limit} from './rate-limit';
 import {portalAccessCookie,portalCookie,portalPasswordCookie} from './customer-portal';
 import {ownerEmployeeCookie} from './employee-view';
-import {customerAgeCookie} from './customer-age';
+import {customerAgeCookie,customerAgeDuration,customerAgeToken} from './customer-age';
+import {verifiedLineFriendship} from './line-friendship';
 
 export const marketingCookie='customer_marketing_pending';
 export const marketingDuration=600;
@@ -26,6 +27,14 @@ export function readMarketingPending(value:string){
  return retries===0||retries===1?{...token,retries}:null;
 }
 export async function marketingPending(){return readMarketingPending((await cookies()).get(marketingCookie)?.value??'');}
+export async function authenticatedMarketingChallenge(pending:MarketingPending){
+ const [click,conversion,friend]=await Promise.all([
+  db.click.findFirst({where:{id:pending.clickId,customerLanding:true,source:'LINE',userKey:pending.key},select:{id:true}}),
+  db.conversion.findUnique({where:{userKey:pending.key,source:'LINE'},select:{id:true}}),
+  verifiedLineFriendship(pending.key,null),
+ ]);
+ return click&&conversion?customerAgeToken(pending.key,click.id,conversion.id,friend===true):null;
+}
 export function clearMarketingCustomerSessions(response:NextResponse){
  for(const name of [portalCookie,portalAccessCookie,portalPasswordCookie,'customer_password_step','admin_session',ownerEmployeeCookie,customerAgeCookie])response.cookies.delete(name);
 }
@@ -41,25 +50,31 @@ export async function startCustomerMarketing(request:NextRequest,recheck=false){
  const fresh=request.nextUrl.searchParams.get('fresh')==='1';
  const pending=recheck||!fresh?readMarketingPending(request.cookies.get(marketingCookie)?.value??''):null;
  if(recheck&&!pending)return marketingFailure('expired');
- if(pending&&!recheck)return NextResponse.redirect(baseUrl()+'/marketing/connect');
+ if(pending){
+  const challenge=await authenticatedMarketingChallenge(pending);
+  if(challenge){
+   const response=NextResponse.redirect(baseUrl()+'/customer/age');
+   clearMarketingCustomerSessions(response);
+   response.cookies.delete(marketingCookie);
+   response.cookies.set(customerAgeCookie,challenge,{...cookieOptions,maxAge:customerAgeDuration});
+   return response;
+  }
+  return marketingFailure('expired');
+ }
  const link=await db.trackingLink.findFirst({where:{affiliate:{code:metaAdCode,active:true,archivedAt:null}}});
  if(!link)return marketingFailure('unavailable');
- if(!await limit('customer-marketing:'+(pending?.clickId??link.id),pending?10:5000)){
+ if(!await limit('customer-marketing:'+link.id,5000)){
   const response=new NextResponse('กรุณารอสักครู่แล้วลองใหม่',{status:429});
   clearMarketingCustomerSessions(response);return response;
  }
- const original=pending?await db.click.findFirst({where:{id:pending.clickId,customerLanding:true,userKey:pending.key,affiliateId:link.affiliateId}}):null;
- if(pending&&!original)return marketingFailure('expired');
  const state=random(),verifier=random(),nonce=random();
- const browser=pending?signToken({purpose:'CUSTOMER_MARKETING_RECHECK',clickId:pending.clickId,key:pending.key,retries:pending.retries,nonce:random(),exp:Date.now()+marketingDuration*1000}):random();
- const attempt={purpose:pending?'CUSTOMER_MARKETING_RECHECK':'CUSTOMER_MARKETING',lineRevision:connection.revision,stateHash:sha(state),browserHash:sha(browser),verifier,nonce,expiresAt:new Date(Date.now()+marketingDuration*1000)};
- if(original)await db.oAuthAttempt.create({data:{...attempt,clickId:original.id}});
- else await db.click.create({data:{affiliateId:link.affiliateId,linkId:link.id,source:'LINE',customerLanding:true,oauth:{create:attempt}}});
+ const browser=random();
+ const attempt={purpose:'CUSTOMER_MARKETING',lineRevision:connection.revision,stateHash:sha(state),browserHash:sha(browser),verifier,nonce,expiresAt:new Date(Date.now()+marketingDuration*1000)};
+ await db.click.create({data:{affiliateId:link.affiliateId,linkId:link.id,source:'LINE',customerLanding:true,oauth:{create:attempt}}});
  const authorization=new URL(authorizationUrl(state,nonce,verifier,connection.settings));
- if(recheck){authorization.searchParams.delete('prompt');authorization.searchParams.set('bot_prompt','normal');}
  const response=NextResponse.redirect(authorization);
  clearMarketingCustomerSessions(response);
- if(!pending)response.cookies.delete(marketingCookie);
+ response.cookies.delete(marketingCookie);
  response.cookies.set('oauth_'+sha(state).slice(0,16),browser,{...cookieOptions,maxAge:marketingDuration});
  return response;
 }

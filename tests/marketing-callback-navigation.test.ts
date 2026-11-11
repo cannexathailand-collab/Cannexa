@@ -31,7 +31,7 @@ for(const verifiedFriend of [true,false,null])test('marketing callback uses stab
  const source=ts.transpileModule(readFileSync('src/app/api/line/callback/route.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
  vm.runInNewContext(source,{exports,require:(name:string)=>{assert.ok(name in mocks,name);return mocks[name];},process:{env:{}}});
  const response=await exports.GET({nextUrl:new URL('https://example.test/api/line/callback?state='+'x'.repeat(43)+'&code=code'),cookies:{get:()=>undefined}});
- assert.equal(response.location,'https://example.test'+(verifiedFriend===true?'/customer/age':'/marketing/connect'));
- assert.equal(cookies.has('age'),verifiedFriend===true);assert.equal(recordedFriend,null);
+ assert.equal(response.location,'https://example.test/customer/age');
+ assert.equal(cookies.has('age'),true);assert.equal(recordedFriend,null);
  assert.equal(audits.length,1);assert.equal(JSON.parse(JSON.stringify(audits[0])).details.error,'HTTP_400');
 });
