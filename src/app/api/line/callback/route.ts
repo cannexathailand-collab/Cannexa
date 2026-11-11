@@ -1,5 +1,6 @@
 import {customerLoginDestination,customerLoginPurposes} from '@/lib/customer-login-intent';
 import {saveLineMessageRecipient} from '@/lib/line-message-recipient';
+import {verifiedLineFriendship} from '@/lib/line-friendship';
 import {NextRequest,NextResponse} from "next/server";
 import {consume} from "@/lib/oauth";
 import {exchange} from "@/lib/line";
@@ -33,22 +34,22 @@ export async function GET(req:NextRequest){
   const result=await exchange(code,a.verifier,a.nonce,connection.settings);
   const changed=req.nextUrl.searchParams.get("friendship_status_changed");
   const key=userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?result.userId:connection.settings.botId+":"+result.userId);
+  const friendFlag=marketingLogin?await verifiedLineFriendship(key,result.friendFlag):result.friendFlag;
   await saveLineMessageRecipient(key,connection.settings.botId,result.userId,{friendFlag:result.friendFlag});
+  if(result.friendshipError)await db.auditLog.create({data:{actor:'line-login',action:'LINE_FRIENDSHIP_CHECK_FAILED',entityId:key,details:{error:result.friendshipError}}});
   if(marketingLogin){
    if(!a.clickId)throw Error('Missing marketing click');
    const click=await db.click.findUnique({where:{id:a.clickId},select:{customerLanding:true}});
    if(!click?.customerLanding)throw Error('Invalid marketing click');
-   let retries=0;
    if(a.purpose==='CUSTOMER_MARKETING_RECHECK'){
     const browser=readToken<{purpose?:string;clickId?:string;key?:string;exp?:number;retries?:number}>(req.cookies.get('oauth_'+sha(state).slice(0,16))?.value??'');
     if(browser?.purpose!=='CUSTOMER_MARKETING_RECHECK'||browser.clickId!==a.clickId||browser.key!==key||typeof browser.exp!=='number'||browser.exp<=Date.now()||browser.retries!==undefined&&browser.retries!==0&&browser.retries!==1)throw Error('Marketing identity changed');
-    retries=browser.retries??0;
    }
    const conversion=await recordLogin(a.clickId,key,result.friendFlag,changed==='true'?true:changed==='false'?false:null);
-   const destination=result.friendFlag===true?baseUrl()+'/customer/age':retries===0?baseUrl()+'/marketing/recheck':lineCustomerDestination(connection.settings.basicId,false);
+   const destination=baseUrl()+(friendFlag===true?'/customer/age':'/marketing/connect');
    const response=NextResponse.redirect(destination);
    clearMarketingCustomerSessions(response);
-   if(result.friendFlag===true){
+   if(friendFlag===true){
     response.cookies.set(customerAgeCookie,customerAgeToken(key,a.clickId,conversion.id),{...cookieOptions,maxAge:customerAgeDuration});
     response.cookies.delete(marketingCookie);
    }else response.cookies.set(marketingCookie,marketingPendingToken(a.clickId,key,1),{...cookieOptions,maxAge:marketingDuration});

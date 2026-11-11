@@ -7,7 +7,8 @@ export async function exchange(code:string,verifier:string,nonce:string,settings
  const token=await request("https://api.line.me/oauth2/v2.1/token",{method:"POST",body:new URLSearchParams({grant_type:"authorization_code",code,redirect_uri:baseUrl()+"/api/line/callback",client_id:(settings?.loginId??env("LINE_LOGIN_CHANNEL_ID")),client_secret:(settings?.loginSecret??env("LINE_LOGIN_CHANNEL_SECRET")),code_verifier:verifier})});
  const id=await request("https://api.line.me/oauth2/v2.1/verify",{method:"POST",body:new URLSearchParams({id_token:token.id_token,client_id:(settings?.loginId??env("LINE_LOGIN_CHANNEL_ID")),nonce})});
  if(id.iss!=="https://access.line.me"||id.aud!==(settings?.loginId??env("LINE_LOGIN_CHANNEL_ID"))||id.nonce!==nonce||!id.sub||id.exp*1000<=Date.now())throw new Error("Invalid ID token");
- let friendFlag:boolean|null=null;
- try{const f=await request("https://api.line.me/friendship/v1/status",{headers:{Authorization:"Bearer "+token.access_token}});if(typeof f.friendFlag==="boolean")friendFlag=f.friendFlag;}catch{}
- return {userId:String(id.sub),friendFlag};
+ let friendFlag:boolean|null=null,friendshipError:string|null=null;
+ try{const f=await request("https://api.line.me/friendship/v1/status",{headers:{Authorization:"Bearer "+token.access_token}});if(typeof f.friendFlag==="boolean")friendFlag=f.friendFlag;else friendshipError='INVALID_RESPONSE';}
+ catch(error){const status=error instanceof Error?error.message.match(/^LINE API error (\d{3})$/)?.[1]:undefined;friendshipError=status?'HTTP_'+status:'NETWORK_ERROR';}
+ return {userId:String(id.sub),friendFlag,friendshipError};
 }
