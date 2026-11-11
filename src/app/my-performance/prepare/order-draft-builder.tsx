@@ -7,6 +7,7 @@ import {useRouter} from 'next/navigation';
 import {defaultOrderTemplate,draftFields,emptyOrderDraft,analyzeOrderDraft,orderDraftIssues,renderOrderDraft,differentDraftAddress,type OrderDraft} from '@/lib/order-draft';
 import {orderStockItems} from '@/lib/order-stock-items';
 import {moneySatang} from '@/lib/shipment-matching';
+import {validContactPhones} from '@/lib/contact-phones';
 type Template={id:string;name:string;body:string};
 type CustomerOption={customerCode:string;recipient:string;phone:string};
 const columns=(Object.keys(draftFields) as (keyof OrderDraft)[]);
@@ -42,7 +43,7 @@ export function OrderDraftBuilder({seller,initialTemplates,canManage=false,direc
  const slipReader=useRef<FileReader|null>(null);
  useEffect(()=>{if(resultVisible&&ready&&!busy&&!resultDialog.current?.open)resultDialog.current?.showModal();else if(!resultVisible)resultDialog.current?.close();},[resultVisible,ready,busy]);
  const dataIssues=[...orderDraftIssues(draft,{requireCustomerCode:false}),...Object.values(parseIssues),...(directOrders&&draft.payment==='เคลม'?['เลือกชำระเงินเป็น COD หรือโอน']:[]),...(lookupIssue?[lookupIssue]:[]),...(addressComparison&&!addressChoice?['เลือกที่อยู่จัดส่งจากสองรายการก่อนคัดลอก']:[])];
- const customerPromptReady=!draft.customerCode&&dataIssues.length===0;
+ const customerPromptReady=!draft.customerCode&&!!validContactPhones(draft.phone);
  useEffect(()=>{if(resultVisible&&ready&&!busy&&customerPromptReady&&!identityBusy&&(identityStatus==='none'||identityStatus==='found')){if(!customerDialog.current?.open)customerDialog.current?.showModal();}else customerDialog.current?.close();},[resultVisible,ready,busy,customerPromptReady,identityStatus,identityBusy]);
  useEffect(()=>{if(creationResult){if(!successDialog.current?.open)successDialog.current?.showModal();}else successDialog.current?.close();},[creationResult]);
  useEffect(()=>{
@@ -71,7 +72,7 @@ export function OrderDraftBuilder({seller,initialTemplates,canManage=false,direc
  function dismissCustomer(){setIdentityStatus('dismissed');customerDialog.current?.close();}
  function openCustomer(){
   if(lookupIssue){setLookup('');setLookupIssue('');setDraft(d=>({...d,customerCode:'',points:''}));setParseIssues(p=>{const next={...p};delete next.customerCode;return next;});setIdentityStatus('idle');setIdentityRequest(value=>value+1);return;}
-  if(dataIssues.length){setNotice('ยังสร้างรหัสลูกค้าไม่ได้: '+dataIssues.join(' · '));return;}
+  if(!validContactPhones(draft.phone)){setNotice('กรุณากรอกเบอร์โทรลูกค้าให้ครบก่อนค้นหาหรือสร้างรหัส');return;}
   if(identityStatus==='idle'||identityStatus==='error'){setIdentityRequest(value=>value+1);return;}
   setIdentityStatus(customerOptions.length?'found':'none');
  }
@@ -146,7 +147,11 @@ export function OrderDraftBuilder({seller,initialTemplates,canManage=false,direc
    {notice&&<p className="draft-notice" role="status">{notice}</p>}
    {customerPromptReady&&identityBusy&&<p role="status">กำลังค้นหาลูกค้าจากเบอร์โทร…</p>}
    {customerPromptReady&&identityStatus==='error'&&<p role="alert">{identityError} กรุณากดตรวจสอบและจัดข้อมูลอีกครั้ง ยังไม่สามารถสร้างลูกค้าได้จนกว่าจะค้นหาสำเร็จ</p>}
-   {draft.customerCode&&!lookupIssue&&<CustomerLineLink key={draft.customerCode} code={draft.customerCode} active={resultVisible}/>}
+   {draft.customerCode&&!lookupIssue?<CustomerLineLink key={draft.customerCode} code={draft.customerCode} active={resultVisible}/>:<section className="draft-line-link" aria-label="ผูก LINE ของลูกค้า">
+    <div className="draft-line-link-heading"><strong>ผูก LINE ของลูกค้า</strong><span role="status">{identityBusy?'กำลังค้นหาจากเบอร์โทร…':'เลือกลูกค้าก่อนสร้างลิงก์'}</span></div>
+    <p>ใช้เบอร์โทรค้นหาสมาชิกเดิม หรือสร้างสมาชิกก่อนคัดลอกลิงก์ผูก LINE</p>
+    <button type="button" disabled={identityBusy} onClick={openCustomer}>เลือกหรือสร้างลูกค้า</button>
+   </section>}
    {formatIssues.length>0&&<div className="draft-format-alert" role="alert"><strong>กรุณาตรวจสอบข้อมูล</strong><ul>{formatIssues.map(issue=><li key={issue}>{issue}</li>)}</ul></div>}
    {addressComparison&&<fieldset className="draft-address-compare"><legend>ที่อยู่ในข้อความต่างจากข้อมูลเดิม</legend><p>ลูกค้าอาจส่งไปที่อยู่ใหม่ โปรดเลือกที่อยู่สำหรับออเดอร์นี้</p><div>{([['incoming','ใช้ที่อยู่จากข้อความลูกค้า',addressComparison.incoming],['stored','ใช้ที่อยู่ที่บันทึกไว้',addressComparison.stored]] as const).map(([choice,label,address])=><label key={choice} className={addressChoice===choice?'selected':''}><span><input type="radio" name="address-choice" checked={addressChoice===choice} onChange={()=>{setAddressChoice(choice);setDraft(d=>({...d,address}));setCopied(false);}}/>{label}</span><pre>{address}</pre></label>)}</div>{addressChoice==='custom'&&<p>ใช้ที่อยู่ที่คุณแก้ไขในคอลัมน์ด้านล่าง</p>}<small>การเลือกนี้ใช้เฉพาะข้อความส่งงาน ไม่เปลี่ยนที่อยู่เดิมในระบบ</small></fieldset>}
    <table><thead><tr><th>หัวข้อ</th><th>ข้อมูลสำหรับส่งงาน <span>แก้ไขได้</span></th></tr></thead><tbody>{columns.map(key=><tr key={key} className={!draft[key]&&key!=='points'?'draft-missing':''}><th scope="row">{draftFields[key]}{key==='customerCode'&&<small>จำเป็น</small>}</th><td>{key==='payment'?<select aria-label={draftFields[key]} disabled={directSaving||!!directSaved} value={draft[key]} onChange={e=>field(key,e.target.value)}><option value="">เลือกวิธีชำระเงิน</option><option>COD</option><option>โอน</option>{!directOrders&&<option>เคลม</option>}</select>:key==='address'||key==='products'?<textarea aria-label={draftFields[key]} disabled={directSaving||!!directSaved} rows={key==='address'?3:2} value={draft[key]} onChange={e=>field(key,e.target.value)} maxLength={2000}/>:<input aria-label={draftFields[key]} disabled={directSaving||!!directSaved} list={directOrders&&key==='seller'?'direct-order-sellers':undefined} readOnly={key==='points'||key==='customerCode'||key==='seller'&&directOrders?.lockSeller} placeholder={key==='points'?'รอดึงข้อมูลลูกค้า':undefined} type={key==='amount'?'number':key==='phone'?'tel':'text'} inputMode={key==='amount'?'decimal':undefined} min={key==='amount'?'0':undefined} step={key==='amount'?'0.01':undefined} value={draft[key]} onChange={e=>field(key,e.target.value)} maxLength={key==='amount'?undefined:200}/>}</td></tr>)}</tbody></table>
