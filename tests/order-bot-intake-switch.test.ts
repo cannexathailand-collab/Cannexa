@@ -25,7 +25,6 @@ function webhook(file:string,receiveOrders:boolean){
   '@/lib/stock-dispatch':{processPendingStockDispatches:async()=>{}},
   '@/lib/stock-flow':{processPendingReservations:async()=>{},queueStockOrder:async()=>{}},
   '@/lib/tracking':{webhook:async()=>{}},
-  '@/lib/customer-code-message':{replyCustomerCode:async()=>{}},
  };
  const exports:Record<string,any>={};
  const source=ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
@@ -49,6 +48,13 @@ for(const file of ['src/app/api/line/webhook/route.ts','src/app/api/line/orders/
 test('verified direct messages and follow events save a LINE recipient',async()=>{
  const {calls,post}=webhook('src/app/api/line/webhook/route.ts',false);
  const events=['message','follow'].map((type,index)=>({webhookEventId:'event-'+index,type,timestamp:1,source:{type:'user',userId:'test-user'},...(type==='message'?{message:{type:'text',id:'message',text:'hello'}}:{})}));
+ const response=await post(new Request('https://example.test/webhook',{method:'POST',body:JSON.stringify({destination:'bot',events})}));
+ assert.equal(response.status,200);assert.equal(calls.recipients,2);
+});
+
+test('member-code requests and new follows do not send retired code messages',async()=>{
+ const {calls,post}=webhook('src/app/api/line/webhook/route.ts',false);
+ const events=[{webhookEventId:'code-request',type:'message',timestamp:1,replyToken:'reply',source:{type:'user',userId:'test-user'},message:{type:'text',id:'message',text:'รหัสลูกค้า'}},{webhookEventId:'follow',type:'follow',timestamp:2,replyToken:'reply',source:{type:'user',userId:'test-user'}}];
  const response=await post(new Request('https://example.test/webhook',{method:'POST',body:JSON.stringify({destination:'bot',events})}));
  assert.equal(response.status,200);assert.equal(calls.recipients,2);
 });
