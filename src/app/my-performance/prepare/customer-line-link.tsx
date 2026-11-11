@@ -45,7 +45,7 @@ export function CustomerLineLink({code,active}:{code:string;active:boolean}){
    }}>{busy?'กำลังสร้างลิงก์…':url?'คัดลอกลิงก์ผูก LINE':'สร้างลิงก์ผูก LINE'}</button>
    <button type="button" className="secondary" disabled={busy} onClick={()=>void refresh()}>ตรวจสถานะอีกครั้ง</button>
   </div>}
-  {url&&!linked&&<><label>ลิงก์ส่วนตัวของลูกค้ารายนี้<input readOnly value={url} onFocus={event=>event.currentTarget.select()}/></label><small>ใช้ได้ครั้งเดียวภายใน 24 ชั่วโมง ระบบจะตรวจสถานะให้ขณะเปิดหน้านี้</small></>}
+  {url&&!linked&&<><label>ลิงก์ส่วนตัวของลูกค้ารายนี้<input readOnly value={url} onFocus={event=>event.currentTarget.select()}/></label><small>ใช้ได้ครั้งเดียวภายใน 48 ชั่วโมง ระบบจะตรวจสถานะให้ขณะเปิดหน้านี้</small></>}
   {notice&&!linked&&<p role="status">{notice}</p>}
   {error&&<p role="alert">{error} <button type="button" className="secondary" onClick={()=>void refresh()}>ลองตรวจอีกครั้ง</button></p>}
  </section>;

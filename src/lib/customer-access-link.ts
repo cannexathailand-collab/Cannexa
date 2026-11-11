@@ -5,7 +5,7 @@ import {canonicalCustomerCode} from './customer-code';
 
 export async function createCustomerAccessLink(input:string,actor:string){
  const code=canonicalCustomerCode(input);
- const token=random(),expiresAt=new Date(Date.now()+86400000);
+ const token=random(),expiresAt=new Date(Date.now()+48*60*60*1000);
  await transaction(async tx=>{
   await userLock(tx,'customer-profile:'+code);
   await userLock(tx,'customer-access:'+code);
