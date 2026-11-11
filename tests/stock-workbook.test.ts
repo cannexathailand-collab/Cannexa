@@ -33,10 +33,19 @@ test('system workbook supports new products, sorting, history tabs and row delet
  const receipt=stockReceiptPlan({requestKey:'new',code:'A0',name:'New',cost:3,quantity:10,prices:[]},source(state));
  state=applyWorkbookRequests(state,receipt.requests);
  assert.deepEqual(source(state).products.map(p=>p.code),['A0','A1']);
+ assert.deepEqual(state,JSON.parse(JSON.stringify(state)),'sorting must leave dense, JSON-safe cell arrays');
  state=applyWorkbookRequests(state,[{addSheet:{properties:{sheetId:2,title:'Archive',gridProperties:{columnCount:10,rowCount:100}}}},{appendCells:{sheetId:2,rows:[{values:[{userEnteredValue:{stringValue:'saved'}}]}]}}]);
  assert.deepEqual((readWorkbook(state,'/values/Archive!A1:J10') as any).values,[['saved']]);
  state=applyWorkbookRequests(state,[{deleteDimension:{range:{sheetId:1,dimension:'ROWS',startIndex:2,endIndex:3}}}]);
  assert.deepEqual(source(state).products.map(p=>p.code),['A1']);
+});
+
+test('writing past short rows pads missing rows and columns with JSON-safe blanks',()=>{
+ const state=applyWorkbookRequests(fixture(),[{updateCells:{start:{sheetId:1,rowIndex:5,columnIndex:20},rows:[{values:[{userEnteredValue:{numberValue:7}}]}],fields:'userEnteredValue'}}]);
+ assert.deepEqual(state.sheets[0].rows[3],[]);
+ assert.deepEqual(state.sheets[0].rows[4],[]);
+ assert.deepEqual(state.sheets[0].rows[5],Array(20).fill(null).concat(7));
+ assert.deepEqual(state,JSON.parse(JSON.stringify(state)));
 });
 
 test('managed sheet protection restricts editing to the service account',()=>{

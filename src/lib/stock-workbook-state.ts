@@ -66,8 +66,14 @@ export function applyWorkbookRequests(original:StockWorkbookState,requests:Recor
    const update=request.updateCells,start=update.start??{sheetId:update.range.sheetId,rowIndex:update.range.startRowIndex??0,columnIndex:update.range.startColumnIndex??0};
    const sheet=workbookSheet(state,start.sheetId);
    for(const [i,row] of (update.rows??[]).entries()){
-    const index=(start.rowIndex??0)+i;sheet.rows[index]??=[];
-    for(const [j,cell] of (row.values??[]).entries())sheet.rows[index][(start.columnIndex??0)+j]=cellValue(cell);
+    const index=(start.rowIndex??0)+i;
+    while(sheet.rows.length<=index)sheet.rows.push([]);
+    sheet.rows[index]??=[];
+    for(const [j,cell] of (row.values??[]).entries()){
+     const column=(start.columnIndex??0)+j;
+     while(sheet.rows[index].length<column)sheet.rows[index].push(null);
+     sheet.rows[index][column]=cellValue(cell);
+    }
    }
    sheet.properties.gridProperties.rowCount=Math.max(sheet.properties.gridProperties.rowCount,sheet.rows.length);
   }else if(request.appendCells){const append=request.appendCells,sheet=workbookSheet(state,append.sheetId);sheet.rows.push(...append.rows.map((row:any)=>row.values.map(cellValue)));sheet.properties.gridProperties.rowCount=Math.max(sheet.properties.gridProperties.rowCount,sheet.rows.length);
