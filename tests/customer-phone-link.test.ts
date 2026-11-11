@@ -12,7 +12,9 @@ function fixture(){
  return {key,current,target,tx,writes};
 }
 test('unique phone linking preserves the existing customer and removes only an empty signup',async()=>{
- const f=fixture(),saved=await linkCustomerPhoneMatch(f.tx,f.current,'OLD',f.key,'0812345678',{discoverySource:'OTHER',referrerId:'new-referrer'});
+ const f=fixture(),saved=await linkCustomerPhoneMatch(f.tx,f.current,'OLD',f.key,'0812345678',{discoverySource:'OTHER',referrerId:'new-referrer',customerCategory:'SHOP',businessLicenseNumber:'LICENSE-123'});
+ assert.equal(saved.customerCategory,'SHOP');
+ assert.equal(saved.businessLicenseNumber,'LICENSE-123');
  assert.equal(saved.code,'OLD');assert.equal(saved.lineUserKey,f.key);assert.equal(saved.name,'Existing customer');assert.equal(saved.address,'Existing address');assert.equal(saved.referrerId,'existing-referrer');assert.equal(saved.discoverySource,'LINE');assert.equal(saved.registeredAt,f.target.registeredAt);
  assert.deepEqual(f.writes[0],{code:'NEW',data:{lineUserKey:null}});assert.deepEqual(f.writes.at(-1),{deleted:'NEW'});
 });

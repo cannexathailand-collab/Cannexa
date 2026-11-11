@@ -198,6 +198,8 @@ model CustomerLineMessage {
 }
 
 model Customer {
+ customerCategory String?
+ businessLicenseNumber String?
  portalRegistrationPending Boolean @default(false)
  portalProfileIncomplete Boolean @default(false)
  portalUsername String? @unique

@@ -1,12 +1,13 @@
 'use client';
 import {useCustomerLanguage} from '@/app/customer/language';
 import {customerDiscoverySources} from '@/lib/customer-discovery-source';
+import {customerCategories} from '@/lib/customer-category';
 import {validContactPhones} from '@/lib/contact-phones';
 
 import {useEffect,useRef,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {CustomerCodeForm} from './code-form';
-export function ProfileForm({initial,registered,completeProfile=false,savedAddresses=[]}:{initial:{username?:string;title:string;name:string;phone:string;address:string;discoverySource?:string};registered:boolean;completeProfile?:boolean;savedAddresses?:{id:string;name:string;phone:string;address:string}[]}){
+export function ProfileForm({initial,registered,completeProfile=false,savedAddresses=[]}:{initial:{username?:string;title:string;name:string;phone:string;address:string;discoverySource?:string;customerCategory?:string;businessLicenseNumber?:string};registered:boolean;completeProfile?:boolean;savedAddresses?:{id:string;name:string;phone:string;address:string}[]}){
  const {t}=useCustomerLanguage();
  const router=useRouter();const [busy,setBusy]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState(false);
  const [ready,setReady]=useState(false);
@@ -31,11 +32,14 @@ export function ProfileForm({initial,registered,completeProfile=false,savedAddre
  }
  useEffect(()=>setReady(true),[]);
  const [accountHistory,setAccountHistory]=useState(completeProfile?'new':'');
+ const [category,setCategory]=useState(initial.customerCategory||'GENERAL');
 
  if(!registered&&accountHistory!=='new')return <div className="portal-profile"><label htmlFor="account-history">{t("คุณเคยมีบัญชีกับเราแล้วหรือยัง")}</label><select id="account-history" disabled={!ready} value={accountHistory} onChange={event=>setAccountHistory(event.target.value)}><option value="">{t("กรุณาเลือก")}</option><option value="existing">{t("เคยมีแล้ว")}</option><option value="new">{t("ยังไม่เคยมี")}</option></select>{accountHistory==='existing'&&<><p>{t("กรอกรหัสลูกค้าเดิม หากเปลี่ยนบัญชี LINE ให้ติดต่อร้านเพื่อยืนยันการเชื่อมบัญชีเดิม")}</p><CustomerCodeForm/></>}</div>;
  return <div className={registered?"portal-address-layout":undefined}>{registered&&<section className="portal-saved-addresses"><div className="portal-address-heading"><h3>{t("ที่อยู่จัดส่งที่บันทึกไว้")}</h3></div>{savedAddresses.length>0?<div className="portal-address-list">{savedAddresses.map(address=><article key={address.id} className={selectedAddressId===address.id?"is-selected":""}><div><strong>{address.name}</strong><p>{address.address}</p><ul className="portal-address-phones">{(validContactPhones(address.phone)??[address.phone]).map((phone,index)=><li key={phone}><span>{t(index?"เบอร์สำรอง":"เบอร์โทร")}{index?` ${index}`:""}</span> {phone}</li>)}</ul></div><button type="button" aria-pressed={selectedAddressId===address.id} aria-busy={choosingId===address.id} disabled={!ready||busy} onClick={()=>selectAddress(address)}>{t("ใช้ที่อยู่นี้")}</button></article>)}</div>:<p className="portal-muted">{t("ยังไม่มีที่อยู่จัดส่งที่บันทึกไว้")}</p>}{selectionError&&<p className="portal-alert" role="alert">{t(selectionError)}</p>}</section>}<form ref={formRef} className={registered?"portal-profile portal-address-form":"portal-profile"} onChange={()=>setSaved(false)} method="post" action="/api/customer/profile" onSubmit={async event=>{event.preventDefault();if(busy)return;const form=new FormData(event.currentTarget);const payload=Object.fromEntries(form);if(registered){payload.phone=deliveryPhones.map(phone=>phone.trim()).filter(Boolean).join(' / ');delete payload.backupPhone;}setBusy(true);setError('');setSaved(false);try{const response=await fetch('/api/customer/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(15000)});const result=await response.json();if(!response.ok)throw Error(result.error||'บันทึกไม่สำเร็จ');if(!registered){window.location.assign('/customer');return;}setDeliveryPhones(['']);for(const field of ['name','address']){const input=formRef.current?.elements.namedItem(field) as HTMLInputElement|HTMLTextAreaElement|null;if(input)input.value='';}setSaved(true);router.refresh();}catch(e){setError(e instanceof Error?e.message:'บันทึกไม่สำเร็จ กรุณาลองใหม่');}finally{setBusy(false);}}}>
   {registered&&<><div className="portal-address-form-heading"><h3>{t("เพิ่มที่อยู่จัดส่ง")}</h3></div><input type="hidden" name="title" value={initial.title||'คุณ'}/></>}
   {completeProfile&&<label>{t("เบอร์โทร")}<input name="phone" type="tel" autoComplete="tel" inputMode="tel" maxLength={20} defaultValue={initial.phone} placeholder="0812345678" required/></label>}
+  {completeProfile&&<label>{t("ประเภทลูกค้า")}<select name="customerCategory" required value={category} onChange={event=>setCategory(event.target.value)} disabled={!ready||busy}>{Object.entries(customerCategories).map(([value,label])=><option value={value} key={value}>{t(label)}</option>)}</select></label>}
+  {completeProfile&&category==='SHOP'&&<label>{t("เลขที่ใบอนุญาต")}<input name="businessLicenseNumber" defaultValue={initial.businessLicenseNumber??''} maxLength={100} required autoComplete="off"/></label>}
   {completeProfile&&<p className="portal-muted">{t("หากเบอร์ตรงกับลูกค้าเดิมเพียงรายเดียวและยังไม่ผูก LINE ระบบจะใช้รหัสและประวัติเดิมให้อัตโนมัติ")}</p>}
   {!completeProfile&&<fieldset className="portal-profile-fields" disabled={!ready||busy}>
   {!registered&&!completeProfile&&<><label htmlFor="account-history">{t("คุณเคยมีบัญชีกับเราแล้วหรือยัง")}</label><select id="account-history" disabled={!ready} value={accountHistory} onChange={event=>setAccountHistory(event.target.value)}><option value="existing">{t("เคยมีแล้ว")}</option><option value="new">{t("ยังไม่เคยมี")}</option></select></>}

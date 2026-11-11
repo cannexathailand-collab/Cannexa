@@ -1,4 +1,5 @@
 import {validContactPhones} from '@/lib/contact-phones';
+import {customerCategory} from '@/lib/customer-category';
 import {NextResponse} from 'next/server';
 import {sameOrigin} from '@/lib/auth';
 import {portalCustomer,hasPortalAccess,savePortalProfile,savePortalPhone} from '@/lib/customer-portal';
@@ -13,7 +14,8 @@ export async function POST(req:Request){
  let input;try{const text=await req.text();if(text.length>10000)throw Error();input=JSON.parse(text);if(!input||typeof input!=='object')throw Error();}catch{return NextResponse.json({error:'ข้อมูลไม่ถูกต้อง'},{status:400});}
  try{
   if(customer&&typeof input.phone==='string'&&!('name' in input)&&!('address' in input)&&!('houseNumber' in input)){
-   const saved=await savePortalPhone(key,input.phone,method==='password'?customer.code:undefined,input.discoverySource,input.referrerCode);
+   const category=customerCategory(input.customerCategory??'GENERAL');
+   const saved=await savePortalPhone(key,input.phone,method==='password'?customer.code:undefined,input.discoverySource,input.referrerCode,category,input.businessLicenseNumber);
    return NextResponse.json({ok:true,pending:saved.portalRegistrationPending});
   }
   if(typeof input.title!=='string'||!input.title.trim())return NextResponse.json({error:'กรุณากรอกคำนำหน้า'},{status:400});

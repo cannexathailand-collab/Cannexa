@@ -1,6 +1,7 @@
 import {customerUsername} from './customer-username';
 import {customerLineRevocationId} from './customer-line-relink';
 import {linkCustomerPhoneMatch} from './customer-phone-link';
+import {customerCategory,customerLicenseNumber} from './customer-category';
 import {customerDiscoverySource} from './customer-discovery-source';
 import {saveCustomerDeliveryAddresses} from './customer-delivery-addresses';
 import type {Prisma} from '@prisma/client';
@@ -147,7 +148,9 @@ export async function savePortalProfile(key:string|null,input:Parameters<typeof 
  });
 }
 
-export async function savePortalPhone(key:string|null,phoneInput:unknown,customerCode?:string,sourceInput?:unknown,referrerInput?:unknown){
+export async function savePortalPhone(key:string|null,phoneInput:unknown,customerCode?:string,sourceInput?:unknown,referrerInput?:unknown,categoryInput?:unknown,licenseInput?:unknown){
+ const category=customerCategory(categoryInput);
+ const businessLicenseNumber=customerLicenseNumber(category,licenseInput);
  const discoverySource=customerDiscoverySource(sourceInput);
  const phones=typeof phoneInput==='string'?validContactPhones(phoneInput):null;
  if(!phones||phones.length!==1)throw Error('กรุณากรอกเบอร์โทรให้ครบ 10 หลัก');
@@ -169,9 +172,9 @@ export async function savePortalPhone(key:string|null,phoneInput:unknown,custome
   if(otherMatches.length){
    if(!key)throw Error('EXISTING_CUSTOMER');
    if(otherMatches.length!==1)throw Error('PHONE_MATCH_AMBIGUOUS');
-   return linkCustomerPhoneMatch(tx,customer,otherMatches[0].code,key,phone,{discoverySource,referrerId});
+   return linkCustomerPhoneMatch(tx,customer,otherMatches[0].code,key,phone,{discoverySource,referrerId,customerCategory:category,businessLicenseNumber});
   }
-  const saved=await tx.customer.update({where:{code:customer.code},data:{phone,registeredAt:customer.registeredAt??new Date(),registrationPhone:customer.registrationPhone??phone,referrerId,...(discoverySource===undefined?{}:{discoverySource}),portalProfileIncomplete:false,portalRegistrationPending:false}});
+  const saved=await tx.customer.update({where:{code:customer.code},data:{phone,...(category===undefined?{}:{customerCategory:category,businessLicenseNumber}),registeredAt:customer.registeredAt??new Date(),registrationPhone:customer.registrationPhone??phone,referrerId,...(discoverySource===undefined?{}:{discoverySource}),portalProfileIncomplete:false,portalRegistrationPending:false}});
   await tx.auditLog.create({data:{actor:'customer',action:'CUSTOMER_PHONE_REGISTERED',entityId:saved.code,details:{source:key?'line-login':'password-login'}}});
   return saved;
  });
