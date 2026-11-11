@@ -1,3 +1,4 @@
+import './order-payment-evidence.css';
 import "./globals.css";
 import "./workspace-ui.css";
 import "./popup-details.css";

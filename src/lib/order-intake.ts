@@ -1,3 +1,4 @@
+import {missingPaymentSlip,type PaymentSlip} from './order-payment-slip';
 import {employeeRoles} from './accounts';
 import {randomBytes} from "node:crypto";
 import type {OrderIntake,Prisma} from "@prisma/client";
@@ -55,7 +56,7 @@ export async function receiveOrderEvent(botId:string,e:OrderEvent,stockReader?:S
  },55000);
 }
 
-export type OrderTextInput={text:string;eventKey:string;messageKey:string;groupKey:string;senderKey:string|null;eventAt:Date;actor:string};
+export type OrderTextInput={text:string;eventKey:string;messageKey:string;groupKey:string;senderKey:string|null;eventAt:Date;actor:string;paymentSlip?:PaymentSlip};
 // Shared by LINE order groups and approved website orders so stock, commission and CRM rules stay identical.
 export async function admitOrderText(tx:Prisma.TransactionClient,input:OrderTextInput,stockReader?:StockReader):Promise<{order:OrderIntake}|{reasons:string[]}>{
  const parsed=parseOrderText(input.text);if(!parsed)return {reasons:['ไม่พบรหัสผู้ขายในบรรทัดแรก']};
@@ -70,6 +71,7 @@ export async function admitOrderText(tx:Prisma.TransactionClient,input:OrderText
  if(!owner)issues.push('ไม่พบผู้แนะนำของลูกค้า');
  if(owner&&('active' in owner&&!owner.active||'archivedAt' in owner&&owner.archivedAt))issues.push('บัญชีผู้แนะนำถูกระงับ กรุณาตรวจสอบก่อนคิดค่าคอม');
  const total=quotedTotal(input.text);if(parsed.payment==="โอน"&&(total===null||total<=0))issues.push("ยอดโอนต้องระบุยอดรวมที่มากกว่าศูนย์เพียงยอดเดียว");
+ if(parsed.payment==='โอน'&&!input.paymentSlip)issues.push(missingPaymentSlip);
  const transfer=parsed.payment==="โอน"&&!issues.length;
  const accounts=sellers.length===1?(sellers[0].accounts??[]):[];
  const exact=accounts.filter(a=>a.username.toLowerCase()===parsed.sellerCode.toLowerCase());
@@ -77,8 +79,9 @@ export async function admitOrderText(tx:Prisma.TransactionClient,input:OrderText
  const commissionBps=owner?('code' in owner&&owner.code===metaAdCode?0:salesCommissionRate(owner,parsed.payment)):null;
  const loyaltySnapshot=await capturePointSnapshot(tx,customer?.code??null,input.eventAt);
  const order=await tx.orderIntake.create({data:{loyaltySnapshot:loyaltySnapshot??undefined,eventKey:input.eventKey,messageKey:input.messageKey,groupKey:input.groupKey,senderKey:input.senderKey,orderNumber:"ORD-"+randomBytes(10).toString("hex").toUpperCase(),rawText:input.text,sellerCode:parsed.sellerCode,sellerUsername,customerCode:customer?.code??null,affiliateId:sellers.length===1?sellers[0].id:null,commissionAffiliateId:owner?.id??null,salesCommissionBasis:owner?.salesCommissionBasis??null,salesCommissionBps:commissionBps,recipient:parsed.recipient,phone:parsed.phone,address:parsed.address,payment:parsed.payment,issues,status:issues.length?"NEEDS_REVIEW":transfer?"TRANSFER_RECORDED":parsed.payment==="เคลม"?"CLAIM_WAITING_COST":"WAITING_SHIPMENT",eventAt:input.eventAt}});
+ if(input.paymentSlip&&parsed.payment==='โอน')await tx.orderPaymentSlip.create({data:{orderId:order.id,data:input.paymentSlip.imageData,mime:input.paymentSlip.imageMime,version:input.paymentSlip.imageVersion}});
  if(stock)await tx.stockReservation.create({data:{orderId:order.id,messageKey:order.messageKey,orderNumber:order.orderNumber,actor:sellerUsername??input.actor,items:stock.items,issues:[]}});
  if(transfer&&owner){const profit=salesCommissionUsesCost(owner.salesCommissionBasis);await tx.salesOrder.create({data:{orderId:order.id,tracking:null,affiliateId:owner.id,paymentMethod:"TRANSFER",paymentEvidence:"DECLARED_TRANSFER",revenueSatang:total!,commissionBasis:owner.salesCommissionBasis,commissionBps:commissionBps!,commissionSatang:profit?null:Math.round(total!*commissionBps!/10000),commissionReadyAt:profit?null:new Date(),status:profit?"WAITING_COST":"PENDING"}});await tx.auditLog.create({data:{actor:input.actor,action:"TRANSFER_SALE_RECORDED",entityId:order.id,details:{evidence:"DECLARED_TRANSFER"}}});}
- if(customer&&owner&&sellers.length===1&&owner.id!==sellers[0].id&&parsed.payment!=='เคลม'&&!issues.length){await tx.additionalCommission.create({data:{orderId:order.id,affiliateId:sellers[0].id,basis:sellers[0].salesCommissionBasis,bps:salesCommissionRate(sellers[0],parsed.payment)}});}
+ if(customer&&owner&&sellers.length===1&&owner.id!==sellers[0].id&&parsed.payment!=='เคลม'&&issues.every(issue=>issue===missingPaymentSlip)){await tx.additionalCommission.create({data:{orderId:order.id,affiliateId:sellers[0].id,basis:sellers[0].salesCommissionBasis,bps:salesCommissionRate(sellers[0],parsed.payment)}});}
  return {order};
 }

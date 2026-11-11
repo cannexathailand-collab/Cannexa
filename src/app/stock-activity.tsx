@@ -9,11 +9,11 @@ export async function StockActivity({day,page,query,filter}:{day?:string;page?:s
    <input type="hidden" name="q" value={query}/><input type="hidden" name="filter" value={filter}/>
    <label>วันที่ดูประวัติ<input type="date" name="activityDay" defaultValue={report.day}/></label><div className="actions"><button className="secondary">ดูประวัติ</button></div>
   </form>
-  <p className="muted small">แสดงผู้ใช้ เวลา และรายละเอียดการแก้ไขผ่านระบบ ไม่รวมการแก้ไขโดยตรงใน Google Sheets</p>
+  <p className="muted small">แสดงเฉพาะการแก้ไขผ่านระบบโดยพนักงานสโตร์ ไม่รวมบัญชีอื่น ระบบอัตโนมัติ และการแก้ไขโดยตรงใน Google Sheets</p>
   {report.events.length?<div className="table-wrap"><table><thead><tr><th>วันเวลา</th><th>ผู้ดำเนินการ</th><th>รายการ</th><th>รายละเอียด</th></tr></thead><tbody>{report.events.map(event=><tr key={event.id}>
    <td>{event.at.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</td><td>{event.actor}</td><td>{event.title}</td>
    <td style={{whiteSpace:'normal',minWidth:270}}>{event.summary.map((line,i)=><div key={i}>{line}</div>)}{event.items.map((item,i)=><div key={'item'+i}>{item.label} · {(item.amountSatang/100).toLocaleString('th-TH',{minimumFractionDigits:2})} บาท</div>)}</td>
-  </tr>)}</tbody></table></div>:<p className="muted">ยังไม่มีการแก้ไขสต๊อกในวันที่เลือก</p>}
+  </tr>)}</tbody></table></div>:<p className="muted">ยังไม่มีการแก้ไขสต๊อกโดยพนักงานสโตร์ในวันที่เลือก</p>}
   {report.pages>1&&<div className="actions" style={{marginTop:16}}>{report.page>1&&<Link className="button secondary" href={pageLink(report.page-1)}>ก่อนหน้า</Link>}<span>หน้า {report.page} / {report.pages}</span>{report.page<report.pages&&<Link className="button secondary" href={pageLink(report.page+1)}>ถัดไป</Link>}</div>}
  </section>;
 }

@@ -270,12 +270,14 @@ export async function reviewWebsiteOrder(actor:string,value:unknown,stockReader?
   if(input.status==='APPROVED'){
    const blocked=orderRejectionReasons({customerCode:current.customerCode,address:current.address,phone:current.phone});
    if(blocked.length)throw new WebsiteOrderApprovalError(blocked);
+   const storedSlip=input.payment==='โอน'?await tx.websiteOrder.findUnique({where:{id:current.id},select:{slipData:true,slipMime:true,slipVersion:true}}):null;
+   if(input.payment==='โอน'&&(!storedSlip?.slipData||!storedSlip.slipMime||!storedSlip.slipVersion))throw new WebsiteOrderApprovalError(['กรุณาแนบรูปหลักฐานการโอนเงิน']);
    const customer=await tx.customer.findUnique({where:{code:current.customerCode},select:{title:true}});
    const admitted=await admitOrderText(tx,{
     text:websiteOrderText(current,input,customer?.title),
     eventKey:userKey('website-order-event:'+current.id),
     messageKey:userKey('website-order-message:'+current.id),
-    groupKey:'website',senderKey:null,eventAt:new Date(),actor,
+    groupKey:'website',senderKey:null,eventAt:new Date(),actor,paymentSlip:storedSlip?.slipData?{imageData:storedSlip.slipData,imageMime:storedSlip.slipMime!,imageVersion:storedSlip.slipVersion!}:undefined,
    },stockReader);
    if('reasons' in admitted)throw new WebsiteOrderApprovalError(admitted.reasons);
    intakeOrderNumber=admitted.order.orderNumber;

@@ -34,7 +34,8 @@ export function presentStockActivity(log:AuditLog){
 }
 export async function stockActivityReport(input:{day?:string;page?:string},now=new Date()){
  const day=stockHistoryDate(input.day,bangkokDay(now));
- const where={action:{startsWith:'STOCK_'},createdAt:{gte:dayStart(day),lt:dayStart(shiftDay(day,1))}};
+ const staff=await db.userAccount.findMany({where:{role:'store'},select:{username:true}});
+ const where={action:{startsWith:'STOCK_'},actor:{in:staff.map(account=>account.username)},createdAt:{gte:dayStart(day),lt:dayStart(shiftDay(day,1))}};
  const total=await db.auditLog.count({where}),pages=Math.max(1,Math.ceil(total/50));
  const requested=Number(input.page),page=Number.isSafeInteger(requested)&&requested>0?Math.min(requested,pages):1;
  const logs=await db.auditLog.findMany({where,orderBy:[{createdAt:'desc'},{id:'desc'}],skip:(page-1)*50,take:50});

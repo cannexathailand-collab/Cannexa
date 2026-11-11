@@ -51,12 +51,11 @@ export async function createManualOrder(actor:string,value:unknown,stockReader?:
   const orderData=parseOrderText(text)!;
   const reasons=orderRejectionReasons(orderData);
   const eventAt=new Date();
-  const result=reasons.length?{reasons}:await admitOrderText(tx,{text,eventKey:messageKey,messageKey,groupKey:group.id,senderKey:null,eventAt,actor},stockReader);
+  const result=reasons.length?{reasons}:await admitOrderText(tx,{text,eventKey:messageKey,messageKey,groupKey:group.id,senderKey:null,eventAt,actor,paymentSlip:slip??undefined},stockReader);
   if('reasons' in result){
    await tx.auditLog.create({data:{id:auditId,actor,action:'ORDER_REJECTED',entityId:messageKey,details:{fingerprint,status:'SHOWN_IN_WEB',reasons:result.reasons,phone:orderData.phone,amountSatang:input.amountSatang,eventAt:eventAt.toISOString(),groupKey:group.id,source:'MANUAL'}}});
    return {reasons:result.reasons};
   }
-  if(slip)await tx.orderPaymentSlip.create({data:{orderId:result.order.id,data:slip.imageData,mime:slip.imageMime,version:slip.imageVersion}});
   await tx.auditLog.create({data:{id:auditId,actor,action:'ORDER_MANUAL_CREATED',entityId:result.order.id,details:{fingerprint,orderNumber:result.order.orderNumber,groupKey:group.id,team:group.name}}});
   return {orderId:result.order.id,orderNumber:result.order.orderNumber,status:result.order.status,createdAt:result.order.createdAt.toISOString()};
  },55000);

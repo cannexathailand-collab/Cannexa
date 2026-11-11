@@ -9,6 +9,7 @@ export async function revokeSalesRecognition(tx:Prisma.TransactionClient,sale:{i
  await tx.auditLog.create({data:{actor,action:"SALES_RECOGNITION_REVERSED",entityId:sale.id,details:{orderId:sale.orderId,tracking:sale.tracking,amountSatang:sale.revenueSatang,dispatchedAt:sale.recognizedAt.toISOString(),reason}}});
 }
 export async function reconcileSalesRecognition(tx:Prisma.TransactionClient,order:OrderIntake,shipment:Shipment,actor:string){
+ if(order.payment==='โอน'&&Array.isArray(order.issues)&&order.issues.includes('กรุณาแนบสลิปการโอนเงินในออเดอร์ก่อนยืนยันยอดโอน'))return;
  const commissionAffiliateId=order.commissionAffiliateId??order.affiliateId;
  if(commissionAffiliateId)await userLock(tx,'commission-payout:'+commissionAffiliateId);
  const previous=await tx.salesOrder.findUnique({where:{orderId:order.id}});

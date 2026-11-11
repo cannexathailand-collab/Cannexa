@@ -1,3 +1,4 @@
+import {missingPaymentSlip} from './order-payment-slip';
 import {Prisma,type OrderIntake} from '@prisma/client';
 import {z} from 'zod';
 import {transaction,userLock} from './db';
@@ -72,7 +73,7 @@ export async function changeOrder(actor:string,value:unknown,read:StockReader=re
    await userLock(tx,'commission-payout:'+sale.affiliateId);
    await tx.salesOrder.update({where:{id:sale.id},data:{revenueSatang:total,commissionSatang:profit?null:Math.round(total*sale.commissionBps/10000)}});
   }
-  await tx.orderIntake.update({where:{id:input.id},data:{rawText:text,recipient:next.recipient,phone:next.phone,address:next.address,issues:next.issues}});
+  await tx.orderIntake.update({where:{id:input.id},data:{rawText:text,recipient:next.recipient,phone:next.phone,address:next.address,issues:[...next.issues,...(Array.isArray(current.issues)&&current.issues.includes(missingPaymentSlip)?[missingPaymentSlip]:[])]}});
   await tx.auditLog.create({data:{id:auditId,actor,action:'ORDER_EDITED',entityId:input.id,details:{fingerprint,orderNumber:current.orderNumber,reason:input.reason??'',before:{text:current.rawText,amountSatang:quotedTotal(current.rawText??'')},after:{text,amountSatang:total}}}});
   return {id:input.id};
  },55000);

@@ -6,7 +6,7 @@ const privateHeaders={'Cache-Control':'private, no-store','X-Content-Type-Option
 
 export async function GET(request:Request,{params}:{params:Promise<{id:string}>}){
  let owner=false,customerCode:string|null=null;
- try{owner=(await currentAccount()).role==='owner';}
+ try{owner=['owner','admin','manager','viewer','employee','sales','store'].includes((await currentAccount()).role);}
  catch(error){if(!(error instanceof Error)||error.message!=='UNAUTHORIZED')throw error;}
  if(!owner){
   const {key,customer}=await portalCustomer();

@@ -1,0 +1,10 @@
+.order-shipping-details.has-payment-evidence{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:16px;align-items:start}
+.order-shipping-content{min-width:0}
+.order-payment-evidence{min-width:0;text-align:center;padding:10px;background:#f1f8f4;border:1px solid #d5e5da;border-radius:10px;font-size:12px;color:#183b2c}
+.order-payment-evidence>a{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:8px}
+.order-payment-evidence img{display:block;max-width:100%;width:120px;height:150px;object-fit:contain;background:white;border-radius:5px}
+.order-payment-evidence form{display:grid;gap:8px;text-align:left}
+.order-payment-evidence input{min-width:0;max-width:100%;font-size:11px}
+.order-payment-evidence button{width:100%;min-height:40px;padding:8px;font-size:12px}
+.order-payment-evidence .notice{padding:8px;font-size:12px;overflow-wrap:anywhere}
+@media(max-width:600px){.order-shipping-details.has-payment-evidence{grid-template-columns:minmax(0,1fr);gap:10px}.order-payment-evidence{justify-self:end;width:min(100%,180px);box-sizing:border-box}.order-payment-evidence img{height:130px}}

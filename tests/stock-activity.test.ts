@@ -16,12 +16,14 @@ test('stock history describes receipt, missing cost/name fill, price edits and d
  assert.ok(deleted.summary.includes('ต้นทุนก่อนลบ: 0.00 บาท/G'));
  assert.ok(deleted.summary.includes('คงเหลือก่อนลบ: 50 G'));
 });
-test('stock activity is stock-only, Thai-day bounded, paginated and not coupled to current product rows',async t=>{
+test('stock activity is store-staff-only, Thai-day bounded, paginated and not coupled to current product rows',async t=>{
+ replaceMethod(t,db.userAccount,'findMany',async(input:any)=>{assert.deepEqual(input,{where:{role:'store'},select:{username:true}});return [{username:'store-anna'},{username:'store-retired'}];});
  let query:any;replaceMethod(t,db.auditLog,'count',async()=>101);
  replaceMethod(t,db.auditLog,'findMany',async(input:any)=>{query=input;return [log('STOCK_PRODUCT_DELETED',{code:'DELETED'})];});
  const result=await stockActivityReport({day:'2026-11-06',page:'999'});
  assert.equal(result.page,3);assert.equal(query.take,50);assert.equal(query.skip,100);
  assert.equal(query.where.action.startsWith,'STOCK_');
+ assert.deepEqual(query.where.actor,{in:['store-anna','store-retired']});
  assert.equal(query.where.createdAt.gte.toISOString(),'2026-11-05T17:00:00.000Z');
  assert.equal(query.where.createdAt.lt.toISOString(),'2026-11-06T17:00:00.000Z');
  assert.equal(result.events.length,1);assert.ok(result.events[0].summary.includes('รหัสสินค้า: DELETED'));

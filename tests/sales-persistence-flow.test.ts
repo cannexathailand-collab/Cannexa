@@ -1,3 +1,4 @@
+import {attachOrderPaymentSlip} from '../src/lib/order-payment-slip';
 import {test,type TestContext} from 'node:test';
 import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
@@ -79,6 +80,7 @@ test('LINE and Gmail flow persists sales once, rereads exact revenue, and preser
  h.model('crmPointRule');
  const customerModel=h.model('customer',{},[['identityKey']]);customerModel.seed({code:'CUS-00000001',referrerId:'seller'});customerModel.seed({code:'CUS-00000002',referrerId:'seller'});
  h.model('affiliate').seed({id:'seller',name:'Test seller',code:'ADM001',active:true,archivedAt:null,salesCommissionBasis:'REVENUE',salesCommissionBps:1000,accounts:[{username:'adm001',role:'employee',active:true}]});
+ h.model('orderPaymentSlip',{},[['orderId']]);
  h.model('orderIntake',{},[['id'],['messageKey'],['eventKey']]);h.model('salesOrder',{tracking:null,recognizedAt:null,paidAt:null,paidAmountSatang:null},[['id'],['orderId'],['tracking']]);
  h.model('shipment',{orderId:null,status:'WAITING_ORDER',fulfillmentStatus:'UNCONFIRMED',dispatchedAt:null,dispatchEvidence:null},[['tracking'],['orderId']]);h.model('codReceipt',{},[['tracking']]);
  h.model('gmailImport',{},[['id'],['messageId','filename']]);h.model('auditLog');h.model('stockReservation');h.model('stockDispatch');h.model('stockSheetOperation');h.model('stockReturnReport');
@@ -92,6 +94,7 @@ test('LINE and Gmail flow persists sales once, rereads exact revenue, and preser
  const codEvent=event('cod','COD',cod),transferEvent=event('transfer','โอน',transfer);
  const concurrentOrders=await Promise.all([receiveOrderEvent('test-bot',codEvent),receiveOrderEvent('test-bot',codEvent),receiveOrderEvent('test-bot',{...codEvent,webhookEventId:'concurrent-redelivery'})]);
  const codOrder=concurrentOrders.find(Boolean),transferOrder=await receiveOrderEvent('test-bot',transferEvent);assert.ok(codOrder);assert.ok(transferOrder);assert.equal(concurrentOrders.filter(Boolean).length,1);
+ await attachOrderPaymentSlip({role:'owner',username:'owner'},transferOrder.id,'data:image/png;base64,iVBORw0KGgo=');
  await receiveOrderEvent('test-bot',codEvent);await receiveOrderEvent('test-bot',{...transferEvent,webhookEventId:'redelivered-transfer'});
  assert.equal(h.creates.get('orderIntake'),2);assert.equal(h.creates.get('salesOrder'),1);
  await db.stockWorkflow.update({where:{id:'active'},data:{enabled:true}});

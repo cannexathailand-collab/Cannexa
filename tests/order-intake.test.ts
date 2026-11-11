@@ -1,10 +1,16 @@
+import {attachOrderPaymentSlip,missingPaymentSlip} from '../src/lib/order-payment-slip';
 import {test,afterEach} from "node:test";
 import assert from "node:assert/strict";
 import {db} from "../src/lib/db";
-import {receiveOrderEvent,type OrderEvent} from "../src/lib/order-intake";
+import {receiveOrderEvent as receiveRawOrderEvent,type OrderEvent} from "../src/lib/order-intake";
 process.env.USER_HASH_SECRET="intake-test-secret-only";
 const txOriginal=db.$transaction,groupOriginal=db.orderGroup.upsert;
 afterEach(()=>{db.$transaction=txOriginal;db.orderGroup.upsert=groupOriginal;});
+async function receiveOrderEvent(...args:Parameters<typeof receiveRawOrderEvent>){
+ const order=await receiveRawOrderEvent(...args);
+ if(order?.payment==='โอน')await attachOrderPaymentSlip({role:'owner',username:'owner'},order.id,'data:image/png;base64,iVBORw0KGgo=');
+ return order;
+}
 function harness(enabled=true){
  const rows:any[]=[],sales:any[]=[],groups=new Map<string,any>(),withdrawn=new Set<string>();
  db.orderGroup.upsert=(async({where,create}:any)=>{if(!groups.has(where.id))groups.set(where.id,{...create,enabled});return groups.get(where.id);}) as any;
@@ -14,6 +20,14 @@ function harness(enabled=true){
  tx.crmPointRule={findFirst:async()=>null}; tx.stockWorkflow={findUnique:async()=>null};
  const customers:any[]=[{code:'CUS-00000001',referrerId:'seller'}];
  tx.customer={findUnique:async({where}:any)=>customers.find(c=>where.code?c.code===where.code:c.identityKey===where.identityKey)??null,update:async({where,data}:any)=>Object.assign(customers.find(c=>c.code===where.code),data),upsert:async({where,create}:any)=>{let c=customers.find(c=>c.identityKey===where.identityKey);if(!c){c={code:'CUS-'+String(customers.length+1).padStart(8,'0'),...create};customers.push(c);}return c;}};
+ const slips=new Map();
+ tx.orderPaymentSlip={findUnique:async({where}:any)=>slips.get(where.orderId)??null,create:async({data}:any)=>{slips.set(data.orderId,data);return data;}};
+ tx.orderIntake.findUniqueOrThrow=async({where}:any)=>rows.find(row=>row.id===where.id);
+ tx.orderIntake.update=async({where,data}:any)=>Object.assign(rows.find(row=>row.id===where.id),data);
+ tx.salesOrder.findUnique=async({where}:any)=>sales.find(row=>row.orderId===where.orderId)??null;
+ tx.shipment.findUnique=async()=>null;
+ tx.affiliate.findUniqueOrThrow=async({where}:any)=>(await tx.affiliate.findMany({where:{OR:[{code:{}},{accounts:{some:{username:{}}}}]}})).find((row:any)=>row.id===where.id)??await tx.affiliate.findUnique({where});
+ tx.additionalCommission.upsert=async({create}:any)=>create;
  return {rows,groups,tx,sales,customers};
 }
 function event(message="m1"):OrderEvent{return {webhookEventId:"e-"+message,type:"message",timestamp:Date.now(),source:{type:"group",groupId:"group",userId:"person"},message:{type:"text",id:message,text:"รหัสผู้ขาย: ADM001\nผู้รับ: ตัวอย่าง\nโทร: 0812345678\nที่อยู่: 1 กรุงเทพ 10200\nชำระเงิน: COD\nยอดรวม: 2560\nรหัสลูกค้า: C0001"}};}
@@ -83,7 +97,7 @@ test("unsend erases customer text and blocks out-of-order redelivery",async()=>{
  const h=harness();await receiveOrderEvent("bot-a",event());const unsend={...event(),type:"unsend",message:undefined,unsend:{messageId:"m1"}};await receiveOrderEvent("bot-a",unsend);assert.equal(h.rows.length,0);await receiveOrderEvent("bot-a",event());assert.equal(h.rows.length,0);
  await receiveOrderEvent("bot-a",{...unsend,unsend:{messageId:"m2"}});await receiveOrderEvent("bot-a",event("m2"));assert.equal(h.rows.length,0);
 });
-test("declared transfer credits once immediately and unsend reverses pending commission",async()=>{
+test("transfer with an attached slip credits once and unsend reverses pending commission",async()=>{
  const h=harness(),e=event();e.message!.text=e.message!.text!.replace("ชำระเงิน: COD","ชำระเงิน: โอน");
  await receiveOrderEvent("bot-a",e);await receiveOrderEvent("bot-a",e);
  assert.equal(h.sales.length,1);assert.equal(h.sales[0].revenueSatang,256000);assert.equal(h.sales[0].commissionSatang,25600);assert.equal(h.sales[0].paymentEvidence,"DECLARED_TRANSFER");assert.equal(h.rows[0].status,"TRANSFER_RECORDED");
@@ -127,4 +141,16 @@ test('transfer and COD use independent rates frozen at intake, including zero an
  await receiveOrderEvent('bot-a',transfer('old-transfer'));await receiveOrderEvent('bot-a',event('old-cod'));
  transferRate=0;codRate=700;await receiveOrderEvent('bot-a',transfer('old-transfer'));await receiveOrderEvent('bot-a',transfer('new-transfer'));await receiveOrderEvent('bot-a',event('new-cod'));
  assert.deepEqual(h.rows.map(o=>o.salesCommissionBps),[200,500,0,700]);assert.deepEqual(h.sales.map(s=>s.commissionBps),[200,0]);assert.deepEqual(h.sales.map(s=>s.commissionSatang),[5120,0]);
+});
+
+test('LINE transfer without a slip remains pending without posting a sale',async()=>{const h=harness(),e=event();e.message!.text=e.message!.text!.replace('ชำระเงิน: COD','ชำระเงิน: โอน');const order=await receiveRawOrderEvent('bot-a',e);assert.equal(order?.status,'NEEDS_REVIEW');assert.ok((order?.issues as string[]).includes(missingPaymentSlip));assert.equal(h.sales.length,0);await attachOrderPaymentSlip({role:'owner',username:'owner'},order!.id,'data:image/png;base64,iVBORw0KGgo=');assert.equal(h.sales.length,1);assert.equal(h.rows[0].status,'TRANSFER_RECORDED');await attachOrderPaymentSlip({role:'owner',username:'owner'},order!.id,'data:image/png;base64,iVBORw0KGgo=');assert.equal(h.sales.length,1);});
+
+test('slip upload rejects another seller, invalid image and COD without posting sales',async()=>{
+ const h=harness(),e=event();e.message!.text=e.message!.text!.replace('ชำระเงิน: COD','ชำระเงิน: โอน');
+ const order=await receiveRawOrderEvent('bot-a',e),image='data:image/png;base64,iVBORw0KGgo=';
+ await assert.rejects(attachOrderPaymentSlip({role:'employee',username:'other'},order!.id,image),/FORBIDDEN/);
+ await assert.rejects(attachOrderPaymentSlip({role:'owner',username:'owner'},order!.id,'data:image/png;base64,YmFk'),/INVALID_REWARD_IMAGE/);
+ const cod=await receiveRawOrderEvent('bot-a',event('cod'));
+ await assert.rejects(attachOrderPaymentSlip({role:'owner',username:'owner'},cod!.id,image),/ORDER_CLOSED/);
+ assert.equal(h.sales.length,0);
 });
