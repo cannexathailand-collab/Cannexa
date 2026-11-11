@@ -1,5 +1,6 @@
 import {customerUsername} from './customer-username';
 import {customerLineRevocationId} from './customer-line-relink';
+import {linkCustomerPhoneMatch} from './customer-phone-link';
 import {customerDiscoverySource} from './customer-discovery-source';
 import {saveCustomerDeliveryAddresses} from './customer-delivery-addresses';
 import type {Prisma} from '@prisma/client';
@@ -163,8 +164,13 @@ export async function savePortalPhone(key:string|null,phoneInput:unknown,custome
   await userLock(tx,'customer-profile:'+customer.code);
   await userLock(tx,'draft-customer-phone:'+phone);
   const matches=await matchingCustomerPhones(tx,phone);
-  if(matches.some(row=>row.code!==customer.code))throw Error('EXISTING_CUSTOMER');
   const referrerId=customer.referrerId??await findCustomerReferrer(tx,referrerInput);
+  const otherMatches=matches.filter(row=>row.code!==customer.code);
+  if(otherMatches.length){
+   if(!key)throw Error('EXISTING_CUSTOMER');
+   if(otherMatches.length!==1)throw Error('PHONE_MATCH_AMBIGUOUS');
+   return linkCustomerPhoneMatch(tx,customer,otherMatches[0].code,key,phone,{discoverySource,referrerId});
+  }
   const saved=await tx.customer.update({where:{code:customer.code},data:{phone,registeredAt:customer.registeredAt??new Date(),registrationPhone:customer.registrationPhone??phone,referrerId,...(discoverySource===undefined?{}:{discoverySource}),portalProfileIncomplete:false,portalRegistrationPending:false}});
   await tx.auditLog.create({data:{actor:'customer',action:'CUSTOMER_PHONE_REGISTERED',entityId:saved.code,details:{source:key?'line-login':'password-login'}}});
   return saved;

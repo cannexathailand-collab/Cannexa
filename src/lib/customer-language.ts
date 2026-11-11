@@ -3,6 +3,7 @@ export const customerLanguageCookie='cannexa_customer_language';
 export function readCustomerLanguage(value:string|undefined):CustomerLanguage|null{return value==='th'||value==='en'?value:null;}
 
 const english:Record<string,string>={
+ "หากเบอร์ตรงกับลูกค้าเดิมเพียงรายเดียวและยังไม่ผูก LINE ระบบจะใช้รหัสและประวัติเดิมให้อัตโนมัติ":"If the phone matches one existing customer who is not linked to LINE, the system will automatically use that customer's existing ID and history.",
  "ยอดโอนที่บันทึกพร้อมสลิปได้รับเหรียญทันที ส่วน COD ได้รับเมื่อซื้อสำเร็จ รายการยกเลิกหรือตีกลับไม่นับเหรียญ":"Recorded bank transfers with a slip earn coins immediately. COD earns coins when the purchase is completed. Cancelled or returned orders do not earn coins.",
  "เบอร์โทรรับพัสดุ":"Delivery phone number",
  "เบอร์สำรอง":"Backup phone",

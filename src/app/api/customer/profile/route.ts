@@ -20,5 +20,5 @@ export async function POST(req:Request){
   const saved=await savePortalProfile(key,input,method==='password'?customer!.code:undefined);
   return NextResponse.json({ok:true,pending:saved.portalRegistrationPending});
  }
- catch(e){const message=e instanceof Error?e.message:'';return NextResponse.json({error:message==='EXISTING_CUSTOMER'?'พบข้อมูลลูกค้าเดิม กรุณาติดต่อร้านเพื่อรับลิงก์ยืนยันการผูก LINE โดยไม่สร้างรหัสซ้ำ':message.startsWith('กรุณา')?message:'บันทึกไม่สำเร็จ กรุณาลองใหม่'},{status:message==='EXISTING_CUSTOMER'?409:400});}
+ catch(e){const message=e instanceof Error?e.message:'';return NextResponse.json({error:message==='PHONE_MATCH_AMBIGUOUS'?'เบอร์นี้ตรงกับลูกค้าหลายรหัส กรุณาติดต่อร้านเพื่อตรวจสอบ':message==='PHONE_ALREADY_LINKED'?'เบอร์นี้มีบัญชี LINE ผูกอยู่แล้ว กรุณาติดต่อร้าน':message==='PHONE_LINK_REVIEW_REQUIRED'||message==='PHONE_LINK_CHANGED'?'บัญชีนี้ต้องให้ร้านตรวจสอบก่อนผูกข้อมูลเดิม':message==='EXISTING_CUSTOMER'?'พบข้อมูลลูกค้าเดิม กรุณาติดต่อร้านเพื่อรับลิงก์ยืนยันการผูก LINE โดยไม่สร้างรหัสซ้ำ':message.startsWith('กรุณา')?message:'บันทึกไม่สำเร็จ กรุณาลองใหม่'},{status:message==='EXISTING_CUSTOMER'?409:400});}
 }
