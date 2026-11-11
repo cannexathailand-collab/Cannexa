@@ -8,6 +8,7 @@ function clientFixture(withCosts=true){
  const orders=[{id:'transfer',payment:'โอน'},{id:'cod',payment:'COD'}].map(order=>({...order,customerCode:'C0001',status:'WAITING_SHIPMENT',eventAt:createdAt,createdAt,rawText:null,withdrawnAt:null,loyaltySnapshot:null}));
  const sales=orders.map(order=>({id:order.id,orderId:order.id,revenueSatang:order.id==='transfer'?10000:20000,status:'WAITING_COD',recognizedAt:null,tracking:null,paymentMethod:order.id==='cod'?'COD':'TRANSFER'}));
  const client={
+  websiteOrder:{findMany:async()=>[]},
   customer:{findMany:async()=>[{code:'C0001',name:'Test',phone:null,address:null,createdAt}]},
   orderIntake:{findMany:async()=>orders},salesOrder:{findMany:async()=>sales},shipment:{findMany:async()=>[]},
   stockDispatch:{findMany:async()=>withCosts?[{orderId:'transfer',status:'POSTED',totalCostSatang:6000},{orderId:'cod',status:'POSTED',totalCostSatang:7000}]:[]},

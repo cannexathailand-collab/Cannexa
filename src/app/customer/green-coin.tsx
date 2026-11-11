@@ -13,6 +13,7 @@ export async function CustomerGreenCoin({customerCode,balance,readOnly=false}:{c
  return <section className="portal-section">
   <h2>Green Coin</h2>
   <div className="portal-coin-summary"><span>{t("ยอดคงเหลือที่ใช้แลกได้")}</span><strong>{balance.toLocaleString(locale)}</strong><span>Green Coin</span></div>
+  <p className="portal-muted">{t("ยอดโอนที่บันทึกพร้อมสลิปได้รับเหรียญทันที ส่วน COD ได้รับเมื่อซื้อสำเร็จ รายการยกเลิกหรือตีกลับไม่นับเหรียญ")}</p>
   <h3 className="portal-coin-history-title">{t("ใช้ Green Coin แลกของรางวัล")}</h3>
   <CustomerRewardTable readOnly={readOnly} rewards={rewards.map(({expiresAt,...reward})=>({...reward,expiryLabel:expiresAt?'แลกได้ถึง '+customerDate(new Date(+expiresAt-1)):'ไม่กำหนดวันสิ้นสุด'}))} balance={balance} delivery={{recipient:[customer.title,customer.name].filter(Boolean).join(' '),phone:customer.phone??'',address:customer.address??''}}/>
   <h3 className="portal-coin-history-title">{t("ประวัติการแลก")}</h3>

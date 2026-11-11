@@ -4,6 +4,43 @@ import type {OrderIntake} from '@prisma/client';
 import {demoSalesRows} from '../src/lib/sales-demo';
 import {summarizeCustomerOrders,customerLifetimeStats,crmBehaviorTags} from '../src/lib/customer-crm';
 
+function pendingTransfer(){
+ const base=demoSalesRows(new Date('2026-11-11T10:00:00+07:00'))[0];
+ const order={...base.order,eventAt:base.createdAt,withdrawnAt:null,payment:'โอน',status:'TRANSFER_RECORDED',rawText:'ยอดรวม: 450',paymentSlip:{orderId:base.orderId},loyaltySnapshot:{version:1,ruleId:'saved',enabled:true,tier:'new',pointsPerThousand:10,promotions:[]}} as unknown as OrderIntake&{paymentSlip:{orderId:string}};
+ const sale={...base,revenueSatang:45000,status:'PENDING',recognizedAt:null,shipment:null};
+ return {order,sale,base};
+}
+
+test('transfer with a saved slip earns coins immediately without recognizing revenue early',()=>{
+ const {order,sale}=pendingTransfer();const result=summarizeCustomerOrders([order,order],[sale]);
+ assert.equal(result.lifetimePoints,4);assert.equal(result.points,4);assert.equal(result.history[0].pointsEligible,true);
+ assert.equal(result.purchaseCount,0);assert.equal(result.purchasedSatang,0);assert.equal(result.pendingSatang,45000);
+ assert.equal(result.periods[0].points,4);assert.equal(result.periods[0].revenueSatang,0);
+ const filtered=summarizeCustomerOrders([order],[sale],[],[],[],{from:'2026-11-01',to:'2026-11-10'});
+ assert.equal(filtered.points,0);assert.equal(filtered.lifetimePoints,4);
+});
+
+test('transfer coins are not doubled at dispatch and retain the saved rate',()=>{
+ const {order,sale,base}=pendingTransfer();
+ const recognized={...base,revenueSatang:45000};
+ const result=summarizeCustomerOrders([order],[recognized],[],[],[{enabled:true,satangPerPoint:1,effectiveAt:new Date('2000-01-01')}]);
+ assert.equal(result.lifetimePoints,4);assert.equal(result.purchaseCount,1);
+});
+
+test('missing proof, incomplete review, cancellation and returns cannot earn immediate coins',()=>{
+ const {order,sale}=pendingTransfer();
+ assert.equal(summarizeCustomerOrders([{...order,paymentSlip:null}],[sale]).lifetimePoints,0);
+ for(const status of ['NEEDS_REVIEW','EXPIRED','CANCELLED','RETURNED','WITHDRAWN'])assert.equal(summarizeCustomerOrders([{...order,status}],[sale]).lifetimePoints,0,status);
+ assert.equal(summarizeCustomerOrders([order],[{...sale,status:'CANCELLED'}]).lifetimePoints,0);
+ assert.equal(summarizeCustomerOrders([order],[sale],[{orderId:order.id,status:'RETURNED'} as any]).lifetimePoints,0);
+ assert.equal(summarizeCustomerOrders([{...order,payment:'COD'}],[{...sale,paymentMethod:'COD'}]).lifetimePoints,0);
+});
+
+test('legacy website transfer proof also allows immediate coins',()=>{
+ const {order,sale}=pendingTransfer();const result=summarizeCustomerOrders([{...order,paymentSlip:null}],[sale],[],[],[],undefined,new Set([order.id]));
+ assert.equal(result.lifetimePoints,4);
+});
+
 test('CRM counts each order once and separates completed purchases from pending COD and returns',()=>{
  const [transfer,cod]=demoSalesRows(new Date('2026-11-07T12:00:00+07:00'));
  const orders=[transfer,cod].map(s=>({...s.order,customerCode:'CUS-00000001',rawText:'ยอดรวม: '+s.revenueSatang/100,eventAt:s.createdAt,withdrawnAt:null}) as OrderIntake);
