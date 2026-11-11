@@ -5,7 +5,7 @@ import {useState} from 'react';
 export function CustomerEntryLinks({baseUrl}:{baseUrl:string}){
  const [message,setMessage]=useState('');
  const entrances=[
-  {id:'password',title:'รหัสลูกค้าและรหัสผ่าน',description:'ลูกค้าใช้รหัสและรหัสผ่านที่ตั้งไว้ เข้าจากมือถือหรือคอมพิวเตอร์ได้',path:'/customer/sign-in',tag:'Customer'},
+  {id:'password',title:'รหัสลูกค้าและรหัสผ่าน',description:'ล็อกอิน LINE พร้อมตัวเลือกเพิ่มเพื่อน แล้วกรอกเบอร์โทรเพื่อจับคู่ลูกค้าอัตโนมัติ บัญชีที่มีเบอร์ครบแล้วเข้าหน้าลูกค้าต่อได้เลย',path:'/customer/line',tag:'LINE + เบอร์โทร'},
   {id:'line',title:'เข้าสู่ระบบด้วย LINE',description:'ลูกค้าใช้บัญชี LINE ที่ผูกไว้เพื่อเข้าข้อมูลสมาชิกของตนเอง',path:'/customer',tag:'LINE'},
   {id:'line-phone',title:'LINE และเบอร์โทร',description:'ล็อกอิน LINE พร้อมตัวเลือกเพิ่มเพื่อน แล้วกรอกเบอร์ครั้งแรกเพื่อจับคู่กับรหัสลูกค้าเดิม ไม่ต้องใช้รหัสผ่าน',path:'/customer/line',tag:'LINE + เบอร์โทร'},
   {id:'marketing',title:'ลิงก์การตลาด',description:'LINE Login เพิ่มเพื่อนและยืนยันอายุ แล้วเข้าสู่หน้าลูกค้าได้เลย กรอกข้อมูลจัดส่งตอนสั่งซื้อ พร้อมติดตามที่มาและยอดขาย',path:'/marketing',tag:'Marketing'},
