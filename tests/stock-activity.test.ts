@@ -17,7 +17,7 @@ test('stock history describes receipt, missing cost/name fill, price edits and d
  assert.ok(deleted.summary.includes('คงเหลือก่อนลบ: 50 G'));
 });
 test('stock activity is store-staff-only, Thai-day bounded, paginated and not coupled to current product rows',async t=>{
- replaceMethod(t,db.userAccount,'findMany',async(input:any)=>{assert.deepEqual(input,{where:{role:'store'},select:{username:true}});return [{username:'store-anna'},{username:'store-retired'}];});
+ replaceMethod(t,db.userAccount,'findMany',async(input:any)=>{assert.deepEqual(input,{where:{role:'store'},select:{username:true},orderBy:{username:'asc'}});return [{username:'store-anna'},{username:'store-retired'}];});
  let query:any;replaceMethod(t,db.auditLog,'count',async()=>101);
  replaceMethod(t,db.auditLog,'findMany',async(input:any)=>{query=input;return [log('STOCK_PRODUCT_DELETED',{code:'DELETED'})];});
  const result=await stockActivityReport({day:'2026-11-06',page:'999'});
@@ -27,6 +27,32 @@ test('stock activity is store-staff-only, Thai-day bounded, paginated and not co
  assert.equal(query.where.createdAt.gte.toISOString(),'2026-11-05T17:00:00.000Z');
  assert.equal(query.where.createdAt.lt.toISOString(),'2026-11-06T17:00:00.000Z');
  assert.equal(result.events.length,1);assert.ok(result.events[0].summary.includes('รหัสสินค้า: DELETED'));
+});
+
+test('stock history range includes the entire last Thai day and combines staff and action filters',async t=>{
+ replaceMethod(t,db.userAccount,'findMany',async()=>[{username:'store-anna'},{username:'store-bob'}]);
+ let query:any;replaceMethod(t,db.auditLog,'count',async()=>1);
+ replaceMethod(t,db.auditLog,'findMany',async(input:any)=>{query=input;return [];});
+ const report=await stockActivityReport({from:'2026-11-01',to:'2026-11-10',actor:'store-bob',action:'STOCK_PRODUCT_UPDATED'});
+ assert.equal(report.error,'');assert.equal(report.from,'2026-11-01');assert.equal(report.to,'2026-11-10');
+ assert.deepEqual(query.where.actor,{in:['store-bob']});assert.deepEqual(query.where.action,{equals:'STOCK_PRODUCT_UPDATED'});
+ assert.equal(query.where.createdAt.gte.toISOString(),'2026-10-31T17:00:00.000Z');
+ assert.equal(query.where.createdAt.lt.toISOString(),'2026-11-10T17:00:00.000Z');
+});
+
+test('invalid and reversed ranges show an error without reading audit rows',async t=>{
+ replaceMethod(t,db.userAccount,'findMany',async()=>[]);
+ replaceMethod(t,db.auditLog,'count',async()=>assert.fail('invalid range must not read rows'));
+ for(const [from,to] of [['2026-11-10','2026-11-01'],['invalid','2026-11-10'],['2026-02-30','2026-11-10']]){
+  const report=await stockActivityReport({from,to});assert.ok(report.error);assert.equal(report.total,0);
+ }
+});
+
+test('a supplied non-store account never broadens the store-only filter',async t=>{
+ replaceMethod(t,db.userAccount,'findMany',async()=>[{username:'store-anna'}]);
+ replaceMethod(t,db.auditLog,'count',async(input:any)=>{assert.deepEqual(input.where.actor,{in:[]});return 0;});
+ replaceMethod(t,db.auditLog,'findMany',async()=>[]);
+ await stockActivityReport({actor:'owner'});
 });
 
 function replaceMethod(t:any,target:any,key:string,fn:any){const original=target[key];target[key]=fn;t.after(()=>{target[key]=original;});}

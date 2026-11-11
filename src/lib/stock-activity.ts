@@ -6,6 +6,7 @@ import {stockHistoryDate} from './stock-history-plan';
 
 const quantity=(v:unknown)=>typeof v==='number'?v.toLocaleString('th-TH')+' G':'ยังไม่ระบุ';
 const cost=(v:unknown)=>typeof v==='number'?(v/100).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2})+' บาท/G':'ยังไม่ระบุ';
+export const stockActivityActions={STOCK_PRODUCT_UPDATED:'แก้ไขข้อมูลสินค้า',STOCK_RECEIVED:'รับสินค้าเพิ่ม',STOCK_PRODUCT_ADDED:'เพิ่มสินค้าใหม่',STOCK_PRODUCT_DELETED:'ลบสินค้า',STOCK_PRODUCT_IMAGE_UPDATED:'แก้ไขรูปสินค้า',STOCK_COST_UPDATED:'แก้ไขต้นทุน',STOCK_RETURN_RECEIVED_CONFIRMED:'ยืนยันรับสินค้าตีกลับ'};
 export function presentStockActivity(log:AuditLog){
  const event=presentAudit(log),d=(log.details??{}) as Record<string,any>;
  if(log.action==='STOCK_RETURN_POSTED'&&Array.isArray(d.items))for(const item of d.items){
@@ -32,12 +33,16 @@ export function presentStockActivity(log:AuditLog){
  if(['STOCK_RESERVED','STOCK_RESERVATION_RELEASED','STOCK_ALREADY_COUNTED','STOCK_PENDING_RESTORED'].includes(log.action)){event.summary.push('ออเดอร์: '+d.orderNumber);if(Array.isArray(d.items))for(const i of d.items)event.summary.push(i.code+' · '+quantity(i.quantityMilliG/1000));}
  return event;
 }
-export async function stockActivityReport(input:{day?:string;page?:string},now=new Date()){
+export async function stockActivityReport(input:{day?:string;from?:string;to?:string;actor?:string;action?:string;page?:string},now=new Date()){
  const day=stockHistoryDate(input.day,bangkokDay(now));
- const staff=await db.userAccount.findMany({where:{role:'store'},select:{username:true}});
- const where={action:{startsWith:'STOCK_'},actor:{in:staff.map(account=>account.username)},createdAt:{gte:dayStart(day),lt:dayStart(shiftDay(day,1))}};
+ const from=input.from||day,to=input.to||input.from||day;
+ const staff=await db.userAccount.findMany({where:{role:'store'},select:{username:true},orderBy:{username:'asc'}});
+ const actor=input.actor?.trim().slice(0,100)||'',action=input.action&&Object.hasOwn(stockActivityActions,input.action)?input.action:'';
+ let error='';try{dayStart(from);dayStart(to);if(from>to)throw Error();}catch{error='กรุณาเลือกช่วงวันที่ให้ถูกต้อง โดยวันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด';}
+ if(error)return {day,from,to,actor,action,staff,error,page:1,pages:1,total:0,events:[]};
+ const where={action:action?{equals:action}:{startsWith:'STOCK_'},actor:{in:staff.filter(account=>!actor||account.username===actor).map(account=>account.username)},createdAt:{gte:dayStart(from),lt:dayStart(shiftDay(to,1))}};
  const total=await db.auditLog.count({where}),pages=Math.max(1,Math.ceil(total/50));
  const requested=Number(input.page),page=Number.isSafeInteger(requested)&&requested>0?Math.min(requested,pages):1;
  const logs=await db.auditLog.findMany({where,orderBy:[{createdAt:'desc'},{id:'desc'}],skip:(page-1)*50,take:50});
- return {day,page,pages,total,events:logs.map(presentStockActivity)};
+ return {day,from,to,actor,action,staff,error,page,pages,total,events:logs.map(presentStockActivity)};
 }
