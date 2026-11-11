@@ -15,7 +15,7 @@ export async function GET(req:NextRequest){
  if(link){
   if(!/^[A-Za-z0-9_-]{43}$/.test(link))return NextResponse.redirect(baseUrl()+'/customer?error=link');
   linkHash=sha(link);const row=await db.customerAccessLink.findUnique({where:{tokenHash:linkHash}});
-  if(!row||row.usedAt||row.expiresAt<=new Date())return NextResponse.redirect(baseUrl()+'/customer?error=link');
+  if(!row||row.usedAt||row.expiresAt&&row.expiresAt<=new Date())return NextResponse.redirect(baseUrl()+'/customer?error=link');
  }
  if(!await limit('customer-login',1000))return new Response('กรุณาลองใหม่ภายหลัง',{status:429});
  const purpose=req.nextUrl.searchParams.get('register')==='1'?'CUSTOMER_REGISTER':req.nextUrl.searchParams.get('reset')==='1'?'CUSTOMER_PASSWORD_RESET':'CUSTOMER';

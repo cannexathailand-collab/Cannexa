@@ -88,7 +88,7 @@ model CustomerAccessLink {
  tokenHash String @id
  customerCode String
  createdBy String
- expiresAt DateTime
+ expiresAt DateTime?
  usedAt DateTime?
  customer Customer @relation(fields:[customerCode],references:[code],onDelete:Cascade)
 }

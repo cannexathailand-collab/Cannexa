@@ -88,11 +88,11 @@ export async function linkPortalCustomer(key:string,linkHash?:string|null){
    return created;
   }
   const link=await tx.customerAccessLink.findUnique({where:{tokenHash:linkHash}});
-  if(!link||link.usedAt||link.expiresAt<=new Date())throw Error('LINK_EXPIRED');
+  if(!link||link.usedAt||link.expiresAt&&link.expiresAt<=new Date())throw Error('LINK_EXPIRED');
   const customer=await tx.customer.findUniqueOrThrow({where:{code:link.customerCode}});
   const conversion=await tx.conversion.findUnique({where:{userKey:key}});
   if(existing&&existing.code!==customer.code||customer.lineUserKey&&customer.lineUserKey!==key||conversion&&conversion.customerCode!==customer.code)throw Error('LINK_CONFLICT');
-  const claimed=await tx.customerAccessLink.updateMany({where:{tokenHash:linkHash,usedAt:null,expiresAt:{gt:new Date()}},data:{usedAt:new Date()}});
+  const claimed=await tx.customerAccessLink.updateMany({where:{tokenHash:linkHash,usedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]},data:{usedAt:new Date()}});
   if(claimed.count!==1)throw Error('LINK_EXPIRED');
   const complete=!!validContactPhones(customer.phone??'');
   const saved=await tx.customer.update({where:{code:customer.code},data:{lineUserKey:key,...(complete?{portalRegistrationPending:false,portalProfileIncomplete:false,registeredAt:customer.registeredAt??new Date()}: {})}});

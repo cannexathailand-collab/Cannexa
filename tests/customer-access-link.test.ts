@@ -4,15 +4,15 @@ import {db} from '../src/lib/db';
 import {createCustomerAccessLink} from '../src/lib/customer-access-link';
 import {sha} from '../src/lib/crypto';
 
-test('personal linking URL stores a hash and expires after 48 hours',async context=>{
+test('personal linking URL stores a hash without an expiry',async context=>{
  process.env.APP_URL??='https://example.test';
  const original=db.$transaction;context.after(()=>{db.$transaction=original;});
  let saved:any;
  const tx={$queryRawUnsafe:async()=>[],customer:{findUnique:async()=>({lineUserKey:null,profileResetAt:null,portalProfileIncomplete:false})},customerAccessLink:{deleteMany:async()=>{},create:async({data}:any)=>{saved=data;}},auditLog:{create:async()=>{}}};
  db.$transaction=((work:any)=>work(tx)) as typeof original;
- const before=Date.now(),result=await createCustomerAccessLink('C0001','employee');
+ const result=await createCustomerAccessLink('C0001','employee');
  const token=new URL(result.url).searchParams.get('link')!;assert.ok(token);assert.equal(saved.tokenHash,sha(token));assert.equal(saved.customerCode,'CUS-00000001');
- assert.ok(+saved.expiresAt>=before+48*60*60*1000);assert.ok(+saved.expiresAt<=Date.now()+48*60*60*1000);assert.equal(saved.createdBy,'employee');
+ assert.equal(saved.expiresAt,null);assert.equal(result.expiresAt,null);assert.equal(saved.createdBy,'employee');
 });
 
 test('link generation rejects a linked or deleted customer inside its write transaction',async context=>{
