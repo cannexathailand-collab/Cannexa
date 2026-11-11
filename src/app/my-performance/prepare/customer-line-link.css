@@ -1,0 +1,9 @@
+.draft-line-link{border:1px solid #d5e6da;border-radius:12px;background:#f5faf7;padding:14px 16px;margin:0 0 16px}
+.draft-line-link-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
+.draft-line-link-heading [role=status]{font-size:12px;color:#687a70}.draft-line-link-heading .is-linked{color:#17643f;font-weight:700}
+.draft-line-link-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.customer .draft-line-link button{width:auto;min-height:38px;padding:8px 12px;font-size:12px;margin:0}
+.draft-line-link label{display:block;font-size:12px;margin-top:12px}
+.draft-line-link input{width:100%;min-width:0;box-sizing:border-box;font-size:12px}
+.draft-line-link small,.draft-line-link p{font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+@media(max-width:600px){.draft-line-link{padding:12px}.draft-line-link-actions>*{flex:1}.draft-line-link-heading{align-items:flex-start}}

@@ -94,7 +94,8 @@ export async function linkPortalCustomer(key:string,linkHash?:string|null){
   if(existing&&existing.code!==customer.code||customer.lineUserKey&&customer.lineUserKey!==key||conversion&&conversion.customerCode!==customer.code)throw Error('LINK_CONFLICT');
   const claimed=await tx.customerAccessLink.updateMany({where:{tokenHash:linkHash,usedAt:null,expiresAt:{gt:new Date()}},data:{usedAt:new Date()}});
   if(claimed.count!==1)throw Error('LINK_EXPIRED');
-  const saved=await tx.customer.update({where:{code:customer.code},data:{lineUserKey:key}});
+  const complete=!!validContactPhones(customer.phone??'');
+  const saved=await tx.customer.update({where:{code:customer.code},data:{lineUserKey:key,...(complete?{portalRegistrationPending:false,portalProfileIncomplete:false,registeredAt:customer.registeredAt??new Date()}: {})}});
   await tx.auditLog.create({data:{actor:'customer',action:'CUSTOMER_LINE_LINKED',entityId:saved.code,details:{}}});
   return saved;
  });
