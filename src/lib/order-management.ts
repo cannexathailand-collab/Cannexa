@@ -1,4 +1,5 @@
 import {loadDuplicateOrderReviews} from './order-duplicates';
+import {visibleOrderWhere,isCancelledOrder} from './order-list-visibility';
 import type {OrderIntake,Shipment,SalesOrder,Prisma} from '@prisma/client';
 import {db} from './db';
 import {dayStart,shiftDay} from './sales-dates';
@@ -53,15 +54,16 @@ export async function orderManagement(input:OrderFilters={},options:{searchAllRo
  const round=orderRoundRange({page:String(roundPage)},at,roundSettings.closeMinutes);
  if(!options.reviewAllRounds&&(!options.searchAllRounds||!q))where.eventAt={gte:round.start,lt:round.end};
  if(team)where.groupKey=team;
+ where.AND=[visibleOrderWhere];
  const orders=await db.orderIntake.findMany({where,orderBy:[{eventAt:sort==='oldest'?'asc':'desc'},{id:'asc'}]});
  const ids=orders.map(o=>o.id),[shipments,sales]=await Promise.all([db.shipment.findMany({where:{orderId:{in:ids}}}),db.salesOrder.findMany({where:{orderId:{in:ids}}})]);
  const shipping=new Map(shipments.map(s=>[s.orderId,s])),saleMap=new Map(sales.map(s=>[s.orderId,s]));
  const [receipts,reports]=await Promise.all([db.codReceipt.findMany({where:{tracking:{in:shipments.map(s=>s.tracking)}}}),db.gmailImport.findMany({where:{id:{in:shipments.map(s=>s.importId)},kind:'SHIPMENT'},select:{id:true}})]),verifiedReports=new Set(reports.map(report=>report.id)),receiptMap=new Map(receipts.map(r=>[r.tracking,r])),now=new Date();
  const stockReviews=await db.stockDispatch.findMany({where:{orderId:{in:ids},status:{in:['NEEDS_REVIEW','WAITING_COST','HISTORY_SAVED']}},select:{orderId:true,issues:true,status:true}});
  const stockReviewMap=new Map(stockReviews.map(review=>[review.orderId,review]));
- const all=orders.map(order=>{const shipment=shipping.get(order.id),sale=saleMap.get(order.id),receipt=shipment?receiptMap.get(shipment.tracking):undefined,closed=['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(order.status),shipped=!closed&&!!shipment&&hasActualDispatch(shipment);const stockReview=!closed&&shipment?.tracking?stockReviewMap.get(order.id):undefined;const duplicateMatches=duplicateReviews.get(order.id)??[];return {order,stockReview,duplicateMatches,confirmationReview:needsDispatchConfirmationReview(order,shipment,!!shipment&&verifiedReports.has(shipment.importId),now),codReview:needsCodReceiptReview(order,shipment,receipt,now,!!shipment&&verifiedReports.has(shipment.importId)),teamName:teamNames.get(order.groupKey)??'ยังไม่ระบุทีม',shipment,sale,receipt,shipped,shipmentVerified:shipped&&!!shipment&&verifiedReports.has(shipment.importId),awaitingConfirmation:shipped&&!!shipment&&!verifiedReports.has(shipment.importId),awaitingShipment:!closed&&!shipped,state:stockReview||duplicateMatches.length?'REVIEW' as const:orderState(order,shipment,sale,now,receipt,!!shipment&&verifiedReports.has(shipment.importId)),amountSatang:quotedTotal(order.rawText??'')??sale?.revenueSatang??null};});
+ const all=orders.filter(order=>!isCancelledOrder(order,shipping.get(order.id))).map(order=>{const shipment=shipping.get(order.id),sale=saleMap.get(order.id),receipt=shipment?receiptMap.get(shipment.tracking):undefined,closed=['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(order.status),shipped=!closed&&!!shipment&&hasActualDispatch(shipment);const stockReview=!closed&&shipment?.tracking?stockReviewMap.get(order.id):undefined;const duplicateMatches=duplicateReviews.get(order.id)??[];return {order,stockReview,duplicateMatches,confirmationReview:needsDispatchConfirmationReview(order,shipment,!!shipment&&verifiedReports.has(shipment.importId),now),codReview:needsCodReceiptReview(order,shipment,receipt,now,!!shipment&&verifiedReports.has(shipment.importId)),teamName:teamNames.get(order.groupKey)??'ยังไม่ระบุทีม',shipment,sale,receipt,shipped,shipmentVerified:shipped&&!!shipment&&verifiedReports.has(shipment.importId),awaitingConfirmation:shipped&&!!shipment&&!verifiedReports.has(shipment.importId),awaitingShipment:!closed&&!shipped,state:stockReview||duplicateMatches.length?'REVIEW' as const:orderState(order,shipment,sale,now,receipt,!!shipment&&verifiedReports.has(shipment.importId)),amountSatang:quotedTotal(order.rawText??'')??sale?.revenueSatang??null};});
  const counts=Object.fromEntries(Object.keys(orderStates).map(key=>[key,all.filter(row=>orderMatchesState(row,key)).length])) as Record<keyof typeof orderStates,number>;
- const filtered=all.filter(row=>options.includeClosed&&status==='ALL'||orderMatchesState(row,status));
+ const filtered=all.filter(row=>!isCancelledOrder(row.order,row.shipment)&&(options.includeClosed&&status==='ALL'||orderMatchesState(row,status)));
  const active=all.filter(row=>row.state!=='CANCELLED');
  const totalAmountSatang=active.reduce((total,row)=>total+(row.amountSatang??0),0);
  const transferAmountSatang=active.filter(row=>row.order.payment==='โอน').reduce((total,row)=>total+(row.amountSatang??0),0);

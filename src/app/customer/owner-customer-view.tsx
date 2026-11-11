@@ -16,6 +16,7 @@ import {CustomerGreenCoin} from './green-coin';
 import {CustomerShop} from './shop';
 import {loadCustomerCatalog} from '@/lib/customer-catalog';
 import {CustomerWebsiteOrders} from './website-orders';
+import {ProfileForm} from './profile-form';
 
 export async function OwnerCustomerView({params}:{params:{q?:string;customer?:string}}){
  const {t,locale}=await customerLanguage();
@@ -61,12 +62,7 @@ export async function OwnerCustomerView({params}:{params:{q?:string;customer?:st
     <section className="portal-coin-balance" aria-label={t("ยอด Green Coin")}><h2>Green Coin</h2><span className="portal-coin-mark" aria-hidden="true">G</span><strong>{balance.toLocaleString(locale)}</strong><span>{t("เหรียญคงเหลือ")}</span></section>
    </div>
    <CustomerPanels key={selected.code} readOnly shop={<CustomerShop customerCode={selected.code} initialCatalog={catalog!} initialDelivery={{name:selected.name??'',address:selected.address??'',phone:selected.phone??''}} savedAddresses={savedAddresses} readOnly/>} orders={<><CustomerWebsiteOrders customerCode={selected.code}/><CustomerOrderHistory history={summary?.allHistory??[]} title={t("ออเดอร์จัดส่ง")} emptyText={t("ยังไม่มีออเดอร์จัดส่ง")}/></>} profile={
-    <section className="portal-section"><h2>{t("ข้อมูลส่วนตัว")}</h2><div className="portal-profile">
-     <label>{t("คำนำหน้า")}<input value={selected.title??''} readOnly/></label>
-     <label>{t("ชื่อผู้รับ")}<input value={selected.name??''} readOnly/></label>
-     <label>{t("เบอร์โทร")}<input value={selected.phone??''} readOnly/></label>
-     <label>{t("ที่อยู่จัดส่ง")}<textarea aria-label={t("ที่อยู่จัดส่ง")} value={selected.address??''} readOnly rows={4}/></label>
-    </div></section>
+    <section className="portal-section portal-profile-section"><h2>{t("ข้อมูลส่วนตัว")}</h2><p className="portal-muted">{t("โหมดเจ้าของระบบแสดงตัวอย่างเท่านั้น ลูกค้าสามารถเลือกที่อยู่และเพิ่มผู้รับจากบัญชีของตนเอง")}</p><ProfileForm readOnly registered initial={{title:selected.title??'คุณ',name:selected.name??'',phone:selected.phone??'',address:selected.address??''}} savedAddresses={savedAddresses}/></section>
    } promotions={<CustomerPromotions/>} coins={<CustomerGreenCoin customerCode={selected.code} balance={balance} readOnly/>}/>
   </>}
  </main>;

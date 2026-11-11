@@ -1,4 +1,5 @@
 import type {OrderIntake,Shipment,Prisma} from '@prisma/client';
+import {isCancelledOrder} from './order-list-visibility';
 import {db} from './db';
 import {isRecognizedSale,type SaleRow} from './sales-report';
 import {hasActualDispatch} from './sales-recognition';
@@ -28,7 +29,7 @@ export function summarizeCustomerOrders(orders:CrmOrder[],sales:SaleRow[],shipme
   const transferPaid=!excluded&&order.payment==='โอน'&&sale?.paymentMethod==='TRANSFER'&&['PENDING','WAITING_COST','PAID'].includes(sale.status)&&!['NEEDS_REVIEW','EXPIRED'].includes(order.status)&&!!amountSatang&&amountSatang>0&&!!(order.paymentSlip||legacyTransferSlips.has(order.id));
   const pointsEligible=recognized||transferPaid;
   const points=pointsEligible?(snapshotPoints(order.loyaltySnapshot,amountSatang!)??purchasePoints(amountSatang!,transferPaid?order.eventAt:sale!.recognizedAt!,rules)):0;
-  return {order,amountSatang,excluded,recognized,recognizedAt:sale?.recognizedAt??null,returned,shipped,productCostSatang:costReady?cost!.totalCostSatang:null,profitSatang,points,pointsEligible,tracking:shipment?.tracking??null,status:returned?'ไม่รับสินค้า · ตีกลับ':recognized?'ซื้อสำเร็จ':excluded?'ไม่นับยอดซื้อ':sale?.status==='WAITING_COD'?'รอรับเงิน COD':order.status==='NEEDS_REVIEW'?'รอตรวจสอบ':orderShipmentStatus(order.status,shipment?.tracking,shipment?.fulfillmentStatus,shipment?.dispatchedAt).label};
+  return {order,cancelled:isCancelledOrder(order,shipment),amountSatang,excluded,recognized,recognizedAt:sale?.recognizedAt??null,returned,shipped,productCostSatang:costReady?cost!.totalCostSatang:null,profitSatang,points,pointsEligible,tracking:shipment?.tracking??null,status:returned?'ไม่รับสินค้า · ตีกลับ':recognized?'ซื้อสำเร็จ':excluded?'ไม่นับยอดซื้อ':sale?.status==='WAITING_COD'?'รอรับเงิน COD':order.status==='NEEDS_REVIEW'?'รอตรวจสอบ':orderShipmentStatus(order.status,shipment?.tracking,shipment?.fulfillmentStatus,shipment?.dispatchedAt).label};
  }).sort((a,b)=>+b.order.eventAt-+a.order.eventAt||a.order.id.localeCompare(b.order.id));
  const range=filters?crmRange(filters):null;
  const selected=range?history.filter(h=>{const day=bangkokDay(h.order.eventAt);return day>=range.from&&day<=range.to;}):history;

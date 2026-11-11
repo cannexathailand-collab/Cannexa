@@ -31,7 +31,7 @@ export default async function CustomerProfile({params,searchParams}:{params:Prom
  const dashboard=buildCustomerDashboard(summary.allHistory,p.from||p.to?range:undefined);
  const productNames=new Map((dashboard.products.length?await db.stockProduct.findMany({where:{code:{in:dashboard.products.map(product=>product.code)}},select:{code:true,name:true}}):[]).map(product=>[product.code,product.name]));
  const recency=customerOrderRecency(summary.allHistory);
- const historyRows=p.returns==='1'?summary.history.filter(h=>h.returned):summary.history;
+ const historyRows=summary.history.filter(h=>!h.cancelled&&(p.returns!=='1'||h.returned));
  const historyQuery=new URLSearchParams({...range,view});
  const groupIds=[...new Set(summary.allHistory.map(h=>h.order.groupKey))];
  const groups=groupIds.length?await db.orderGroup.findMany({where:{id:{in:groupIds}},select:{id:true,botId:true,name:true}}):[];

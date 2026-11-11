@@ -170,7 +170,7 @@ test('review changes only review fields once and preserves item, price and recip
  const second=await createWebsiteOrder('C100',request());
  const rejected=await reviewWebsiteOrder('owner',{id:second.id,status:'REJECTED',note:'Unavailable',expectedStatus:'PENDING_REVIEW'});
  assert.equal(rejected.status,'REJECTED');assert.equal(rejected.reviewNote,'Unavailable');
- assert.equal((await listWebsiteOrders('REJECTED')).length,1);
+ assert.equal((await listWebsiteOrders('REJECTED')).length,0);assert.equal(state.orders.get(second.id)?.status,'REJECTED');
 });
 
 test('approval requires payment, amount and seller, then creates one delivery order with a stock reservation',async t=>{

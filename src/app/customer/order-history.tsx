@@ -9,6 +9,7 @@ import {db} from '@/lib/db';
 type History=ReturnType<typeof summarizeCustomerOrders>['allHistory'];
 
 export async function CustomerOrderHistory({history,title='ออเดอร์ของฉัน',emptyText='ยังไม่มีออเดอร์'}:{history:History;title?:string;emptyText?:string}){
+ history=history.filter(row=>!row.cancelled);
  const {t,language,date:customerDate}=await customerLanguage();
  const receiptSettings=await db.receiptSettings.findUnique({where:{id:'active'},select:{enabled:true}});
  const invoices=await db.customerTaxInvoice.findMany({where:{orderId:{in:history.map(row=>row.order.id)}},select:{id:true,orderId:true}});

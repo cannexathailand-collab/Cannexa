@@ -1,3 +1,4 @@
+import {visibleOrderWhere} from '@/lib/order-list-visibility';
 import {TaxInvoiceSettingsForm} from './tax-invoice-settings-form';
 import {bangkokDay} from '@/lib/sales-dates';
 import {db} from '@/lib/db';
@@ -10,7 +11,7 @@ export async function ReceiptAdmin({query='',base='/admin/receipts',issueEndpoin
  const [settings,taxSettings,orders]=await Promise.all([
   db.receiptSettings.findUnique({where:{id:'active'}}),
   db.taxInvoiceSettings.findUnique({where:{id:'active'}}),
-  db.orderIntake.findMany({where:query?{OR:[{orderNumber:{contains:query,mode:'insensitive'}},{recipient:{contains:query,mode:'insensitive'}},{customerCode:{contains:query,mode:'insensitive'}}]}:{},orderBy:{eventAt:'desc'},take:100}),
+  db.orderIntake.findMany({where:{AND:[visibleOrderWhere,query?{OR:[{orderNumber:{contains:query,mode:'insensitive'}},{recipient:{contains:query,mode:'insensitive'}},{customerCode:{contains:query,mode:'insensitive'}}]}:{}]},orderBy:{eventAt:'desc'},take:100}),
  ]);
  const ids=orders.map(order=>order.id);
  const [shipments,sales,issued,taxIssued]=await Promise.all([db.shipment.findMany({where:{orderId:{in:ids}}}),db.salesOrder.findMany({where:{orderId:{in:ids}}}),db.customerReceipt.findMany({where:{orderId:{in:ids}}}),db.customerTaxInvoice.findMany({where:{orderId:{in:ids}}})]);

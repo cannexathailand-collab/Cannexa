@@ -1,3 +1,4 @@
+import {visibleOrderWhere} from './order-list-visibility';
 import {db} from './db';
 import {employeeOrderRange,employeeOrderScope} from './employee-order-history';
 import {orderEditVersion} from './order-changes';
@@ -11,7 +12,7 @@ export function employeeSalesWeekStart(roundDay:string){
 export async function employeeOrderDashboard(input:{q?:string;page?:string;scope?:string;range?:string}={},sellerUsername?:string,options:{reviewAllRounds?:boolean}={}){
  const range=options.reviewAllRounds?'round':employeeOrderRange(input);
  const report=await orderManagement({q:input.q,page:range==='all'?'1':input.page},{searchAllRounds:true,...options,...(range==='all'?{reviewAllRounds:true,includeClosed:true}:{})});
- const [systemCount,mySystemCount]=sellerUsername?await Promise.all([db.orderIntake.count(),db.orderIntake.count({where:{sellerUsername}})]):[0,0];
+ const [systemCount,mySystemCount]=sellerUsername?await Promise.all([db.orderIntake.count({where:visibleOrderWhere}),db.orderIntake.count({where:{...visibleOrderWhere,sellerUsername}})]):[0,0];
  const allRows=report.rows.map(row=>({
   version:orderEditVersion(row.order),canCancel:!row.shipped&&!['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(row.order.status),id:row.order.id,orderNumber:row.order.orderNumber,recipient:row.order.recipient,
   eventAt:row.order.eventAt,createdAt:row.order.createdAt,day:orderRoundClosingDay(row.order.eventAt,report.roundSettings.closeMinutes),

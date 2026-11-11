@@ -1,3 +1,4 @@
+import {visibleOrderWhere} from '@/lib/order-list-visibility';
 import Link from 'next/link';
 import {notFound} from 'next/navigation';
 import type {PrismaClient} from '@prisma/client';
@@ -15,7 +16,7 @@ const views=[['overview','ภาพรวมและยอดขาย'],['cust
 const money=(amount:number)=>(amount/100).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
 
 async function Overview({client,filters}:{client:PrismaClient;filters:Filters}){
- const [report,customers,orders]=await Promise.all([withDatabase(client,()=>bookedSalesReport({from:filters.from,to:filters.to})),client.customer.count(),client.orderIntake.count()]);
+ const [report,customers,orders]=await Promise.all([withDatabase(client,()=>bookedSalesReport({from:filters.from,to:filters.to})),client.customer.count(),client.orderIntake.count({where:visibleOrderWhere})]);
  return <section className="card"><h2>ภาพรวม</h2><p>ลูกค้า {customers} คน · ออเดอร์ {orders} รายการ</p><p>ยอดขายในช่วงที่เลือก {money(report.summary.revenueSatang)} บาท</p><p>ยอดโอน {money(report.summary.transferSatang)} บาท · ยอด COD {money(report.summary.codSatang)} บาท</p><p>กำไรขั้นต้น {report.summary.profitSatang===null?'ข้อมูลยังไม่ครบ':money(report.summary.profitSatang)+' บาท'}</p><p className="muted">ต้นทุนประมาณการ {report.summary.estimatedCostCount} ออเดอร์</p></section>;
 }
 async function Customers({client,q,page,path,selected}:{client:PrismaClient;q:string;page:number;path:string;selected?:string}){
@@ -44,7 +45,7 @@ async function Customers({client,q,page,path,selected}:{client:PrismaClient;q:st
 }
 async function Orders({client,q,page,path,selected}:{client:PrismaClient;q:string;page:number;path:string;selected?:string}){
  const where=q?{OR:[{orderNumber:{contains:q,mode:'insensitive' as const}},{recipient:{contains:q,mode:'insensitive' as const}},{phone:{contains:q}}]}:{};
- const [rows,order]=await Promise.all([client.orderIntake.findMany({where,skip:(page-1)*50,take:50,orderBy:[{createdAt:'desc'},{id:'asc'}],select:{id:true,orderNumber:true,recipient:true,sellerUsername:true,status:true}}),selected?client.orderIntake.findUnique({where:{id:selected}}):null]);
+ const [rows,order]=await Promise.all([client.orderIntake.findMany({where:{AND:[where,visibleOrderWhere]},skip:(page-1)*50,take:50,orderBy:[{createdAt:'desc'},{id:'asc'}],select:{id:true,orderNumber:true,recipient:true,sellerUsername:true,status:true}}),selected?client.orderIntake.findUnique({where:{id:selected}}):null]);
  const shipment=order?await client.shipment.findUnique({where:{orderId:order.id},select:{tracking:true,fulfillmentStatus:true,dispatchedAt:true}}):null;
  return <><section className="card"><h2>ออเดอร์</h2>{rows.map(row=><p key={row.id}><Link href={path+'?'+new URLSearchParams({view:'orders',q,page:String(page),order:row.id})}>{row.orderNumber}</Link> · {row.recipient??'—'} · {row.sellerUsername??'—'} · {row.status}</p>)}{!rows.length&&<p>ไม่มีรายการในหน้านี้</p>}</section>{order&&<section className="card"><h2>{order.orderNumber}</h2><p>{order.recipient} · {order.phone}</p><p>{order.address}</p><p>ผู้ขาย {order.sellerUsername??order.sellerCode??'—'}</p><p>เลขพัสดุ {shipment?.tracking??'—'} · {shipment?.fulfillmentStatus??order.status}</p><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{order.rawText}</pre></section>}</>;
 }

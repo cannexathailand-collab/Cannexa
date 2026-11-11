@@ -1,3 +1,4 @@
+import {visibleWebsiteOrders} from './order-list-visibility';
 import {validContactPhones} from './contact-phones';
 import {saveCustomerDeliveryAddresses} from './customer-delivery-addresses';
 import {randomUUID} from 'node:crypto';
@@ -299,10 +300,10 @@ export async function loadWebsiteOrdersForCustomer(customerCode:string){
  const orders=await db.websiteOrder.findMany({
   where:{customerCode:canonicalCustomerCode(customerCode)},orderBy:{createdAt:'desc'},take:100,select:orderSelect,
  });
- return orders.map(websiteOrderSummary);
+ return (await visibleWebsiteOrders(orders)).map(websiteOrderSummary);
 }
 export async function listWebsiteOrders(status?:string){
  if(status!==undefined&&!['PENDING_REVIEW','APPROVED','REJECTED'].includes(status))throw Error('INVALID_WEBSITE_ORDER_STATUS');
  const orders=await db.websiteOrder.findMany({where:status?{status}:{},orderBy:{createdAt:'desc'},take:200,select:orderSelect});
- return orders.map(websiteOrderSummary);
+ return (await visibleWebsiteOrders(orders)).map(websiteOrderSummary);
 }
