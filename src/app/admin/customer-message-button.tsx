@@ -10,6 +10,7 @@ export function CustomerMessageButton({code,name,status}:{code:string;name:strin
  const [ready,setReady]=useState(false),[text,setText]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[sent,setSent]=useState(false);
  useEffect(()=>setReady(true),[]);
  return <div className="customer-message-control">
+  <span className="small">ชื่อ LINE: {status.displayName||'ยังไม่มีข้อมูล'}</span>
   <span className={'customer-line-status'+(status.ready?' ready':'')}>{status.label}</span>
   {status.ready&&<button type="button" className="customer-message-open" disabled={!ready} onClick={()=>{if(sent){setError('');setSent(false);setText('');request.current=null;}dialog.current?.showModal();}}>ส่งข้อความ</button>}
   <dialog ref={dialog} className="customer-message-dialog" aria-labelledby={'message-title-'+code} onCancel={event=>{if(busy)event.preventDefault();}}>

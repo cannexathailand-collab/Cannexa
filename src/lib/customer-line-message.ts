@@ -6,7 +6,7 @@ import {canonicalCustomerCode} from './customer-code';
 import {lineSettings} from './line-settings';
 import {decryptLineRecipient} from './line-message-recipient';
 
-export type CustomerLineStatus={ready:boolean;label:string};
+export type CustomerLineStatus={ready:boolean;label:string;displayName?:string|null};
 export function customerLineStatus(key:string|null,recipient:LineMessageRecipient|null,connection:{botId:string;accessToken?:string}|null,now=new Date()):CustomerLineStatus{
  if(!key)return {ready:false,label:'ยังไม่ผูก LINE'};
  if(!recipient)return {ready:false,label:'รออัปเดตข้อมูล LINE'};
@@ -20,7 +20,7 @@ export async function loadCustomerLineStatuses(customers:{code:string;lineUserKe
  const keys=customers.flatMap(customer=>customer.lineUserKey?[customer.lineUserKey]:[]);
  const [rows,connection]=await Promise.all([db.lineMessageRecipient.findMany({where:{lineUserKey:{in:keys}}}),lineSettings()]);
  const byKey=new Map(rows.map(row=>[row.lineUserKey,row]));
- return new Map(customers.map(customer=>[customer.code,customerLineStatus(customer.lineUserKey,byKey.get(customer.lineUserKey??'')??null,connection?.settings??null)]));
+ return new Map(customers.map(customer=>{const recipient=byKey.get(customer.lineUserKey??'')??null;return [customer.code,{...customerLineStatus(customer.lineUserKey,recipient,connection?.settings??null),displayName:recipient?.displayName??null}];}));
 }
 
 const messageInput=z.object({code:z.string().trim().min(1).max(30),requestKey:z.uuid(),text:z.string().trim().min(1).max(5000)});

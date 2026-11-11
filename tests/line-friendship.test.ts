@@ -16,11 +16,12 @@ test('friendship failure retains a safe status code while successful LINE identi
  process.env.APP_URL??='https://example.test';
  globalThis.fetch=(async url=>{
   if(String(url).endsWith('/token'))return Response.json({id_token:'test',access_token:'private-token'});
-  if(String(url).endsWith('/verify'))return Response.json({iss:'https://access.line.me',aud:'test-login',nonce:'nonce',sub:'test-user',exp:Math.floor(Date.now()/1000)+600});
+  if(String(url).endsWith('/verify'))return Response.json({iss:'https://access.line.me',aud:'test-login',nonce:'nonce',sub:'test-user',name:'  ชื่อ LINE ทดสอบ  ',exp:Math.floor(Date.now()/1000)+600});
   return new Response('private upstream error',{status:400});
  }) as typeof fetch;
  const result=await exchange('code','verifier','nonce',{loginId:'test-login',loginSecret:'secret',messagingSecret:'secret',botId:'bot',basicId:'@bot'});
  assert.equal(result.userId,'test-user');assert.equal(result.friendFlag,null);assert.equal(result.friendshipError,'HTTP_400');
+ assert.equal(result.displayName,'ชื่อ LINE ทดสอบ');
 });
 
 test('unavailable friendship API uses the latest verified follow or unfollow for the same identity',async context=>{

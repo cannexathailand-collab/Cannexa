@@ -177,6 +177,7 @@ model MetaConnection {
 }
 model LineMessageRecipient {
  lineUserKey String @id
+ displayName String?
  botId String
  encryptedUserId String
  updatedAt DateTime @updatedAt

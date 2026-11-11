@@ -39,7 +39,7 @@ test("CSV formula injection escaped incl whitespace",()=>{assert.ok(csvCell("=SU
 test("LINE Login validates token then friendship; friendship outage fails closed",async()=>{
  const original=globalThis.fetch;let calls=0;
  globalThis.fetch=(async()=>{calls++;if(calls===1)return Response.json({id_token:"id",access_token:"access"});if(calls===2)return Response.json({iss:"https://access.line.me",aud:"123",nonce:"nonce1",sub:"U1",exp:Date.now()/1000+3600});throw new Error("timeout");}) as typeof fetch;
- try{assert.deepEqual(await exchange("code","verifier","nonce1"),{userId:"U1",friendFlag:null,friendshipError:'NETWORK_ERROR'});assert.equal(calls,3);}finally{globalThis.fetch=original;}
+ try{assert.deepEqual(await exchange("code","verifier","nonce1"),{userId:"U1",displayName:null,friendFlag:null,friendshipError:'NETWORK_ERROR'});assert.equal(calls,3);}finally{globalThis.fetch=original;}
 });
 test("invalid ID token nonce rejected before friendship query",async()=>{
  const original=globalThis.fetch;let calls=0;globalThis.fetch=(async()=>Response.json(++calls===1?{id_token:"id",access_token:"access"}:{iss:"https://access.line.me",aud:"123",nonce:"wrong",sub:"U1",exp:Date.now()/1000+3600})) as typeof fetch;

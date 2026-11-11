@@ -10,5 +10,5 @@ export async function exchange(code:string,verifier:string,nonce:string,settings
  let friendFlag:boolean|null=null,friendshipError:string|null=null;
  try{const f=await request("https://api.line.me/friendship/v1/status",{headers:{Authorization:"Bearer "+token.access_token}});if(typeof f.friendFlag==="boolean")friendFlag=f.friendFlag;else friendshipError='INVALID_RESPONSE';}
  catch(error){const status=error instanceof Error?error.message.match(/^LINE API error (\d{3})$/)?.[1]:undefined;friendshipError=status?'HTTP_'+status:'NETWORK_ERROR';}
- return {userId:String(id.sub),friendFlag,friendshipError};
+ return {userId:String(id.sub),displayName:typeof id.name==='string'?id.name.trim().slice(0,200)||null:null,friendFlag,friendshipError};
 }

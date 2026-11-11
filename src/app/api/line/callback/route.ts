@@ -35,7 +35,7 @@ export async function GET(req:NextRequest){
   const changed=req.nextUrl.searchParams.get("friendship_status_changed");
   const key=userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?result.userId:connection.settings.botId+":"+result.userId);
   const friendFlag=marketingLogin?await verifiedLineFriendship(key,result.friendFlag):result.friendFlag;
-  await saveLineMessageRecipient(key,connection.settings.botId,result.userId,{friendFlag:result.friendFlag});
+  await saveLineMessageRecipient(key,connection.settings.botId,result.userId,{friendFlag:result.friendFlag,displayName:result.displayName});
   if(result.friendshipError)await db.auditLog.create({data:{actor:'line-login',action:'LINE_FRIENDSHIP_CHECK_FAILED',entityId:key,details:{error:result.friendshipError}}});
   if(marketingLogin){
    if(!a.clickId)throw Error('Missing marketing click');
