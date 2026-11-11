@@ -1,0 +1,5 @@
+.crm-customer-link{display:flex;flex-direction:column;justify-content:center;gap:6px;min-height:44px;padding:6px 8px;margin:-6px -8px;border-radius:8px;text-decoration:none;cursor:pointer}
+.crm-customer-link strong{color:#09694b;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.crm-customer-link .muted{font-size:12px;font-weight:400}
+.crm-customer-link:hover,.crm-customer-link:focus-visible{background:#e9f5ed}
+.crm-customer-link:focus-visible{outline:2px solid #13744f;outline-offset:2px}
