@@ -1,4 +1,5 @@
 import {customerUsername} from './customer-username';
+import {customerLineRevocationId} from './customer-line-relink';
 import {customerDiscoverySource} from './customer-discovery-source';
 import {saveCustomerDeliveryAddresses} from './customer-delivery-addresses';
 import type {Prisma} from '@prisma/client';
@@ -39,7 +40,8 @@ export async function portalCustomer(){
  const key=readPortalToken(value);
  if(key){
   const customer=await db.customer.findUnique({where:{lineUserKey:key}});
-  return {key,customer:customer??await linkPortalCustomer(key),method:'line' as const,marketingEntry:readPortalMarketingEntry(value)};
+  try{return {key,customer:customer??await linkPortalCustomer(key),method:'line' as const,marketingEntry:readPortalMarketingEntry(value)};}
+  catch(error){if(!(error instanceof Error)||error.message!=='LINE_RELINK_REQUIRED')throw error;return {key:null,customer:null,method:null,marketingEntry:false};}
  }
  const token=readToken<{purpose?:string;code?:string;version?:string;exp?:number}>((await cookies()).get(portalPasswordCookie)?.value??'');
  if(token?.purpose==='CUSTOMER_PASSWORD_SESSION'&&typeof token.code==='string'&&token.code.length<=30&&typeof token.version==='string'&&/^[a-f0-9]{64}$/.test(token.version)&&typeof token.exp==='number'&&token.exp>Date.now()){
@@ -72,6 +74,7 @@ export async function linkPortalCustomer(key:string,linkHash?:string|null){
   const existing=await tx.customer.findUnique({where:{lineUserKey:key}});
   if(!linkHash){
    if(existing)return existing;
+   if(await tx.auditLog.findUnique({where:{id:customerLineRevocationId(key)},select:{id:true}}))throw Error('LINE_RELINK_REQUIRED');
    const conversion=await tx.conversion.findUnique({where:{userKey:key}});
    const assigned=conversion?await tx.customer.findUnique({where:{code:conversion.customerCode}}):null;
    if(assigned){
