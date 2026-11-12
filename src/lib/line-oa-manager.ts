@@ -5,6 +5,9 @@ import {syncReplyVideo,verifyReplyVideo,recordReplyVideo} from './line-oa-video'
 import {reportOaProgress} from './line-oa-progress';
 
 type Product=OaPayload['sets'][number]['products'][number];
+export function oaCardDescription(product:Pick<Product,'priceSatang'>){
+ return product.priceSatang===undefined?'ดูรายละเอียดสินค้า':'ราคา '+new Intl.NumberFormat('th-TH',{minimumFractionDigits:product.priceSatang%100?2:0,maximumFractionDigits:2}).format(product.priceSatang/100)+' บาท';
+}
 export function managerUrl(account:string,path=''){
  if(!/^@[a-zA-Z0-9._-]+$/.test(account))throw Error('OA_ACCOUNT_INVALID');
  return 'https://manager.line.biz/account/'+account+(path?'/'+path:'');
@@ -203,7 +206,7 @@ export async function saveManagerCards(page:Page,account:string,set:OaPayload['s
   for(const slot of [1,2,3])await uploadCardImage(page,product,slot);
   console.info('OA card stage: FIELDS',i+1);
   await page.getByPlaceholder('ใส่ชื่อการ์ด',{exact:true}).fill(Array.from(product.name).slice(0,20).join(''));
-  await checkbox(page,'คำอธิบาย',true);await page.getByPlaceholder('ใส่คำอธิบาย',{exact:true}).fill('ดูรายละเอียดสินค้า');
+  await checkbox(page,'คำอธิบาย',true);await page.getByPlaceholder('ใส่คำอธิบาย',{exact:true}).fill(oaCardDescription(product));
   await checkbox(page,'ราคา',false);
   await checkbox(page,'แอ็กชัน 1',true);await checkbox(page,'แอ็กชัน 2',true);
   await page.getByPlaceholder('ใส่ข้อความสำหรับป้ายแอ็กชัน',{exact:true}).nth(0).fill('Show details');
@@ -231,7 +234,7 @@ export async function saveManagerCards(page:Page,account:string,set:OaPayload['s
   await tabs.nth(i).click();const code=set.products[i].code;
   const deadline=Date.now()+20000;let verified=false;
   while(Date.now()<deadline){
-   verified=await page.getByPlaceholder('ใส่ข้อความแท็ก',{exact:true}).inputValue()===code&&await page.locator('select[name="imageNumber"]').inputValue()==='3'&&await page.getByPlaceholder('ข้อความในช่องนี้จะถูกส่งไปทางแชท',{exact:true}).inputValue()===code&&await page.getByRole('button',{name:'',exact:true}).count()===3&&await page.getByPlaceholder('ใส่ชื่อการ์ด',{exact:true}).inputValue()===Array.from(set.products[i].name).slice(0,20).join('')&&await page.getByPlaceholder('ใส่คำอธิบาย',{exact:true}).inputValue()==='ดูรายละเอียดสินค้า'&&await page.getByPlaceholder('ใส่ข้อความสำหรับป้ายแอ็กชัน',{exact:true}).nth(0).inputValue()==='Show details'&&await page.getByPlaceholder('ใส่ข้อความสำหรับป้ายแอ็กชัน',{exact:true}).nth(1).inputValue()==='Order Now'&&await page.getByPlaceholder('ใส่ลิงก์',{exact:true}).inputValue()==='https://example.com/?test_product='+encodeURIComponent(code);
+   verified=await page.getByPlaceholder('ใส่ข้อความแท็ก',{exact:true}).inputValue()===code&&await page.locator('select[name="imageNumber"]').inputValue()==='3'&&await page.getByPlaceholder('ข้อความในช่องนี้จะถูกส่งไปทางแชท',{exact:true}).inputValue()===code&&await page.getByRole('button',{name:'',exact:true}).count()===3&&await page.getByPlaceholder('ใส่ชื่อการ์ด',{exact:true}).inputValue()===Array.from(set.products[i].name).slice(0,20).join('')&&await page.getByPlaceholder('ใส่คำอธิบาย',{exact:true}).inputValue()===oaCardDescription(set.products[i])&&await page.getByPlaceholder('ใส่ข้อความสำหรับป้ายแอ็กชัน',{exact:true}).nth(0).inputValue()==='Show details'&&await page.getByPlaceholder('ใส่ข้อความสำหรับป้ายแอ็กชัน',{exact:true}).nth(1).inputValue()==='Order Now'&&await page.getByPlaceholder('ใส่ลิงก์',{exact:true}).inputValue()==='https://example.com/?test_product='+encodeURIComponent(code);
    if(verified)break;await page.waitForTimeout(250);
   }
   if(!verified)throw Error('OA_VERIFY_FAILED');
