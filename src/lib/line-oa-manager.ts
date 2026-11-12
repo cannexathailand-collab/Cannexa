@@ -39,7 +39,13 @@ async function openItem(page:Page,account:string,kind:'cardtypemessage'|'autores
  await page.waitForURL(new RegExp('/'+kind+'/create(?:[?#]|$)'),{timeout:20000});
  return true;
 }
-async function checkbox(page:Page,label:string,value:boolean){const control=page.getByRole('checkbox',{name:label,exact:true});await control.setChecked(value);}
+async function checkbox(page:Page,label:string,value:boolean){
+ const control=page.getByRole('checkbox',{name:label,exact:true});
+ if(await control.isChecked()!==value){
+  await page.locator('label.custom-control-label').filter({hasText:new RegExp('^'+label+'$')}).click();
+  if(await control.isChecked()!==value)throw Error('OA_OPTION_NOT_ACCEPTED');
+ }
+}
 async function savedId(page:Page,kind:string,name:string){
  await page.waitForLoadState('networkidle',{timeout:15000}).catch(()=>{});
  if(new URL(page.url()).pathname.endsWith('/'+kind)){
