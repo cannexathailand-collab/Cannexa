@@ -12,6 +12,10 @@ export async function verifyManager(page:Page,account:string){
  await page.getByRole('button',{name:'ช่วยเหลือ',exact:true}).waitFor({timeout:20000}).catch(()=>{});
  if(!page.url().startsWith(managerUrl(account))||!await page.getByText(account,{exact:true}).count())throw Error('OA_LOGIN_REQUIRED');
 }
+async function dismissManagerGuide(page:Page){
+ const finish=page.getByText('จบการแนะนำ',{exact:true});
+ if(await finish.waitFor({state:'visible',timeout:2500}).then(()=>true,()=>false))await finish.click();
+}
 async function openItem(page:Page,account:string,kind:'cardtypemessage'|'autoresponse',name:string,remoteId?:string){
  if(remoteId){
   if(!/^\d+$/.test(remoteId))throw Error('OA_ARTIFACT_INVALID');
@@ -20,6 +24,7 @@ async function openItem(page:Page,account:string,kind:'cardtypemessage'|'autores
   if(await title.inputValue()!==name)throw Error('OA_ARTIFACT_CHANGED');return false;
  }
  await page.goto(managerUrl(account,kind),{waitUntil:'domcontentloaded'});
+ if(kind==='cardtypemessage')await dismissManagerGuide(page);
  const filter=page.getByPlaceholder(kind==='cardtypemessage'?'ใส่ชื่อไอเทม':'ใส่คีย์เวิร์ด',{exact:true});
  await filter.fill(name);await page.getByRole('button',{name:'',exact:true}).click();
  await page.waitForTimeout(1000);await page.waitForLoadState('networkidle',{timeout:10000}).catch(()=>{});
@@ -99,6 +104,7 @@ export async function saveManagerCards(page:Page,account:string,set:OaPayload['s
  const known=await db.lineOaArtifact.findUnique({where:{account_kind_key:{account,kind:'cards',key:set.title}}});
  const fresh=await openItem(page,account,'cardtypemessage',set.title,known?.remoteId);
  console.info('OA card stage: EDIT');
+ await dismissManagerGuide(page);
  await page.getByPlaceholder('ใส่ชื่อไอเทม',{exact:true}).fill(set.title);
  if(fresh){await page.getByRole('button',{name:'เลือก',exact:true}).click();await page.getByRole('radio',{name:'สินค้า',exact:true}).check();await page.getByRole('button',{name:'เลือก',exact:true}).last().click();}
  const tabs=page.locator('main a.nav-link');await tabs.first().waitFor();
