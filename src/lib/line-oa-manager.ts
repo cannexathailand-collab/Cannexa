@@ -83,10 +83,14 @@ async function uploadCardImage(page:Page,product:Product,slot:number){
  if(!['image/jpeg','image/png'].includes(image.imageMime))throw Error('OA_IMAGE_FORMAT');
  const letter=['A','B','C'][slot-1],link=page.getByRole('link',{name:letter,exact:true});
  if(!await link.count())await page.getByRole('button',{name:'',exact:true}).nth(slot-1).click();
- await link.click();await page.locator('input[type="file"]').last().setInputFiles({name:'product-'+slot+(image.imageMime==='image/png'?'.png':'.jpg'),mimeType:image.imageMime,buffer:Buffer.from(image.imageData)});
+ await link.click();
+ await page.getByRole('heading',{name:'อัปโหลดรูป',exact:true}).waitFor({state:'visible',timeout:15000}).catch(()=>{throw Error('OA_IMAGE_DIALOG_FAILED');});
+ const [chooser]=await Promise.all([page.waitForEvent('filechooser',{timeout:15000}),page.getByText('เลือกไฟล์',{exact:true}).click()]).catch(()=>{throw Error('OA_IMAGE_PICKER_FAILED');});
+ await chooser.setFiles({name:'product-'+slot+(image.imageMime==='image/png'?'.png':'.jpg'),mimeType:image.imageMime,buffer:Buffer.from(image.imageData)});
+ await page.getByRole('heading',{name:'ครอบตัด',exact:true}).waitFor({state:'visible',timeout:30000}).catch(()=>{throw Error('OA_IMAGE_CROP_FAILED');});
  await page.getByRole('button',{name:'ใช้',exact:true}).click({timeout:30000});
- await page.getByRole('heading',{name:'ครอบตัด',exact:true}).waitFor({state:'hidden',timeout:30000});
- await link.waitFor({state:'hidden',timeout:30000});
+ await page.getByRole('heading',{name:'ครอบตัด',exact:true}).waitFor({state:'hidden',timeout:30000}).catch(()=>{throw Error('OA_IMAGE_UPLOAD_FAILED');});
+ await link.waitFor({state:'hidden',timeout:30000}).catch(()=>{throw Error('OA_IMAGE_READY_FAILED');});
 }
 export async function saveManagerCards(page:Page,account:string,set:OaPayload['sets'][number]){
  const known=await db.lineOaArtifact.findUnique({where:{account_kind_key:{account,kind:'cards',key:set.title}}});
