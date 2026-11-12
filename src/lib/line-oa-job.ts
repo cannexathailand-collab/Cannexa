@@ -7,9 +7,9 @@ import {researchResult} from './product-research';
 import {stockCode} from './stock-code';
 
 export const oaProduct=z.object({code:z.string().min(1).max(12),name:z.string().min(1),images:z.array(z.object({slot:z.number(),url:z.string().nullable()})).length(3),replyTitle:z.string().max(20),keyword:z.string().min(1).max(30),research:researchResult.optional()});
-export const oaPayload=z.object({version:z.literal(1),sets:z.array(z.object({title:z.string().max(100),products:z.array(oaProduct).min(1).max(5)})).min(1).max(10)});
+export const oaPayload=z.object({version:z.literal(1),researchContext:z.string().trim().max(200).optional(),sets:z.array(z.object({title:z.string().max(100),products:z.array(oaProduct).min(1).max(5)})).min(1).max(10)});
 export type OaPayload=z.infer<typeof oaPayload>;
-export const oaRequest=z.object({codes:z.array(stockCode).min(1).max(50),requestKey:z.string().uuid()});
+export const oaRequest=z.object({codes:z.array(stockCode).min(1).max(50),requestKey:z.string().uuid(),researchContext:z.string().trim().max(200).optional()});
 export function artifactFingerprint(value:unknown){return createHash('sha256').update(JSON.stringify(value)).digest('hex');}
 export function validateOaPayload(value:unknown){
  const parsed=oaPayload.parse(value),products=parsed.sets.flatMap(s=>s.products);
@@ -33,7 +33,7 @@ export async function createOaJob(actor:string,value:unknown){
  const connection=await db.lineOaBrowser.findUnique({where:{id:'active'}});
  if(!connection)throw Error('OA_BROWSER_NOT_CONFIGURED');
  if(connection.account!==draft.account)throw Error('OA_ACCOUNT_MISMATCH');
- const payload=validateOaPayload({version:1,sets:draft.sets});
+ const payload=validateOaPayload({version:1,sets:draft.sets,researchContext:input.researchContext});
  return transaction(async tx=>{
   await userLock(tx,'line-oa-create-job');
   const replay=await tx.lineOaJob.findUnique({where:{requestKey:input.requestKey}});if(replay)return publicOaJob(replay);

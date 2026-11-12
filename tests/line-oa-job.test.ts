@@ -8,6 +8,8 @@ function product(code:string){return {code,name:'Sample',keyword:code,replyTitle
 test('OA payload retains partial sets and rejects duplicate, mismatched or missing product assets',()=>{
  const payload={version:1,sets:[{title:'New Arrivals',products:[product('TEST1'),product('TEST2')]}]};
  assert.equal(validateOaPayload(payload).sets[0].products.length,2);
+ assert.equal(validateOaPayload({...payload,researchContext:'  Cannabis strain  '}).researchContext,'Cannabis strain');
+ assert.throws(()=>validateOaPayload({...payload,researchContext:'x'.repeat(201)}));
  assert.throws(()=>validateOaPayload({...payload,sets:[{title:'duplicate',products:[product('TEST1'),product('TEST1')]}]}),/OA_DUPLICATE_PRODUCT/);
  assert.throws(()=>validateOaPayload({...payload,sets:[{title:'mismatch',products:[{...product('TEST1'),keyword:'TEST2'}]}]}),/OA_CODE_MISMATCH/);
  assert.throws(()=>validateOaPayload({...payload,sets:[{title:'missing',products:[{...product('TEST1'),images:[{slot:1,url:null},{slot:2,url:'x'},{slot:3,url:'y'}]}]}]}),/OA_IMAGES_MISSING/);

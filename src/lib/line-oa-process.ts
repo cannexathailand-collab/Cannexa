@@ -13,7 +13,7 @@ export async function processOaStep(openPage:()=>Promise<{page:Page;close:()=>Pr
   const payload=oaPayload.parse(job.payload),products=payload.sets.flatMap(s=>s.products);
   let phase=job.phase,cursor=job.cursor,results=Array.isArray(job.results)?job.results:[];
   if(phase==='RESEARCH'){
-   products[cursor].research=await researchProduct(products[cursor].name);cursor++;
+   products[cursor].research=await researchProduct(products[cursor].name,payload.researchContext);cursor++;
    if(cursor===products.length){
     if(products.some(p=>p.research?.needsReview)){await db.lineOaJob.update({where:{id:job.id},data:{payload:payload as Prisma.InputJsonValue,status:'AWAITING_REVIEW',error:'ผลค้นมีข้อมูลที่ต้องตรวจสอบก่อนบันทึก',leaseUntil:null}});return true;}
     phase='REPLIES';cursor=0;
