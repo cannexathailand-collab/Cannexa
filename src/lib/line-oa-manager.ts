@@ -117,10 +117,17 @@ export async function saveManagerCards(page:Page,account:string,set:OaPayload['s
  }
  await page.getByRole('button',{name:'บันทึก',exact:true}).last().click();const id=await savedId(page,'cardtypemessage',set.title);
  await page.reload({waitUntil:'domcontentloaded'});await tabs.first().waitFor();
+ const cardsDeadline=Date.now()+20000;
+ while(await tabs.count()!==set.products.length&&Date.now()<cardsDeadline)await page.waitForTimeout(250);
  if(await tabs.count()!==set.products.length)throw Error('OA_VERIFY_FAILED');
  for(let i=0;i<set.products.length;i++){
   await tabs.nth(i).click();const code=set.products[i].code;
-  if(await page.getByPlaceholder('ใส่ข้อความแท็ก',{exact:true}).inputValue()!==code||await page.locator('select[name="imageNumber"]').inputValue()!=='3'||await page.getByPlaceholder('ข้อความในช่องนี้จะถูกส่งไปทางแชท',{exact:true}).inputValue()!==code||await page.getByRole('button',{name:'',exact:true}).count()!==3)throw Error('OA_VERIFY_FAILED');
+  const deadline=Date.now()+20000;let verified=false;
+  while(Date.now()<deadline){
+   verified=await page.getByPlaceholder('ใส่ข้อความแท็ก',{exact:true}).inputValue()===code&&await page.locator('select[name="imageNumber"]').inputValue()==='3'&&await page.getByPlaceholder('ข้อความในช่องนี้จะถูกส่งไปทางแชท',{exact:true}).inputValue()===code&&await page.getByRole('button',{name:'',exact:true}).count()===3;
+   if(verified)break;await page.waitForTimeout(250);
+  }
+  if(!verified)throw Error('OA_VERIFY_FAILED');
  }
  await db.lineOaArtifact.upsert({where:{account_kind_key:{account,kind:'cards',key:set.title}},create:{account,kind:'cards',key:set.title,remoteId:id,fingerprint:artifactFingerprint(set)},update:{remoteId:id,fingerprint:artifactFingerprint(set)}});
  return {kind:'cards',title:set.title,url:managerUrl(account,'cardtypemessage/edit/'+id)};
