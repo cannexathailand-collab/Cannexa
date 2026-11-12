@@ -61,7 +61,17 @@ export async function saveManagerReply(page:Page,account:string,product:Product)
  }
  const id=await savedId(page,'autoresponse',product.replyTitle);
  await page.reload({waitUntil:'domcontentloaded'});
- if(await page.getByPlaceholder('ใส่ชื่อ',{exact:true}).inputValue()!==product.replyTitle||await editor.inputValue()!==product.research.text)throw Error('OA_VERIFY_FAILED');
+ // OA loads the saved message after the initial document and form controls.
+ // Wait for those values, rather than treating the first empty form as failure.
+ const deadline=Date.now()+20000;let name='',savedText='';
+ while(Date.now()<deadline){
+  name=await page.getByPlaceholder('ใส่ชื่อ',{exact:true}).inputValue();
+  savedText=await editor.inputValue();
+  if(name===product.replyTitle&&savedText===product.research.text)break;
+  await page.waitForTimeout(250);
+ }
+ if(name!==product.replyTitle)throw Error('OA_NAME_VERIFY_FAILED');
+ if(savedText!==product.research.text)throw Error('OA_TEXT_VERIFY_FAILED');
  const start=page.getByRole('button',{name:'เริ่มใช้งาน',exact:true});if(await start.count())await start.click();
  await page.getByRole('button',{name:'หยุดใช้งาน',exact:true}).waitFor({timeout:20000});
  await db.lineOaArtifact.upsert({where:{account_kind_key:{account,kind:'reply',key:product.code}},create:{account,kind:'reply',key:product.code,remoteId:id,fingerprint:artifactFingerprint(product.research)},update:{remoteId:id,fingerprint:artifactFingerprint(product.research)}});
