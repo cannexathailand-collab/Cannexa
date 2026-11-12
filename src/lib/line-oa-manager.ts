@@ -22,6 +22,9 @@ async function openItem(page:Page,account:string,kind:'cardtypemessage'|'autores
   if(!/^\d+$/.test(remoteId))throw Error('OA_ARTIFACT_INVALID');
   await page.goto(managerUrl(account,kind+'/edit/'+remoteId),{waitUntil:'domcontentloaded'});
   const title=page.getByPlaceholder(kind==='cardtypemessage'?'ใส่ชื่อไอเทม':'ใส่ชื่อ',{exact:true});await title.waitFor();
+  // The control can exist before OA hydrates the saved item.
+  const deadline=Date.now()+20000;
+  while(await title.inputValue()!==name&&Date.now()<deadline)await page.waitForTimeout(250);
   if(await title.inputValue()!==name)throw Error('OA_ARTIFACT_CHANGED');return false;
  }
  await page.goto(managerUrl(account,kind),{waitUntil:'domcontentloaded'});
