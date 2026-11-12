@@ -653,6 +653,13 @@ model StockProductImage {
  updatedAt DateTime @updatedAt
 }
 
+model ShopCatalogSettings {
+ id String @id
+ products Json @default("[]")
+ version String @default(uuid())
+ updatedAt DateTime @updatedAt
+}
+
 model StockProductUpdate {
  id String @id
  fingerprint String

@@ -189,7 +189,7 @@ export async function createWebsiteOrder(customerCode:string,value:unknown){
   if(input.delivery)await userLock(tx,'customer-profile:'+code);
   // Serialize with LINE order admission so two channels cannot sell the same remaining stock.
   await userLock(tx,'stock-sheet-add');
-  const catalog=await loadCustomerCatalog(tx);
+  const catalog=await loadCustomerCatalog(tx,{merchandising:false});
   const products=new Map(catalog.products.map(product=>[product.code,product]));
   const held=catalog.readAt?await recentStockHolds(tx,new Date(catalog.readAt)):new Map<string,bigint>();
   const quantities=new Map<string,bigint>();

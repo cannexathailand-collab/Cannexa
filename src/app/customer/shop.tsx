@@ -85,6 +85,7 @@ export function CustomerShop({customerCode, initialCatalog, initialDelivery={nam
   const router = useRouter();
   const [catalog, setCatalog] = useState(initialCatalog);
   const [query, setQuery] = useState('');
+  const [section,setSection]=useState('all'),[category,setCategory]=useState('');
   const [delivery,setDelivery]=useState({name:initialDelivery.name,address:initialDelivery.address,phone:initialDelivery.phone});
   useEffect(()=>setDelivery({name:initialDelivery.name,address:initialDelivery.address,phone:initialDelivery.phone}),[initialDelivery.name,initialDelivery.address,initialDelivery.phone]);
   const [error, setError] = useState('');
@@ -337,7 +338,10 @@ export function CustomerShop({customerCode, initialCatalog, initialDelivery={nam
   }
 
   const search = query.trim().normalize('NFKC').toLocaleLowerCase();
-  const visibleProducts = catalog.products.filter(product => (product.code + ' ' + (product.name ?? '')).normalize('NFKC').toLocaleLowerCase().includes(search));
+  const categories=[...new Set(catalog.products.map(product=>product.category).filter((value):value is string=>!!value))].sort();
+  const sections=[{id:'all',label:'สินค้าทั้งหมด'},{id:'recommended',label:'สินค้าแนะนำ'},{id:'bestsellers',label:'สินค้าขายดี'}];
+  const visibleProducts = catalog.products.filter(product => (product.code + ' ' + (product.name ?? '')).normalize('NFKC').toLocaleLowerCase().includes(search)&&(!category||product.category===category)&&(section==='all'||section==='recommended'&&product.recommended||section==='bestsellers'&&product.bestSellerRank));
+  if(section==='bestsellers')visibleProducts.sort((a,b)=>(a.bestSellerRank??999)-(b.bestSellerRank??999));
   const subtotal = items.reduce((sum, item) => {
     const original = pending?.items.find(candidate => cartItemKey(candidate) === cartItemKey(item));
     const price = products.get(item.code)?.prices.find(candidate => candidate.pack === item.pack);
@@ -372,14 +376,18 @@ export function CustomerShop({customerCode, initialCatalog, initialDelivery={nam
         } finally { setRefreshing(false); }
       }}>{t(refreshing ? 'กำลังอัปเดต…' : 'อัปเดตรายการ')}</button>
     </div>
+    <nav className="shop-category-tabs" aria-label={t('หมวดรายการสินค้า')}>{sections.map(item=><button key={item.id} type="button" aria-pressed={section===item.id} onClick={()=>setSection(item.id)}>{t(item.label)}</button>)}</nav>
+    {categories.length>0&&<label className="shop-category-filter">{t('หมวดหมู่สินค้า')}<select value={category} onChange={event=>setCategory(event.target.value)}><option value="">{t('ทุกหมวดหมู่')}</option>{categories.map(name=><option key={name} value={name}>{name}</option>)}</select></label>}
     {catalog.readAt && <p className="shop-updated">{t("ข้อมูลล่าสุด ")}{new Date(catalog.readAt).toLocaleString(locale, {timeZone: 'Asia/Bangkok'})}</p>}
+    <div className="shop-section-heading"><h3>{t(sections.find(item=>item.id===section)!.label)}</h3><span>{visibleProducts.length} {t('รายการ')}</span></div>
+    {section==='bestsellers'&&<p className="portal-muted">{t('จัดอันดับจากออเดอร์ซื้อสำเร็จใน 30 วันล่าสุด')}</p>}
     {readOnly && <p className="portal-muted">{t("โหมดเจ้าของระบบ · ทดลองตะกร้า")}</p>}
     {pending && <p className="portal-alert" role="status">{t("มีคำขอส่งออเดอร์ที่ยังไม่ยืนยันผล เปิดตะกร้าแล้วกด “ลองส่งอีกครั้ง”")}</p>}
     {error && <p className="portal-alert" role="alert">{t(error)}</p>}
     <div className="shop-product-grid">
       {visibleProducts.map(product => <ShopProduct key={product.code} product={product} disabled={locked} onAdd={add}/>)}
     </div>
-    {!visibleProducts.length && <p className="portal-empty">{t(query ? 'ไม่พบสินค้าที่ค้นหา' : 'ยังไม่มีสินค้าในรายการ')}</p>}
+    {!visibleProducts.length && <p className="portal-empty">{t(query||category ? 'ไม่พบสินค้าที่ค้นหา' : section==='recommended'?'ร้านยังไม่ได้เลือกสินค้าแนะนำ':section==='bestsellers'?'ยังไม่มีข้อมูลสินค้าขายดีในช่วงนี้':'ยังไม่มีสินค้าในรายการ')}</p>}
     <dialog className="stock-modal shop-cart-dialog" ref={cartDialog} aria-labelledby="shop-cart-title">
       <div className="shop-heading"><h2 id="shop-cart-title">{t("ตะกร้า")}</h2><button type="button" className="secondary" onClick={() => cartDialog.current?.close()}>{t("ปิด")}</button></div>
       {confirmation && <div className="portal-success" role="status"><h3>{t("ส่งออเดอร์แล้ว")}</h3><p>{confirmation.orderNumber}</p><p>{t(orderStatus[confirmation.status] ?? confirmation.status)}</p></div>}

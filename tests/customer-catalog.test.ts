@@ -23,7 +23,10 @@ test('catalog prices normalize units, preserve zero, and remove invalid or ambig
 
 test('catalog DTO reads stored snapshot and image versions without leaking internal stock fields',async t=>{
  const originalSnapshot=db.employeeStockSnapshot.findUnique,originalImages=db.stockProductImage.findMany;
- t.after(()=>{db.employeeStockSnapshot.findUnique=originalSnapshot;db.stockProductImage.findMany=originalImages;});
+ const originalSettings=db.shopCatalogSettings.findUnique,originalSales=db.salesOrder.findMany;
+ db.shopCatalogSettings.findUnique=(async()=>null) as typeof originalSettings;
+ db.salesOrder.findMany=(async()=>[]) as typeof originalSales;
+ t.after(()=>{db.employeeStockSnapshot.findUnique=originalSnapshot;db.stockProductImage.findMany=originalImages;db.shopCatalogSettings.findUnique=originalSettings;db.salesOrder.findMany=originalSales;});
  const fetchedAt=new Date('2026-11-07T01:00:00Z');
  (db.employeeStockSnapshot as any).findUnique=async()=>({fetchedAt,rows:[
   {code:'B2',name:'  Product B  ',available:12.5,remaining:999,costSatang:111,sourceRow:23,prices:[{pack:'1 KG',priceSatang:10000}],secret:'hidden'},
