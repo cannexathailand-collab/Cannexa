@@ -39,7 +39,7 @@ export async function syncReplyVideo(page:Page,account:string,code:string){
  }
  stage='ORDER';console.info('OA video stage:',stage);
  for(let attempt=0;attempt<5;attempt++){
-  const up=videoBlocks(page).getByRole('button',{name:'',exact:true});
+  const up=videoBlocks(page).locator('button').filter({has:page.locator('i.la-chevron-up')});
   if(!await up.isEnabled())break;await up.click();
  }
  stage='VERIFY';console.info('OA video stage:',stage);await verifyReplyVideo(page);
