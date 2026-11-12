@@ -6,6 +6,9 @@ const file=(name:string):DriveVideo=>({id:'test-video-id',name,mimeType:'video/m
 test('Drive matches an exact SKU and does not silently choose duplicate or unusable videos',()=>{
  assert.equal(matchDriveVideo('AE05',[file('AE050.mp4')]),null);
  assert.equal(matchDriveVideo('AE05',[file('ae05.MP4')])?.id,'test-video-id');
+ assert.equal(matchDriveVideo('AE03',[file('AE03')])?.id,'test-video-id');
+ assert.throws(()=>matchDriveVideo('AE03',[{...file('AE03'),mimeType:'video/quicktime'}]),/DRIVE_VIDEO_FORMAT/);
+ assert.throws(()=>matchDriveVideo('AE03',[file('AE03'),{...file('AE03.mp4'),id:'second'}]),/DRIVE_VIDEO_DUPLICATE/);
  assert.throws(()=>matchDriveVideo('AE05',[file('AE05.mp4'),{...file('AE05.mp4'),id:'second'}]),/DRIVE_VIDEO_DUPLICATE/);
  assert.throws(()=>matchDriveVideo('AE05',[{...file('AE05.mov'),mimeType:'video/quicktime'}]),/DRIVE_VIDEO_FORMAT/);
  assert.throws(()=>matchDriveVideo('AE05',[{...file('AE05.mp4'),size:String(maxDriveVideoBytes+1)}]),/DRIVE_VIDEO_SIZE/);

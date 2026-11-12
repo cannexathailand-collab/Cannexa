@@ -11,7 +11,9 @@ export function matchDriveVideo(code:string,files:DriveVideo[]){
  const matches=files.filter(file=>file.name.replace(/\.[^.]+$/,'').trim().toUpperCase()===code.toUpperCase());
  if(matches.length>1)throw Error('DRIVE_VIDEO_DUPLICATE');
  const file=matches[0];if(!file)return null;
- if(file.mimeType!=='video/mp4'||!file.name.toLowerCase().endsWith('.mp4'))throw Error('DRIVE_VIDEO_FORMAT');
+ // Drive permits extensionless names; the MIME type still verifies MP4.
+ const name=file.name.trim();
+ if(file.mimeType!=='video/mp4'||(name.includes('.')&&!name.toLowerCase().endsWith('.mp4')))throw Error('DRIVE_VIDEO_FORMAT');
  const size=Number(file.size);if(!Number.isSafeInteger(size)||size<=0||size>maxDriveVideoBytes)throw Error('DRIVE_VIDEO_SIZE');
  if(file.capabilities?.canDownload===false)throw Error('DRIVE_DOWNLOAD_DENIED');
  return file;
