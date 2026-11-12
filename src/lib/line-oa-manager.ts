@@ -72,7 +72,8 @@ export async function saveManagerReply(page:Page,account:string,product:Product)
  const fresh=await openManagerItem(page,account,'autoresponse',product.replyTitle,known?.remoteId);
  console.info('OA reply stage: EDIT');
  await page.getByPlaceholder('ใส่ชื่อ',{exact:true}).fill(product.replyTitle);
- await page.getByRole('radio',{name:'ตอบกลับตามคีย์เวิร์ด',exact:true}).check();
+ const keywordMode=page.getByRole('radio',{name:'ตอบกลับตามคีย์เวิร์ด',exact:true});
+ if(!await keywordMode.isChecked())await page.locator('label.custom-control-label').filter({hasText:/^ตอบกลับตามคีย์เวิร์ด$/}).click();
  const keywords=await page.locator('input[name="keyword[]"]').evaluateAll(nodes=>nodes.map(n=>(n as HTMLInputElement).value));
  if(keywords.length&&JSON.stringify(keywords)!==JSON.stringify([product.code]))throw Error('OA_KEYWORD_CONFLICT');
  if(!keywords.length){await page.locator('input[name="keyword-suggestions"]').fill(product.code);await page.getByRole('button',{name:'เพิ่ม',exact:true}).click();}
