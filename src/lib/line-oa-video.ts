@@ -45,6 +45,13 @@ export async function syncReplyVideo(page:Page,account:string,code:string){
  stage='VERIFY';console.info('OA video stage:',stage);await verifyReplyVideo(page);
  return file;
  }catch(error){
+  if(stage==='ORDER'){
+   console.error('OA video ordering diagnostic:',JSON.stringify(await messageBlocks(page).evaluateAll(blocks=>blocks.map(block=>({
+    active:Array.from(block.querySelectorAll('button.active')).map(button=>button.getAttribute('aria-label')),
+    arrows:Array.from(block.querySelectorAll('i.la-chevron-up')).map(icon=>({disabled:(icon.parentElement as HTMLButtonElement)?.disabled,visible:!!icon.parentElement?.getBoundingClientRect().width})),
+   }))).catch(()=>[])));
+   console.error('OA video ordering error:',error instanceof Error?error.message.slice(0,1600):'unknown');
+  }
   if(error instanceof Error&&/^(DRIVE_|OA_)/.test(error.message))throw error;
   throw Error('OA_VIDEO_'+stage+'_FAILED');
  }
