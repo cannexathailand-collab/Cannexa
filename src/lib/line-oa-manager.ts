@@ -55,6 +55,10 @@ export async function saveManagerReply(page:Page,account:string,product:Product)
  await editor.click();await editor.press('ControlOrMeta+A');await editor.pressSequentially(product.research.text);
  const value=await editor.inputValue();if(value!==product.research.text)throw Error('OA_TEXT_NOT_ACCEPTED');
  await page.getByRole('button',{name:fresh?'บันทึก':'ใช้การเปลี่ยนแปลง',exact:true}).last().click();
+ if(!fresh){
+  await page.getByRole('heading',{name:'ต้องการใช้การเปลี่ยนแปลงหรือไม่',exact:true}).waitFor({state:'visible',timeout:10000});
+  await page.getByRole('button',{name:'ใช้การเปลี่ยนแปลง',exact:true}).last().click();
+ }
  const id=await savedId(page,'autoresponse',product.replyTitle);
  await page.reload({waitUntil:'domcontentloaded'});
  if(await page.getByPlaceholder('ใส่ชื่อ',{exact:true}).inputValue()!==product.replyTitle||await editor.inputValue()!==product.research.text)throw Error('OA_VERIFY_FAILED');
