@@ -78,35 +78,42 @@ export async function saveManagerReply(page:Page,account:string,product:Product)
  return {kind:'reply',code:product.code,url:managerUrl(account,'autoresponse/edit/'+id)};
 }
 async function uploadCardImage(page:Page,product:Product,slot:number){
+ console.info('OA card image stage: LOAD',slot);
  const image=slot===1?await db.stockProductImage.findUnique({where:{code:product.code}}):await db.stockProductExtraImage.findUnique({where:{code_slot:{code:product.code,slot}}});
  if(!image)throw Error('OA_IMAGES_MISSING');
  if(!['image/jpeg','image/png'].includes(image.imageMime))throw Error('OA_IMAGE_FORMAT');
  const letter=['A','B','C'][slot-1],link=page.getByRole('link',{name:letter,exact:true});
  if(!await link.count())await page.getByRole('button',{name:'',exact:true}).nth(slot-1).click();
- await link.click();
+ await link.click();console.info('OA card image stage: DIALOG',slot);
  await page.getByRole('heading',{name:'อัปโหลดรูป',exact:true}).waitFor({state:'visible',timeout:15000}).catch(()=>{throw Error('OA_IMAGE_DIALOG_FAILED');});
  const [chooser]=await Promise.all([page.waitForEvent('filechooser',{timeout:15000}),page.getByText('เลือกไฟล์',{exact:true}).click()]).catch(()=>{throw Error('OA_IMAGE_PICKER_FAILED');});
- await chooser.setFiles({name:'product-'+slot+(image.imageMime==='image/png'?'.png':'.jpg'),mimeType:image.imageMime,buffer:Buffer.from(image.imageData)});
+ await chooser.setFiles({name:'product-'+slot+(image.imageMime==='image/png'?'.png':'.jpg'),mimeType:image.imageMime,buffer:Buffer.from(image.imageData)}).catch(()=>{throw Error('OA_IMAGE_FILE_FAILED');});
  await page.getByRole('heading',{name:'ครอบตัด',exact:true}).waitFor({state:'visible',timeout:30000}).catch(()=>{throw Error('OA_IMAGE_CROP_FAILED');});
- await page.getByRole('button',{name:'ใช้',exact:true}).click({timeout:30000});
+ console.info('OA card image stage: CROP',slot);
+ await page.getByRole('button',{name:'ใช้',exact:true}).click({timeout:30000}).catch(()=>{throw Error('OA_IMAGE_APPLY_FAILED');});
  await page.getByRole('heading',{name:'ครอบตัด',exact:true}).waitFor({state:'hidden',timeout:30000}).catch(()=>{throw Error('OA_IMAGE_UPLOAD_FAILED');});
  await link.waitFor({state:'hidden',timeout:30000}).catch(()=>{throw Error('OA_IMAGE_READY_FAILED');});
 }
 export async function saveManagerCards(page:Page,account:string,set:OaPayload['sets'][number]){
+ console.info('OA card stage: FIND');
  const known=await db.lineOaArtifact.findUnique({where:{account_kind_key:{account,kind:'cards',key:set.title}}});
  const fresh=await openItem(page,account,'cardtypemessage',set.title,known?.remoteId);
+ console.info('OA card stage: EDIT');
  await page.getByPlaceholder('ใส่ชื่อไอเทม',{exact:true}).fill(set.title);
  if(fresh){await page.getByRole('button',{name:'เลือก',exact:true}).click();await page.getByRole('radio',{name:'สินค้า',exact:true}).check();await page.getByRole('button',{name:'เลือก',exact:true}).last().click();}
  const tabs=page.locator('main a.nav-link');await tabs.first().waitFor();
+ console.info('OA card stage: TABS');
  if(!fresh&&await tabs.count()!==set.products.length)throw Error('OA_CARD_COUNT_CONFLICT');
  while(await tabs.count()<set.products.length)await page.getByRole('button',{name:'เพิ่มการ์ด',exact:true}).click();
  for(let i=0;i<set.products.length;i++){
+  console.info('OA card stage: PRODUCT',i+1);
   const product=set.products[i];await tabs.nth(i).click();
   await checkbox(page,'แท็ก',true);await page.getByPlaceholder('ใส่ข้อความแท็ก',{exact:true}).fill(product.code);
   // The first A swatch is the gray tag in the Thai OA product-card editor.
   await page.locator('main button.badge').first().click();
   await page.locator('select[name="imageNumber"]').selectOption('3');
   for(const slot of [1,2,3])await uploadCardImage(page,product,slot);
+  console.info('OA card stage: FIELDS',i+1);
   await page.getByPlaceholder('ใส่ชื่อการ์ด',{exact:true}).fill(Array.from(product.name).slice(0,20).join(''));
   await checkbox(page,'คำอธิบาย',true);await page.getByPlaceholder('ใส่คำอธิบาย',{exact:true}).fill('ดูรายละเอียดสินค้า');
   await checkbox(page,'ราคา',false);
@@ -119,6 +126,7 @@ export async function saveManagerCards(page:Page,account:string,set:OaPayload['s
   // The current acceptance run uses neutral product information and mock links.
   await page.getByPlaceholder('ใส่ลิงก์',{exact:true}).fill('https://example.com/?test_product='+encodeURIComponent(product.code));
  }
+ console.info('OA card stage: SAVE');
  await page.getByRole('button',{name:'บันทึก',exact:true}).last().click();const id=await savedId(page,'cardtypemessage',set.title);
  await page.reload({waitUntil:'domcontentloaded'});await tabs.first().waitFor();
  const cardsDeadline=Date.now()+20000;
