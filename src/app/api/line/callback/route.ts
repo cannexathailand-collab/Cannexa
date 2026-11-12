@@ -1,4 +1,5 @@
 import {customerLoginDestination,customerLoginPurposes} from '@/lib/customer-login-intent';
+import {friendRetryCookie,friendRetryDuration,friendRetryToken,readFriendRetry,FriendRetry} from '@/lib/customer-friend-gate';
 import {saveLineMessageRecipient} from '@/lib/line-message-recipient';
 import {verifiedLineFriendship} from '@/lib/line-friendship';
 import {NextRequest,NextResponse} from "next/server";
@@ -34,9 +35,19 @@ export async function GET(req:NextRequest){
   const result=await exchange(code,a.verifier,a.nonce,connection.settings);
   const changed=req.nextUrl.searchParams.get("friendship_status_changed");
   const key=userKey(connection.settings.botId===process.env.LINE_BOT_USER_ID?result.userId:connection.settings.botId+":"+result.userId);
-  const friendFlag=marketingLogin?await verifiedLineFriendship(key,result.friendFlag):result.friendFlag;
+  const retry=readFriendRetry(req.cookies.get(friendRetryCookie)?.value??'');
+  if(retry?.stateHash===sha(state)&&retry.key!==key)throw Error('LINE identity changed during friendship verification');
+  const friendFlag=await verifiedLineFriendship(key,result.friendFlag);
   await saveLineMessageRecipient(key,connection.settings.botId,result.userId,{friendFlag:result.friendFlag,displayName:result.displayName});
   if(result.friendshipError)await db.auditLog.create({data:{actor:'line-login',action:'LINE_FRIENDSHIP_CHECK_FAILED',entityId:key,details:{error:result.friendshipError}}});
+  const existing=await db.customer.findUnique({where:{lineUserKey:key},select:{code:true}});
+  if(!existing&&friendFlag!==true){
+   const response=NextResponse.redirect(baseUrl()+'/customer/friendship?status='+(friendFlag===false?'not-friend':'unknown'));
+   clearMarketingCustomerSessions(response);
+   response.cookies.set(friendRetryCookie,friendRetryToken({intent:(a.purpose==='CUSTOMER_MARKETING_RECHECK'?'CUSTOMER_MARKETING':a.purpose) as FriendRetry['intent'],key,clickId:a.clickId??null,linkHash:a.customerLinkHash??null}),{...cookieOptions,maxAge:friendRetryDuration});
+   response.cookies.delete('oauth_'+sha(state).slice(0,16));
+   return response;
+  }
   if(marketingLogin){
    if(!a.clickId)throw Error('Missing marketing click');
    const click=await db.click.findUnique({where:{id:a.clickId},select:{customerLanding:true}});
@@ -50,6 +61,7 @@ export async function GET(req:NextRequest){
    clearMarketingCustomerSessions(response);
    response.cookies.set(customerAgeCookie,customerAgeToken(key,a.clickId,conversion.id,friendFlag===true),{...cookieOptions,maxAge:customerAgeDuration});
    response.cookies.delete(marketingCookie);
+   response.cookies.delete(friendRetryCookie);
    response.cookies.delete('oauth_'+sha(state).slice(0,16));
    return response;
   }
@@ -68,6 +80,7 @@ export async function GET(req:NextRequest){
     res.cookies.delete(portalAccessCookie);
    }
    res.cookies.delete('customer_password_step');
+   res.cookies.delete(friendRetryCookie);
    res.cookies.delete('oauth_'+sha(state).slice(0,16));return res;
   }
   if(!a.clickId)throw new Error('Missing affiliate click');
@@ -75,6 +88,7 @@ export async function GET(req:NextRequest){
   const originalClick=await db.click.findUniqueOrThrow({where:{id:customer.clickId}});
   await syncLoginCustomer(key,customer,originalClick.metaFbc);
   const res=NextResponse.redirect(lineCustomerDestination(connection.settings.basicId,result.friendFlag));
+  res.cookies.delete(friendRetryCookie);
   res.cookies.delete(customerAgeCookie);
   res.cookies.set('customer_result','',{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'lax',path:'/result',maxAge:0});
   res.cookies.delete("oauth_"+sha(state).slice(0,16));return res;

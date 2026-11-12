@@ -4,6 +4,13 @@ export function readCustomerLanguage(value:string|undefined):CustomerLanguage|nu
 
 const english:Record<string,string>={
  "สินค้าทั้งหมด":"All products",
+ "ยืนยันการเป็นเพื่อน LINE ร้าน":"Confirm you have added the shop on LINE",
+ "ขั้นตอนยืนยันหมดอายุ กรุณาเข้าสู่ระบบใหม่":"Verification has expired. Please sign in again.",
+ "กรุณาเพิ่มเพื่อนหรือปลดบล็อก LINE ร้านก่อนสร้างสมาชิก":"Please add or unblock the shop on LINE before creating your membership.",
+ "ขณะนี้ยังตรวจสอบสถานะเพื่อนกับ LINE ไม่สำเร็จ กรุณาลองตรวจสอบอีกครั้ง":"We could not verify your LINE friendship status. Please try again.",
+ "ระบบยังไม่ได้สร้างรหัสลูกค้าใหม่ และจะดำเนินการต่อเมื่อยืนยันว่าเป็นเพื่อนแล้วเท่านั้น":"No new customer ID has been created. Registration will continue only after your friendship is confirmed.",
+ "เปิด LINE ร้าน":"Open the shop on LINE",
+ "เพิ่มเพื่อนแล้ว ตรวจสอบอีกครั้ง":"I have added the shop. Check again",
  "สินค้าแนะนำ":"Recommended products",
  "สินค้าขายดี":"Best sellers",
  "หมวดรายการสินค้า":"Product collections",

@@ -86,6 +86,7 @@ export async function completeCustomerMarketing(clickId:string,key:string,conver
   const verified=await tx.conversion.findUnique({where:{id:conversion.id}});
   if(!verified||verified.userKey!==key||verified.source!=='LINE')throw Error('INVALID_MARKETING_CONVERSION');
   const existing=await tx.customer.findUnique({where:{lineUserKey:key}});
+  if(!existing&&await verifiedLineFriendship(key,null)!==true)throw Error('LINE_FRIENDSHIP_REQUIRED');
   if(existing&&existing.code!==verified.customerCode)throw Error('LINK_CONFLICT');
   const bare=existing&&!existing.name&&!existing.phone&&!existing.address&&!existing.identityKey&&!existing.portalPasswordHash;
   const approved=bare?await tx.auditLog.findFirst({where:{entityId:existing.code,action:'CUSTOMER_REGISTRATION_APPROVED'},select:{id:true}}):null;

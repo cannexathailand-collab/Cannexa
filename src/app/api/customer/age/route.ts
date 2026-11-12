@@ -56,6 +56,11 @@ export async function POST(request: Request) {
     return response;
   } catch (error) {
     const code = error instanceof Error ? error.message : '';
+    if(code==='LINE_FRIENDSHIP_REQUIRED'){
+      const response=NextResponse.redirect(baseUrl()+'/customer/friendship?status=unknown',303);
+      clearMarketingCustomerSessions(response);
+      return response;
+    }
     if (!['INVALID_MARKETING_CLICK', 'INVALID_MARKETING_CONVERSION', 'LINK_CONFLICT'].includes(code)) {
       return new Response('บันทึกคำยืนยันไม่สำเร็จ กรุณากลับไปลองอีกครั้ง', {
         status: 503,
