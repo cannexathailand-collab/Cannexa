@@ -65,9 +65,11 @@ export async function saveManagerReply(page:Page,account:string,product:Product)
  if(!keywords.length){await page.locator('input[name="keyword-suggestions"]').fill(product.code);await page.getByRole('button',{name:'เพิ่ม',exact:true}).click();}
  const editor=page.getByRole('textbox',{name:'ใส่ข้อความ',exact:true});
  if(await editor.count()!==1)throw Error('OA_TEXT_LAYOUT_CHANGED');
+ const video=await syncReplyVideo(page,account,product.code);
+ // Adding or reordering a message remounts OA's text editor. Enter the text
+ // after that operation so the saved editor model cannot revert to old text.
  await editor.click();await editor.press('ControlOrMeta+A');await editor.pressSequentially(product.research.text);
  const value=await editor.inputValue();if(value!==product.research.text)throw Error('OA_TEXT_NOT_ACCEPTED');
- const video=await syncReplyVideo(page,account,product.code);
  console.info('OA reply stage: SAVE');
  await page.getByRole('button',{name:fresh?'บันทึก':'ใช้การเปลี่ยนแปลง',exact:true}).last().click();
  if(!fresh){
