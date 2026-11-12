@@ -6,9 +6,15 @@ import {prepareLineCardDraft} from './line-card-draft';
 import {researchResult} from './product-research';
 import {stockCode} from './stock-code';
 
-export const oaProduct=z.object({code:z.string().min(1).max(12),name:z.string().min(1),images:z.array(z.object({slot:z.number(),url:z.string().nullable()})).length(3),replyTitle:z.string().max(20),keyword:z.string().min(1).max(30),research:researchResult.optional()});
+export const oaProduct=z.object({code:z.string().min(1).max(12),name:z.string().min(1),images:z.array(z.object({slot:z.number(),url:z.string().nullable()})).length(3),replyTitle:z.string().max(20),keyword:z.string().min(1).max(30),research:researchResult.optional(),selectedReference:z.object({name:z.string().min(1).max(200),url:z.string().url().refine(url=>new URL(url).protocol==='https:')}).optional()});
 export const oaPayload=z.object({version:z.literal(1),researchContext:z.string().trim().max(200).optional(),sets:z.array(z.object({title:z.string().max(100),products:z.array(oaProduct).min(1).max(5)})).min(1).max(10)});
 export type OaPayload=z.infer<typeof oaPayload>;
+export function chooseResearchAlternative(payload:OaPayload,code:string,index:number){
+ const products=payload.sets.flatMap(set=>set.products),cursor=products.findIndex(product=>product.code===code);
+ const product=products[cursor],choice=product?.research?.alternatives?.[index];
+ if(!Number.isInteger(index)||index<0||!product?.research?.needsReview||!choice)throw Error('OA_ALTERNATIVE_INVALID');
+ product.selectedReference={...choice};delete product.research;return cursor;
+}
 export const oaRequest=z.object({codes:z.array(stockCode).min(1).max(50),requestKey:z.string().uuid(),researchContext:z.string().trim().max(200).optional()});
 export function artifactFingerprint(value:unknown){return createHash('sha256').update(JSON.stringify(value)).digest('hex');}
 export function validateOaPayload(value:unknown){
@@ -21,7 +27,7 @@ export function validateOaPayload(value:unknown){
 }
 export function publicOaJob(job:{id:string;status:string;phase:string;cursor:number;error:string|null;results:Prisma.JsonValue;payload:Prisma.JsonValue;createdAt:Date;updatedAt:Date}){
  const parsed=oaPayload.safeParse(job.payload);
- return {id:job.id,status:job.status,phase:job.phase,cursor:job.cursor,error:job.error,results:job.results,review:job.status==='AWAITING_REVIEW'&&parsed.success?parsed.data.sets.flatMap(s=>s.products).map(p=>({code:p.code,name:p.name,text:p.research?.text??''})):[],createdAt:job.createdAt,updatedAt:job.updatedAt};
+ return {id:job.id,status:job.status,phase:job.phase,cursor:job.cursor,error:job.error,results:job.results,review:job.status==='AWAITING_REVIEW'&&parsed.success?parsed.data.sets.flatMap(s=>s.products).map(p=>({code:p.code,name:p.name,text:p.research?.text??'',sourceCount:p.research?.sources.length??0,reviewReason:p.research?.needsReview?(p.research.reviewReason??'กรุณาตรวจสอบว่าข้อมูลตรงกับสินค้าที่เลือก'):'',alternatives:p.research?.alternatives??[]})):[],createdAt:job.createdAt,updatedAt:job.updatedAt};
 }
 export async function createOaJob(actor:string,value:unknown){
  const input=oaRequest.parse(value);
@@ -57,3 +63,6 @@ export async function claimOaJob(){
   return tx.lineOaJob.update({where:{id:job.id},data:{status:'RUNNING',leaseUntil,error:null}});
  });
 }
+
+
+

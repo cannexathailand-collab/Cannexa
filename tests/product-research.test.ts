@@ -12,4 +12,6 @@ test('research requires a key, enforces length and verifies URLs against web sea
  result={...result,text:'x'.repeat(490)};await assert.rejects(researchProduct('Sample'),/RESEARCH_INVALID/);
  result={...result,text:'x'.repeat(501)};await assert.rejects(researchProduct('Sample'),/RESEARCH_INVALID/);
  result={...result,text:'Source: https://invented.invalid',sources:['https://invented.invalid']};await assert.rejects(researchProduct('Sample'),/RESEARCH_UNVERIFIED/);
+ result={...result,text:'No matching product was found.',sources:[],needsReview:true};assert.equal((await researchProduct('Sample')).needsReview,true);
+ result={...result,needsReview:false};await assert.rejects(researchProduct('Sample'),/RESEARCH_INVALID/);
 });

@@ -4,6 +4,7 @@ import {claimOaJob,oaPayload} from './line-oa-job';
 import {researchProduct} from './product-research';
 import type {Page} from 'playwright-core';
 import {saveManagerCards,saveManagerReply,verifyManager} from './line-oa-manager';
+import {applySelectedProductName} from './line-oa-product-name';
 
 export async function processOaStep(openPage:()=>Promise<{page:Page;close:()=>Promise<void>}>){
  const job=await claimOaJob();if(!job)return false;
@@ -13,14 +14,17 @@ export async function processOaStep(openPage:()=>Promise<{page:Page;close:()=>Pr
   const payload=oaPayload.parse(job.payload),products=payload.sets.flatMap(s=>s.products);
   let phase=job.phase,cursor=job.cursor,results=Array.isArray(job.results)?job.results:[];
   if(phase==='RESEARCH'){
-   products[cursor].research=await researchProduct(products[cursor].name,payload.researchContext);cursor++;
-   if(cursor===products.length){
+   products[cursor].research=await researchProduct(products[cursor].name,payload.researchContext,products[cursor].selectedReference);
+   const remaining=products.findIndex(product=>!product.research);
+   if(remaining<0){
     if(products.some(p=>p.research?.needsReview)){await db.lineOaJob.update({where:{id:job.id},data:{payload:payload as Prisma.InputJsonValue,status:'AWAITING_REVIEW',error:'ผลค้นมีข้อมูลที่ต้องตรวจสอบก่อนบันทึก',leaseUntil:null}});return true;}
     phase='REPLIES';cursor=0;
-   }
+   }else cursor=remaining;
   }else{
    context=await openPage();await verifyManager(context.page,job.account);
    if(phase==='REPLIES'){
+    const product=products[cursor];
+    if(product.selectedReference){await applySelectedProductName(product.code,product.name,product.selectedReference.name,job.actor);product.name=product.selectedReference.name;}
     results=[...results,await saveManagerReply(context.page,job.account,products[cursor])];cursor++;
     if(cursor===products.length){phase='CARDS';cursor=0;}
    }else if(phase==='CARDS'){

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {validateOaPayload,artifactFingerprint} from '../src/lib/line-oa-job';
+import {validateOaPayload,artifactFingerprint,chooseResearchAlternative} from '../src/lib/line-oa-job';
 import {oaCommand,sealOaState,unsealOaState,enqueueOaCommand} from '../src/lib/line-oa-browser';
 import {db} from '../src/lib/db';
 import {managerUrl} from '../src/lib/line-oa-manager';
@@ -17,6 +17,17 @@ test('OA payload retains partial sets and rejects duplicate, mismatched or missi
  assert.throws(()=>validateOaPayload({...payload,sets:[{title:'too many',products:Array.from({length:6},(_,i)=>product('T'+i))}]}));
  assert.notEqual(artifactFingerprint(product('TEST1')),artifactFingerprint(product('TEST2')));
  assert.throws(()=>managerUrl('@abc/other-account'),/OA_ACCOUNT_INVALID/);
+});
+test('choosing a similar reference preserves SKU and only resets the selected research',()=>{
+ const source='https://example.com/reference';
+ const payload=validateOaPayload({version:1,sets:[{title:'Sample',products:[{...product('TEST1'),research:{name:'Sample',text:'Ambiguous',sources:[],needsReview:true,alternatives:[{name:'Selected variant',url:source}]}},product('TEST2')]}]});
+ assert.throws(()=>chooseResearchAlternative(payload,'TEST1',2),/OA_ALTERNATIVE_INVALID/);
+ assert.throws(()=>chooseResearchAlternative(payload,'MISSING',0),/OA_ALTERNATIVE_INVALID/);
+ assert.equal(chooseResearchAlternative(payload,'TEST1',0),0);
+ const selected=payload.sets[0].products[0];
+ assert.equal(selected.code,'TEST1');assert.equal(selected.keyword,'TEST1');assert.equal(selected.name,'Sample');
+ assert.deepEqual(selected.selectedReference,{name:'Selected variant',url:source});assert.equal(selected.research,undefined);
+ assert.throws(()=>chooseResearchAlternative(payload,'TEST1',0),/OA_ALTERNATIVE_INVALID/);
 });
 test('login state and input commands are encrypted and stale sessions cannot receive input',async t=>{
  const before={secret:process.env.SESSION_SECRET,find:db.lineOaBrowser.findUnique,create:db.lineOaBrowserCommand.create};t.after(()=>{db.lineOaBrowser.findUnique=before.find;db.lineOaBrowserCommand.create=before.create;if(before.secret===undefined)delete process.env.SESSION_SECRET;else process.env.SESSION_SECRET=before.secret;});
