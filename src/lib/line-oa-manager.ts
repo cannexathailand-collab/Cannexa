@@ -45,6 +45,43 @@ export async function openManagerItem(page:Page,account:string,kind:'cardtypemes
  await page.waitForURL(new RegExp('/'+kind+'/create(?:[?#]|$)'),{timeout:20000});
  return true;
 }
+export function matchesReplyCode(keywords:string[],code:string){return keywords.length===1&&keywords[0]===code;}
+export async function openReplyByCode(page:Page,account:string,code:string,remoteId?:string){
+ const readKeywords=async()=>{
+  const input=page.locator('input[name="keyword[]"]');
+  if(!await input.first().waitFor({state:'attached',timeout:5000}).then(()=>true,()=>false))return [];
+  const deadline=Date.now()+10000;let values:string[]=[];
+  do{values=await input.evaluateAll(nodes=>nodes.map(node=>(node as HTMLInputElement).value));if(values.some(value=>value.length))return values;await page.waitForTimeout(100);}while(Date.now()<deadline);
+  return values;
+ };
+ if(remoteId){
+  if(!/^\d+$/.test(remoteId))throw Error('OA_ARTIFACT_INVALID');
+  await page.goto(managerUrl(account,'autoresponse/edit/'+remoteId),{waitUntil:'domcontentloaded'});
+  const keywords=await readKeywords();
+  if(matchesReplyCode(keywords,code))return false;
+  if(keywords.includes(code))throw Error('OA_KEYWORD_CONFLICT');
+ }
+ await reportOaProgress('กำลังค้นข้อความตอบกลับด้วยรหัสสินค้า '+code);
+ await page.goto(managerUrl(account,'autoresponse'),{waitUntil:'domcontentloaded'});
+ await page.getByPlaceholder('ใส่คีย์เวิร์ด',{exact:true}).fill(code);
+ await page.getByRole('button',{name:'',exact:true}).click();
+ await page.waitForLoadState('networkidle',{timeout:10000}).catch(()=>{});await page.waitForTimeout(500);
+ const hrefs=await page.locator('main table a[href*="/autoresponse/edit/"]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')??''));
+ const ids=[...new Set(hrefs.map(href=>{const url=new URL(href,'https://manager.line.biz');const id=url.pathname.split('/').at(-1);return id&&/^\d+$/.test(id)&&url.href===managerUrl(account,'autoresponse/edit/'+id)?id:null;}).filter((id):id is string=>id!==null))];
+ if(ids.length>50)throw Error('OA_TOO_MANY_MATCHES');
+ const matches:string[]=[];
+ for(const id of ids){
+  await page.goto(managerUrl(account,'autoresponse/edit/'+id),{waitUntil:'domcontentloaded'});
+  const keywords=await readKeywords();
+  if(keywords.includes(code)&&!matchesReplyCode(keywords,code))throw Error('OA_KEYWORD_CONFLICT');
+  if(matchesReplyCode(keywords,code))matches.push(id);
+ }
+ if(matches.length>1)throw Error('OA_DUPLICATE_ITEM');
+ if(matches.length){await page.goto(managerUrl(account,'autoresponse/edit/'+matches[0]),{waitUntil:'domcontentloaded'});if(!matchesReplyCode(await readKeywords(),code))throw Error('OA_KEYWORD_CONFLICT');return false;}
+ await page.goto(managerUrl(account,'autoresponse'),{waitUntil:'domcontentloaded'});
+ await page.getByRole('link',{name:'สร้างใหม่',exact:true}).click();
+ await page.waitForURL(new RegExp('/autoresponse/create(?:[?#]|$)'),{timeout:20000});return true;
+}
 async function checkbox(page:Page,label:string,value:boolean){
  const control=page.getByRole('checkbox',{name:label,exact:true});
  if(await control.isChecked()!==value){
@@ -69,7 +106,7 @@ export async function saveManagerReply(page:Page,account:string,product:Product)
  console.info('OA reply stage: FIND');
  if(!product.research||product.research.needsReview)throw Error('OA_REVIEW_REQUIRED');
  const known=await db.lineOaArtifact.findUnique({where:{account_kind_key:{account,kind:'reply',key:product.code}}});
- const fresh=await openManagerItem(page,account,'autoresponse',product.replyTitle,known?.remoteId);
+ const fresh=await openReplyByCode(page,account,product.code,known?.remoteId);
  console.info('OA reply stage: EDIT');
  await page.getByPlaceholder('ใส่ชื่อ',{exact:true}).fill(product.replyTitle);
  const keywordMode=page.getByRole('radio',{name:'ตอบกลับตามคีย์เวิร์ด',exact:true});
