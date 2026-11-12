@@ -123,7 +123,8 @@ export async function saveManagerCards(page:Page,account:string,set:OaPayload['s
   await page.getByRole('button',{name:'เลือก',exact:true}).click();
   await page.getByRole('heading',{name:'เลือกประเภทการ์ด',exact:true}).waitFor({state:'visible',timeout:15000});
   console.info('OA card stage: TEMPLATE_PRODUCT');
-  await page.getByRole('radio',{name:'สินค้า',exact:true}).check();
+  await page.locator('label.custom-control-label').filter({hasText:/^สินค้า$/}).click();
+  console.info('OA card stage: TEMPLATE_APPLY');
   await page.getByRole('button',{name:'เลือก',exact:true}).last().click();
  }
  const tabs=page.locator('main a.nav-link');await tabs.first().waitFor();
