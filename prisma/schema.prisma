@@ -664,6 +664,13 @@ model StockProductExtraImage {
  @@id([code, slot])
 }
 
+model OpenAiConnection {
+ id String @id
+ encryptedKey String
+ model String
+ updatedAt DateTime @updatedAt
+}
+
 model ShopCatalogSettings {
  id String @id
  products Json @default("[]")

@@ -1,0 +1,6 @@
+import {requireAdminPage} from '@/lib/auth';
+import {db} from '@/lib/db';
+export default async function AiSettings({searchParams}:{searchParams:Promise<{status?:string}>}){
+ await requireAdminPage();const connection=await db.openAiConnection.findUnique({where:{id:'active'},select:{model:true,updatedAt:true}});const {status}=await searchParams;
+ return <><h1>เชื่อม OpenAI</h1>{status&&<p role="status" className="notice">{status==='saved'?'ตรวจสอบและบันทึกคีย์แล้ว':status==='model'?'บัญชีนี้ยังใช้โมเดลที่เลือกไม่ได้':status==='key'?'ตรวจสอบคีย์ไม่ผ่าน กรุณาตรวจคีย์และสิทธิ์':'ยังบันทึกไม่ได้ กรุณาลองใหม่'}</p>}<section className="card"><h2>ค้นและสรุปข้อมูลสินค้า</h2><p>{connection?'ตั้งค่าคีย์แล้ว · โมเดล '+connection.model:'ยังไม่ได้ตั้งค่า OpenAI API'}</p><p className="muted">คีย์จะถูกเข้ารหัสบนเซิร์ฟเวอร์และไม่แสดงกลับในหน้านี้ การบันทึกจะตรวจคีย์และโมเดล แต่ยังไม่เรียกสร้างข้อความ</p><form action="/api/admin/ai/connect" method="post"><label>OpenAI API key<input name="key" type="password" required autoComplete="off" maxLength={1024} placeholder="วางคีย์ของคุณที่นี่"/></label><label>โมเดล<input name="model" required defaultValue={connection?.model??'gpt-4.1'} maxLength={100}/></label><button>ตรวจสอบและบันทึกคีย์</button></form><p className="small">การเรียก AI คิดค่าใช้งานผ่านบัญชี OpenAI ของคุณ</p></section></>;
+}
