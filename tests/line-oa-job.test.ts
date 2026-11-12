@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {validateOaPayload,artifactFingerprint,chooseResearchAlternative} from '../src/lib/line-oa-job';
+import {validateOaPayload,artifactFingerprint,chooseResearchAlternative,researchAlternatives} from '../src/lib/line-oa-job';
 import {oaCommand,sealOaState,unsealOaState,enqueueOaCommand} from '../src/lib/line-oa-browser';
 import {db} from '../src/lib/db';
 import {managerUrl} from '../src/lib/line-oa-manager';
@@ -28,6 +28,11 @@ test('choosing a similar reference preserves SKU and only resets the selected re
  assert.equal(selected.code,'TEST1');assert.equal(selected.keyword,'TEST1');assert.equal(selected.name,'Sample');
  assert.deepEqual(selected.selectedReference,{name:'Selected variant',url:source});assert.equal(selected.research,undefined);
  assert.throws(()=>chooseResearchAlternative(payload,'TEST1',0),/OA_ALTERNATIVE_INVALID/);
+});
+test('conflicting references remain selectable when the model does not list alternatives',()=>{
+ const research={name:'Sample',text:'Conflicting sources',sources:['https://example.com/a','https://example.com/b'],needsReview:true,alternatives:[]};
+ assert.deepEqual(researchAlternatives(research),research.sources.map(url=>({name:'Sample',url})));
+ assert.deepEqual(researchAlternatives({...research,needsReview:false}),[]);
 });
 test('login state and input commands are encrypted and stale sessions cannot receive input',async t=>{
  const before={secret:process.env.SESSION_SECRET,find:db.lineOaBrowser.findUnique,create:db.lineOaBrowserCommand.create};t.after(()=>{db.lineOaBrowser.findUnique=before.find;db.lineOaBrowserCommand.create=before.create;if(before.secret===undefined)delete process.env.SESSION_SECRET;else process.env.SESSION_SECRET=before.secret;});
