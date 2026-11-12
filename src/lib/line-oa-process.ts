@@ -24,7 +24,7 @@ export async function processOaStep(openPage:()=>Promise<{page:Page;close:()=>Pr
    context=await openPage();await verifyManager(context.page,job.account);
    if(phase==='REPLIES'){
     const product=products[cursor];
-    if(product.selectedReference){await applySelectedProductName(product.code,product.name,product.selectedReference.name,job.actor);product.name=product.selectedReference.name;}
+    if(product.selectedReference&&product.selectedReference.name!==product.name){await applySelectedProductName(product.code,product.name,product.selectedReference.name,job.actor);product.name=product.selectedReference.name;}
     results=[...results,await saveManagerReply(context.page,job.account,products[cursor])];cursor++;
     if(cursor===products.length){phase='CARDS';cursor=0;}
    }else if(phase==='CARDS'){
