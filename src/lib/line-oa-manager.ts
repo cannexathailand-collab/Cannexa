@@ -35,7 +35,9 @@ async function openItem(page:Page,account:string,kind:'cardtypemessage'|'autores
  const items=page.locator('main table').getByRole('link',{name,exact:true});
  if(await items.count()>1)throw Error('OA_DUPLICATE_ITEM');
  if(await items.count()===1){await items.click();return false;}
- await page.getByRole(kind==='cardtypemessage'?'button':'link',{name:'สร้างใหม่',exact:true}).click();return true;
+ await page.getByRole(kind==='cardtypemessage'?'button':'link',{name:'สร้างใหม่',exact:true}).click();
+ await page.waitForURL(new RegExp('/'+kind+'/create(?:[?#]|$)'),{timeout:20000});
+ return true;
 }
 async function checkbox(page:Page,label:string,value:boolean){const control=page.getByRole('checkbox',{name:label,exact:true});await control.setChecked(value);}
 async function savedId(page:Page,kind:string,name:string){
@@ -116,7 +118,14 @@ export async function saveManagerCards(page:Page,account:string,set:OaPayload['s
  console.info('OA card stage: EDIT');
  await dismissManagerGuide(page);
  await page.getByPlaceholder('ใส่ชื่อไอเทม',{exact:true}).fill(set.title);
- if(fresh){await page.getByRole('button',{name:'เลือก',exact:true}).click();await page.getByRole('radio',{name:'สินค้า',exact:true}).check();await page.getByRole('button',{name:'เลือก',exact:true}).last().click();}
+ if(fresh){
+  console.info('OA card stage: TEMPLATE_DIALOG');
+  await page.getByRole('button',{name:'เลือก',exact:true}).click();
+  await page.getByRole('heading',{name:'เลือกประเภทการ์ด',exact:true}).waitFor({state:'visible',timeout:15000});
+  console.info('OA card stage: TEMPLATE_PRODUCT');
+  await page.getByRole('radio',{name:'สินค้า',exact:true}).check();
+  await page.getByRole('button',{name:'เลือก',exact:true}).last().click();
+ }
  const tabs=page.locator('main a.nav-link');await tabs.first().waitFor();
  console.info('OA card stage: TABS');
  if(!fresh&&await tabs.count()!==set.products.length)throw Error('OA_CARD_COUNT_CONFLICT');
