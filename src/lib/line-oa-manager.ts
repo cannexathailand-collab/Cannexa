@@ -99,17 +99,32 @@ async function savedId(page:Page,kind:string,name:string){
   await filter.fill(name);await page.getByRole('button',{name:'',exact:true}).click();
   await page.waitForLoadState('networkidle',{timeout:15000}).catch(()=>{});
   const found=page.locator('main table').getByRole('link',{name,exact:true});
+  await found.first().waitFor({state:'visible',timeout:15000}).catch(()=>{throw Error('OA_SAVE_UNCONFIRMED');});
   if(await found.count()!==1)throw Error('OA_SAVE_UNCONFIRMED');await found.click();
  }
  await page.waitForURL(new RegExp('/'+kind+'/edit/\\d+'),{timeout:30000});
  const id=page.url().match(/\/edit\/(\d+)/)?.[1];if(!id)throw Error('OA_SAVE_UNCONFIRMED');return id;
+}
+export async function saveReplyEditor(page:Page){
+ const apply=page.getByRole('button',{name:'ใช้การเปลี่ยนแปลง',exact:true}).last();
+ const requiresConfirmation=await apply.isVisible();
+ if(requiresConfirmation){
+  await apply.click();
+  await page.getByRole('heading',{name:'ต้องการใช้การเปลี่ยนแปลงหรือไม่',exact:true}).waitFor({state:'visible',timeout:10000});
+  await page.getByRole('button',{name:'ใช้การเปลี่ยนแปลง',exact:true}).last().click();
+ }else await page.getByRole('button',{name:'บันทึก',exact:true}).last().click();
+}
+export async function activateReply(page:Page){
+ const start=page.getByRole('button',{name:'เริ่มใช้งาน',exact:true});
+ if(await start.count())await start.last().click();
+ await page.getByRole('button',{name:'หยุดใช้งาน',exact:true}).last().waitFor({state:'visible',timeout:20000});
 }
 export async function saveManagerReply(page:Page,account:string,product:Product){
  await reportOaProgress('กำลังเปิดข้อความ '+product.code);
  console.info('OA reply stage: FIND');
  if(!product.research||product.research.needsReview)throw Error('OA_REVIEW_REQUIRED');
  const known=await db.lineOaArtifact.findUnique({where:{account_kind_key:{account,kind:'reply',key:product.code}}});
- const fresh=await openReplyByCode(page,account,product.code,known?.remoteId);
+ await openReplyByCode(page,account,product.code,known?.remoteId);
  console.info('OA reply stage: EDIT');
  await page.getByPlaceholder('ใส่ชื่อ',{exact:true}).fill(product.replyTitle);
  const keywordMode=page.getByRole('radio',{name:'ตอบกลับตามคีย์เวิร์ด',exact:true});
@@ -129,11 +144,7 @@ export async function saveManagerReply(page:Page,account:string,product:Product)
  const value=await editor.inputValue();if(value!==textToSave)throw Error('OA_TEXT_NOT_ACCEPTED');
  console.info('OA reply stage: SAVE');
  await reportOaProgress('กำลังบันทึกข้อความ '+product.code);
- await page.getByRole('button',{name:fresh?'บันทึก':'ใช้การเปลี่ยนแปลง',exact:true}).last().click();
- if(!fresh){
-  await page.getByRole('heading',{name:'ต้องการใช้การเปลี่ยนแปลงหรือไม่',exact:true}).waitFor({state:'visible',timeout:10000});
-  await page.getByRole('button',{name:'ใช้การเปลี่ยนแปลง',exact:true}).last().click();
- }
+ await saveReplyEditor(page);
  const id=await savedId(page,'autoresponse',product.replyTitle);
  await reportOaProgress('กำลังเปิดตรวจข้อความที่บันทึก '+product.code);
  await page.reload({waitUntil:'domcontentloaded'});
@@ -149,8 +160,7 @@ export async function saveManagerReply(page:Page,account:string,product:Product)
  if(name!==product.replyTitle)throw Error('OA_NAME_VERIFY_FAILED');
  if(savedText!==textToSave)throw Error('OA_TEXT_VERIFY_FAILED');
  if(video)await verifyReplyVideo(page);
- const start=page.getByRole('button',{name:'เริ่มใช้งาน',exact:true});if(await start.count())await start.click();
- await page.getByRole('button',{name:'หยุดใช้งาน',exact:true}).waitFor({timeout:20000});
+ await activateReply(page);
  const fingerprint=artifactFingerprint({text:savedText});
  await db.lineOaArtifact.upsert({where:{account_kind_key:{account,kind:'reply',key:product.code}},create:{account,kind:'reply',key:product.code,remoteId:id,fingerprint},update:{remoteId:id,fingerprint}});
  if(video){await recordReplyVideo(account,product.code,video);await reportOaProgress('วิดีโอ '+product.code+' สำเร็จแล้ว');}
