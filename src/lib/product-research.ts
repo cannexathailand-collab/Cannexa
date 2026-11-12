@@ -3,6 +3,17 @@ import {db} from './db';
 import {unsealOpenAiKey} from './openai-connection';
 const sourceUrl=z.string().url().refine(url=>new URL(url).protocol==='https:');
 export const researchResult=z.object({name:z.string().min(1).max(200),text:z.string().min(1).max(500),sources:z.array(sourceUrl).max(5),needsReview:z.boolean(),reviewReason:z.string().max(300).optional(),alternatives:z.array(z.object({name:z.string().min(1).max(200),url:sourceUrl})).max(3).optional()}).refine(value=>value.needsReview||value.sources.length>0);
+export function verifiedResearchUrls(output:any[]){
+ const urls=new Set<string>();
+ for(const item of output){
+  if(item.type==='web_search_call'){
+   for(const source of item.action?.sources??[])if(typeof source.url==='string')urls.add(source.url);
+   if(item.status==='completed'&&['open_page','find_in_page'].includes(item.action?.type)&&typeof item.action?.url==='string')urls.add(item.action.url);
+  }
+  for(const part of item.content??[])for(const annotation of part.annotations??[])if(annotation.type==='url_citation'&&typeof annotation.url==='string')urls.add(annotation.url);
+ }
+ return urls;
+}
 export async function researchProduct(name:string,context='',selectedReference?:{name:string;url:string}){
  const connection=await db.openAiConnection.findUnique({where:{id:'active'}});
  if(!connection)throw Error('OPENAI_NOT_CONFIGURED');
@@ -18,11 +29,7 @@ export async function researchProduct(name:string,context='',selectedReference?:
  const text=output.filter((item:any)=>item.type==='message').flatMap((item:any)=>item.content??[]).filter((item:any)=>item.type==='output_text').map((item:any)=>item.text).join('');
  const parsed=researchResult.safeParse(JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g,'')));
  if(!parsed.success)throw Error('RESEARCH_INVALID');
- const urls=new Set<string>();
- for(const item of output){
-  if(item.type==='web_search_call')for(const source of item.action?.sources??[])if(typeof source.url==='string')urls.add(source.url);
-  for(const part of item.content??[])for(const annotation of part.annotations??[])if(annotation.type==='url_citation'&&typeof annotation.url==='string')urls.add(annotation.url);
- }
+ const urls=verifiedResearchUrls(output);
  if(!parsed.data.sources.every(url=>urls.has(url))||!(parsed.data.alternatives??[]).every(item=>urls.has(item.url)))throw Error('RESEARCH_UNVERIFIED');
  // The model may return verified sources separately without repeating a URL in
  // its summary. Attach that already-verified source before enforcing the limit.
