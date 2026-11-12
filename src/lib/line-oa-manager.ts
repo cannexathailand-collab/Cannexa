@@ -29,7 +29,15 @@ async function openItem(page:Page,account:string,kind:'cardtypemessage'|'autores
  await page.getByRole(kind==='cardtypemessage'?'button':'link',{name:'สร้างใหม่',exact:true}).click();return true;
 }
 async function checkbox(page:Page,label:string,value:boolean){const control=page.getByRole('checkbox',{name:label,exact:true});await control.setChecked(value);}
-async function savedId(page:Page,kind:string){
+async function savedId(page:Page,kind:string,name:string){
+ await page.waitForLoadState('networkidle',{timeout:15000}).catch(()=>{});
+ if(new URL(page.url()).pathname.endsWith('/'+kind)){
+  const filter=page.getByPlaceholder(kind==='cardtypemessage'?'ใส่ชื่อไอเทม':'ใส่คีย์เวิร์ด',{exact:true});
+  await filter.fill(name);await page.getByRole('button',{name:'',exact:true}).click();
+  await page.waitForLoadState('networkidle',{timeout:15000}).catch(()=>{});
+  const found=page.locator('main table').getByRole('link',{name,exact:true});
+  if(await found.count()!==1)throw Error('OA_SAVE_UNCONFIRMED');await found.click();
+ }
  await page.waitForURL(new RegExp('/'+kind+'/edit/\\d+'),{timeout:30000});
  const id=page.url().match(/\/edit\/(\d+)/)?.[1];if(!id)throw Error('OA_SAVE_UNCONFIRMED');return id;
 }
@@ -47,7 +55,7 @@ export async function saveManagerReply(page:Page,account:string,product:Product)
  await editor.click();await editor.press('ControlOrMeta+A');await editor.pressSequentially(product.research.text);
  const value=await editor.inputValue();if(value!==product.research.text)throw Error('OA_TEXT_NOT_ACCEPTED');
  await page.getByRole('button',{name:fresh?'บันทึก':'ใช้การเปลี่ยนแปลง',exact:true}).last().click();
- const id=await savedId(page,'autoresponse');
+ const id=await savedId(page,'autoresponse',product.replyTitle);
  await page.reload({waitUntil:'domcontentloaded'});
  if(await page.getByPlaceholder('ใส่ชื่อ',{exact:true}).inputValue()!==product.replyTitle||await editor.inputValue()!==product.research.text)throw Error('OA_VERIFY_FAILED');
  const start=page.getByRole('button',{name:'เริ่มใช้งาน',exact:true});if(await start.count())await start.click();
@@ -93,7 +101,7 @@ export async function saveManagerCards(page:Page,account:string,set:OaPayload['s
   // The current acceptance run uses neutral product information and mock links.
   await page.getByPlaceholder('ใส่ลิงก์',{exact:true}).fill('https://example.com/?test_product='+encodeURIComponent(product.code));
  }
- await page.getByRole('button',{name:'บันทึก',exact:true}).last().click();const id=await savedId(page,'cardtypemessage');
+ await page.getByRole('button',{name:'บันทึก',exact:true}).last().click();const id=await savedId(page,'cardtypemessage',set.title);
  await page.reload({waitUntil:'domcontentloaded'});await tabs.first().waitFor();
  if(await tabs.count()!==set.products.length)throw Error('OA_VERIFY_FAILED');
  for(let i=0;i<set.products.length;i++){
