@@ -704,6 +704,16 @@ model LineOaBrowser {
  leaseUntil DateTime?
  heartbeatAt DateTime?
  screenshotData Bytes?
+ accountsUpdatedAt DateTime?
+ accountsError String?
+ updatedAt DateTime @updatedAt
+}
+
+model LineOaAccount {
+ account String @id
+ name String
+ available Boolean @default(true)
+ verifiedAt DateTime
  updatedAt DateTime @updatedAt
 }
 
@@ -726,6 +736,9 @@ model LineOaJob {
  payload Json
  results Json
  error String?
+ progressMessage String?
+ progressAt DateTime?
+ progressLog Json @default("[]")
  leaseUntil DateTime?
  createdAt DateTime @default(now())
  updatedAt DateTime @updatedAt

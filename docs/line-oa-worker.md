@@ -27,7 +27,23 @@ The owner opens `/admin/line-browser` and requests a login session. The
 daemon opens LINE OA in a dedicated server browser. The owner completes
 the login (including any verification challenge) through that view and
 selects **ตรวจการเชื่อมต่อ**. The worker verifies the configured OA account
-before persisting the session.
+before persisting the session. It then reads every page of the account list
+and records accessible OA identifiers and display names. The owner can also
+refresh that list without signing in again.
+
+The stock page selects a discovered OA as the job destination. The default
+is the shop's configured OA; other destinations are owner-only. Jobs and
+artifacts remain keyed by OA, so identical product codes on different OAs
+do not conflict. A repeated request key cannot change its destination.
+The single worker uses the shared LINE login and verifies each job's OA
+before editing. Removed or unavailable destinations cannot receive new jobs.
+
+Each running job stores its current step and the last 60 progress events.
+The stock page polls these events and shows the current SKU, video/image
+upload steps, completed reply count, card-set count, and review pauses.
+These events contain status messages only, never login state or tokens.
+If an OA item was deleted outside the application, the worker reconciles
+the exact title within the selected OA before recreating it.
 
 When LINE expires the login, work pauses with `AWAITING_LOGIN`. Reconnecting
 the same account requeues those jobs. Existing remote item identifiers and
@@ -38,7 +54,8 @@ recovery.
 
 ## Current acceptance scope
 
-- One primary shop, product cards with three uploaded images and at most
+- One primary application shop, multiple OA destinations from its shared
+  LINE login, product cards with three uploaded images and at most
   five distinct products per set.
 - Gray product-code tags; `Show details` sends the exact product code.
 - `Order Now` currently opens a test page, not a live purchase page.

@@ -1,4 +1,4 @@
-import {admin,sameOrigin} from '@/lib/auth';
+import {admin,currentAccount,sameOrigin} from '@/lib/auth';
 import {stockEditors} from '@/lib/accounts';
 import {db,transaction,userLock} from '@/lib/db';
 import {oaPayload,chooseResearchAlternative} from '@/lib/line-oa-job';
@@ -7,8 +7,14 @@ import {z} from 'zod';
 export async function POST(request:Request,{params}:{params:Promise<{id:string}>}){
  let actor:string;try{actor=await admin(stockEditors);await sameOrigin();}catch{return new Response('Forbidden',{status:403});}
  const {id}=await params;
+ const canChooseOther=(await currentAccount()).role==='owner';
  try{const body=z.object({reviewed:z.boolean().optional(),restartResearch:z.boolean().optional(),researchContext:z.string().trim().max(200).optional(),chooseAlternative:z.object({code:z.string().max(12),index:z.number().int().min(0).max(2)}).optional()}).parse(await request.json());await transaction(async tx=>{
   await userLock(tx,'line-oa-resume-'+id);const job=await tx.lineOaJob.findUniqueOrThrow({where:{id}});
+  if(!await tx.lineOaAccount.findFirst({where:{account:job.account,available:true}}))throw Error('OA_TARGET_UNAVAILABLE');
+  if(!canChooseOther){
+   const connection=await tx.lineOaBrowser.findUnique({where:{id:'active'}});
+   if(job.account!==connection?.account)throw Error('FORBIDDEN');
+  }
   if(!['FAILED','AWAITING_REVIEW'].includes(job.status))throw Error('INVALID_STATE');
   let payload=oaPayload.parse(job.payload),phase=job.phase,cursor=job.cursor;
   if(body.chooseAlternative){

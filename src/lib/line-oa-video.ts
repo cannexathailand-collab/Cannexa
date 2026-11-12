@@ -1,12 +1,14 @@
 import type {Page} from 'playwright-core';
 import {db} from './db';
 import {findDriveVideo,downloadDriveVideo,driveVideoFingerprint,type DriveVideo} from './drive-video';
+import {reportOaProgress} from './line-oa-progress';
 
 const messageBlocks=(page:Page)=>page.locator('main div.card.border-secondary');
 const videoBlocks=(page:Page)=>messageBlocks(page).filter({has:page.locator('button[aria-label="วิดีโอ"].active')});
 export async function syncReplyVideo(page:Page,account:string,code:string){
  console.info('OA video stage: FIND');
- const file=await findDriveVideo(code);if(!file)return null;
+ await reportOaProgress('กำลังค้นวิดีโอ '+code+' ใน Google Drive');
+ const file=await findDriveVideo(code);if(!file){await reportOaProgress('ไม่พบวิดีโอ '+code+' · ดำเนินการต่อด้วยข้อความ');return null;}
  let stage='LAYOUT';
  try{
  let video=videoBlocks(page);
@@ -15,6 +17,7 @@ export async function syncReplyVideo(page:Page,account:string,code:string){
  const unchanged=known?.fingerprint===driveVideoFingerprint(file)&&await video.count()===1&&await video.locator('.card-body .figure img').count()===1;
  if(!unchanged){
   stage='DOWNLOAD';console.info('OA video stage:',stage);
+  await reportOaProgress('กำลังดาวน์โหลดวิดีโอ '+code);
   const download=await downloadDriveVideo(file);
   try{
    if(!await video.count()){
@@ -30,6 +33,7 @@ export async function syncReplyVideo(page:Page,account:string,code:string){
    await video.getByRole('link',{name:'อัปโหลดวิดีโอ',exact:true}).click();
    await page.getByRole('heading',{name:'อัปโหลดวิดีโอ',exact:true}).waitFor({state:'visible',timeout:10000});
    stage='UPLOAD';console.info('OA video stage:',stage);
+   await reportOaProgress('กำลังอัปโหลดวิดีโอ '+code+' เข้า LINE OA');
    // Use the actual video input: label clicks do not consistently dispatch
    // a native filechooser event in the server's headless Chromium.
    await page.locator('input#KvInputFile[type="file"]').setInputFiles(download.path,{timeout:15000});
@@ -38,6 +42,7 @@ export async function syncReplyVideo(page:Page,account:string,code:string){
   }finally{await download.release();}
  }
  stage='ORDER';console.info('OA video stage:',stage);
+ await reportOaProgress('กำลังจัดวิดีโอ '+code+' ไว้ก่อนข้อความ');
  for(let attempt=0;attempt<5;attempt++){
   const up=videoBlocks(page).locator('button').filter({has:page.locator('i.la-chevron-up')});
   if(!await up.isEnabled())break;

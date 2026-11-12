@@ -3,6 +3,7 @@ import {db} from '../../src/lib/db';
 import {oaCommand,sealOaState,unsealOaState} from '../../src/lib/line-oa-browser';
 import {managerUrl,verifyManager} from '../../src/lib/line-oa-manager';
 import {processOaStep} from '../../src/lib/line-oa-process';
+import {discoverOaAccounts,saveOaAccounts} from '../../src/lib/line-oa-accounts';
 
 async function main(){
 let stopping=false;
@@ -44,9 +45,10 @@ async function loginStep(){
   if(command.action==='scroll')await login.page.mouse.wheel(0,command.y);
   if(command.action==='verify'){
    try{await verifyManager(login.page,connection.account);}catch{continue;}
+   const accounts=await discoverOaAccounts(login.page);await saveOaAccounts(accounts);
    const state=await login.context.storageState({indexedDB:true});
    await db.lineOaBrowser.update({where:{id:'active'},data:{encryptedConfig:sealOaState(state),status:'READY',sessionId:null,screenshotData:null,sessionExpiresAt:null}});
-   await db.lineOaJob.updateMany({where:{account:connection.account,status:'AWAITING_LOGIN'},data:{status:'QUEUED',error:null}});
+   await db.lineOaJob.updateMany({where:{account:{in:accounts.map(account=>account.account)},status:'AWAITING_LOGIN'},data:{status:'QUEUED',error:null}});
    await db.lineOaBrowserCommand.deleteMany({where:{sessionId:login.id}});
    await login.context.close();login=undefined;return true;
   }
@@ -54,8 +56,25 @@ async function loginStep(){
  if(login){const image=await login.page.screenshot({type:'jpeg',quality:65});await db.lineOaBrowser.update({where:{id:'active'},data:{screenshotData:Buffer.from(sealOaState({base64:image.toString('base64')})),heartbeatAt:new Date()}});}
  return true;
 }
+async function accountDiscoveryStep(){
+ const connection=await db.lineOaBrowser.findUnique({where:{id:'active'}});
+ if(!connection||connection.status!=='DISCOVER_REQUESTED')return false;
+ await db.lineOaBrowser.update({where:{id:'active'},data:{leaseUntil:new Date(Date.now()+180000),heartbeatAt:new Date()}});
+ let context:Awaited<ReturnType<typeof openPage>>|undefined;
+ try{
+  context=await openPage();await saveOaAccounts(await discoverOaAccounts(context.page));
+  await db.lineOaBrowser.update({where:{id:'active'},data:{status:'READY',accountsError:null}});
+ }catch(error){
+  const expired=error instanceof Error&&error.message==='OA_LOGIN_REQUIRED';
+  await db.lineOaBrowser.update({where:{id:'active'},data:{status:expired?'EXPIRED':'READY',accountsError:expired?'การล็อกอินหมดอายุ กรุณาเชื่อม LINE OA ใหม่':'โหลดรายชื่อ OA ไม่สำเร็จ กรุณาลองใหม่'}});
+ }finally{
+  if(context)await context.close().catch(()=>{});
+  await db.lineOaBrowser.update({where:{id:'active'},data:{leaseUntil:null,heartbeatAt:new Date()}});
+ }
+ return true;
+}
 process.on('SIGTERM',()=>{stopping=true;});process.on('SIGINT',()=>{stopping=true;});
-try{while(!stopping){try{if(await loginStep()){await sleep(1500);continue;}if(await processOaStep(openPage))continue;}catch{console.error('LINE OA worker paused after a failed operation');}await sleep(5000);}}
+try{while(!stopping){try{if(await accountDiscoveryStep())continue;if(await loginStep()){await sleep(1500);continue;}if(await processOaStep(openPage))continue;}catch{console.error('LINE OA worker paused after a failed operation');}await sleep(5000);}}
 finally{if(login)await login.context.close().catch(()=>{});await browser.close();await db.$disconnect();}
 }
 void main().catch(()=>{console.error('LINE OA worker could not start');process.exitCode=1;});

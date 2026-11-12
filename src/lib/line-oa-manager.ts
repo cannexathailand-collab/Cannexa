@@ -2,6 +2,7 @@ import type {Page} from 'playwright-core';
 import {db} from './db';
 import {type OaPayload,artifactFingerprint} from './line-oa-job';
 import {syncReplyVideo,verifyReplyVideo,recordReplyVideo} from './line-oa-video';
+import {reportOaProgress} from './line-oa-progress';
 
 type Product=OaPayload['sets'][number]['products'][number];
 export function managerUrl(account:string,path=''){
@@ -17,15 +18,20 @@ async function dismissManagerGuide(page:Page){
  const finish=page.getByText('จบการแนะนำ',{exact:true});
  if(await finish.waitFor({state:'visible',timeout:2500}).then(()=>true,()=>false))await finish.click();
 }
-async function openItem(page:Page,account:string,kind:'cardtypemessage'|'autoresponse',name:string,remoteId?:string){
+export async function openManagerItem(page:Page,account:string,kind:'cardtypemessage'|'autoresponse',name:string,remoteId?:string){
  if(remoteId){
   if(!/^\d+$/.test(remoteId))throw Error('OA_ARTIFACT_INVALID');
   await page.goto(managerUrl(account,kind+'/edit/'+remoteId),{waitUntil:'domcontentloaded'});
-  const title=page.getByPlaceholder(kind==='cardtypemessage'?'ใส่ชื่อไอเทม':'ใส่ชื่อ',{exact:true});await title.waitFor();
+  const title=page.getByPlaceholder(kind==='cardtypemessage'?'ใส่ชื่อไอเทม':'ใส่ชื่อ',{exact:true});
+  const loaded=await title.waitFor({state:'visible',timeout:5000}).then(()=>true,()=>false);
+  if(loaded){
   // The control can exist before OA hydrates the saved item.
   const deadline=Date.now()+20000;
   while(await title.inputValue()!==name&&Date.now()<deadline)await page.waitForTimeout(250);
   if(await title.inputValue()!==name)throw Error('OA_ARTIFACT_CHANGED');return false;
+  }
+  // A user may delete the item in OA. Reconcile by exact title in the list
+  // before creating anything, rather than trusting the old remote identifier.
  }
  await page.goto(managerUrl(account,kind),{waitUntil:'domcontentloaded'});
  if(kind==='cardtypemessage')await dismissManagerGuide(page);
@@ -59,10 +65,11 @@ async function savedId(page:Page,kind:string,name:string){
  const id=page.url().match(/\/edit\/(\d+)/)?.[1];if(!id)throw Error('OA_SAVE_UNCONFIRMED');return id;
 }
 export async function saveManagerReply(page:Page,account:string,product:Product){
+ await reportOaProgress('กำลังเปิดข้อความ '+product.code);
  console.info('OA reply stage: FIND');
  if(!product.research||product.research.needsReview)throw Error('OA_REVIEW_REQUIRED');
  const known=await db.lineOaArtifact.findUnique({where:{account_kind_key:{account,kind:'reply',key:product.code}}});
- const fresh=await openItem(page,account,'autoresponse',product.replyTitle,known?.remoteId);
+ const fresh=await openManagerItem(page,account,'autoresponse',product.replyTitle,known?.remoteId);
  console.info('OA reply stage: EDIT');
  await page.getByPlaceholder('ใส่ชื่อ',{exact:true}).fill(product.replyTitle);
  await page.getByRole('radio',{name:'ตอบกลับตามคีย์เวิร์ด',exact:true}).check();
@@ -80,12 +87,14 @@ export async function saveManagerReply(page:Page,account:string,product:Product)
  await editor.click();await editor.press('ControlOrMeta+A');await editor.pressSequentially(textToSave);
  const value=await editor.inputValue();if(value!==textToSave)throw Error('OA_TEXT_NOT_ACCEPTED');
  console.info('OA reply stage: SAVE');
+ await reportOaProgress('กำลังบันทึกข้อความ '+product.code);
  await page.getByRole('button',{name:fresh?'บันทึก':'ใช้การเปลี่ยนแปลง',exact:true}).last().click();
  if(!fresh){
   await page.getByRole('heading',{name:'ต้องการใช้การเปลี่ยนแปลงหรือไม่',exact:true}).waitFor({state:'visible',timeout:10000});
   await page.getByRole('button',{name:'ใช้การเปลี่ยนแปลง',exact:true}).last().click();
  }
  const id=await savedId(page,'autoresponse',product.replyTitle);
+ await reportOaProgress('กำลังเปิดตรวจข้อความที่บันทึก '+product.code);
  await page.reload({waitUntil:'domcontentloaded'});
  // OA loads the saved message after the initial document and form controls.
  // Wait for those values, rather than treating the first empty form as failure.
@@ -107,6 +116,7 @@ export async function saveManagerReply(page:Page,account:string,product:Product)
  return {kind:'reply',code:product.code,url:managerUrl(account,'autoresponse/edit/'+id),video:video?'synced':'not-found'};
 }
 async function uploadCardImage(page:Page,product:Product,slot:number){
+ await reportOaProgress('กำลังอัปโหลดรูป '+slot+'/3 ของการ์ด '+product.code);
  console.info('OA card image stage: LOAD',slot);
  const image=slot===1?await db.stockProductImage.findUnique({where:{code:product.code}}):await db.stockProductExtraImage.findUnique({where:{code_slot:{code:product.code,slot}}});
  if(!image)throw Error('OA_IMAGES_MISSING');
@@ -124,9 +134,10 @@ async function uploadCardImage(page:Page,product:Product,slot:number){
  await link.waitFor({state:'hidden',timeout:30000}).catch(()=>{throw Error('OA_IMAGE_READY_FAILED');});
 }
 export async function saveManagerCards(page:Page,account:string,set:OaPayload['sets'][number]){
+ await reportOaProgress('กำลังเปิดชุดการ์ด '+set.title);
  console.info('OA card stage: FIND');
  const known=await db.lineOaArtifact.findUnique({where:{account_kind_key:{account,kind:'cards',key:set.title}}});
- const fresh=await openItem(page,account,'cardtypemessage',set.title,known?.remoteId);
+ const fresh=await openManagerItem(page,account,'cardtypemessage',set.title,known?.remoteId);
  console.info('OA card stage: EDIT');
  await dismissManagerGuide(page);
  await page.getByPlaceholder('ใส่ชื่อไอเทม',{exact:true}).fill(set.title);
@@ -144,6 +155,7 @@ export async function saveManagerCards(page:Page,account:string,set:OaPayload['s
  if(!fresh&&await tabs.count()!==set.products.length)throw Error('OA_CARD_COUNT_CONFLICT');
  while(await tabs.count()<set.products.length)await page.getByRole('button',{name:'เพิ่มการ์ด',exact:true}).click();
  for(let i=0;i<set.products.length;i++){
+  await reportOaProgress('กำลังจัดการ์ด '+set.products[i].code+' ('+(i+1)+'/'+set.products.length+')');
   console.info('OA card stage: PRODUCT',i+1);
   const product=set.products[i];await tabs.nth(i).click();
   await checkbox(page,'แท็ก',true);await page.getByPlaceholder('ใส่ข้อความแท็ก',{exact:true}).fill(product.code);
@@ -165,12 +177,14 @@ export async function saveManagerCards(page:Page,account:string,set:OaPayload['s
   await page.getByPlaceholder('ใส่ลิงก์',{exact:true}).fill('https://example.com/?test_product='+encodeURIComponent(product.code));
  }
  console.info('OA card stage: SAVE');
+ await reportOaProgress('กำลังบันทึกชุดการ์ด '+set.title);
  await page.getByRole('button',{name:'บันทึก',exact:true}).last().click();
  if(!fresh){
   await page.getByRole('heading',{name:'บันทึกการ์ดเมสเสจ',exact:true}).waitFor({state:'visible',timeout:10000});
   await page.getByRole('button',{name:'บันทึก',exact:true}).last().click();
  }
  const id=await savedId(page,'cardtypemessage',set.title);
+ await reportOaProgress('กำลังเปิดตรวจชุดการ์ดที่บันทึก');
  await page.reload({waitUntil:'domcontentloaded'});await tabs.first().waitFor();
  const cardsDeadline=Date.now()+20000;
  while(await tabs.count()!==set.products.length&&Date.now()<cardsDeadline)await page.waitForTimeout(250);

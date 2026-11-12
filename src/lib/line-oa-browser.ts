@@ -19,8 +19,9 @@ export async function startOaLogin(actor:string){
  return transaction(async tx=>{
   await userLock(tx,'line-oa-browser-login');const old=await tx.lineOaBrowser.findUnique({where:{id:'active'}});
   if(old?.leaseUntil&&old.leaseUntil>new Date())throw Error('OA_BUSY');
+  await tx.lineOaAccount.updateMany({data:{available:false}});
   await tx.lineOaBrowserCommand.deleteMany({});
-  const data={account:line.settings.basicId,status:'LOGIN_REQUESTED',sessionId:randomUUID(),sessionExpiresAt:new Date(Date.now()+10*60000),screenshotData:null};
+  const data={account:line.settings.basicId,status:'LOGIN_REQUESTED',sessionId:randomUUID(),sessionExpiresAt:new Date(Date.now()+10*60000),screenshotData:null,accountsError:null};
   await tx.lineOaBrowser.upsert({where:{id:'active'},create:{id:'active',encryptedConfig:sealOaState({}),...data},update:{...data,...(old?.account!==line.settings.basicId?{encryptedConfig:sealOaState({})}:{})}});
   await tx.auditLog.create({data:{actor,action:'LINE_OA_LOGIN_REQUESTED',entityId:'active',details:{account:line.settings.basicId}}});
  });
