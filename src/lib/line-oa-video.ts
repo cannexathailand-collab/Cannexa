@@ -29,10 +29,10 @@ export async function syncReplyVideo(page:Page,account:string,code:string){
    stage='DIALOG';console.info('OA video stage:',stage);
    await video.getByRole('link',{name:'อัปโหลดวิดีโอ',exact:true}).click();
    await page.getByRole('heading',{name:'อัปโหลดวิดีโอ',exact:true}).waitFor({state:'visible',timeout:10000});
-   stage='PICKER';console.info('OA video stage:',stage);
-   const [chooser]=await Promise.all([page.waitForEvent('filechooser',{timeout:15000}),page.getByText('เลือกไฟล์',{exact:true}).click()]);
    stage='UPLOAD';console.info('OA video stage:',stage);
-   await chooser.setFiles(download.path);
+   // Use the actual video input: label clicks do not consistently dispatch
+   // a native filechooser event in the server's headless Chromium.
+   await page.locator('input#KvInputFile[type="file"]').setInputFiles(download.path,{timeout:15000});
    await page.getByRole('heading',{name:'อัปโหลดวิดีโอ',exact:true}).waitFor({state:'hidden',timeout:180000});
    await video.locator('.card-body .figure img').waitFor({state:'visible',timeout:180000});
   }finally{await download.release();}
