@@ -13,7 +13,7 @@ const sleep=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 async function openPage(){
  const connection=await db.lineOaBrowser.findUniqueOrThrow({where:{id:'active'}});
  const saved=unsealOaState(connection.encryptedConfig);
- const context=await browser.newContext({viewport:{width:1280,height:900},...(saved.cookies?{storageState:saved}:{})});
+ const context=await browser.newContext({locale:'th-TH',timezoneId:'Asia/Bangkok',viewport:{width:1280,height:900},...(saved.cookies?{storageState:saved}:{})});
  const page=await context.newPage();page.setDefaultTimeout(20000);
  return {page,close:async()=>{const state=await context.storageState({indexedDB:true});await db.lineOaBrowser.update({where:{id:'active'},data:{encryptedConfig:sealOaState(state)}});await context.close();}};
 }
@@ -27,7 +27,7 @@ async function loginStep(){
  }
  if(login?.id!==connection.sessionId){
   if(login)await login.context.close();const saved=unsealOaState(connection.encryptedConfig);
-  const context=await browser.newContext({viewport:{width:1280,height:900},...(saved.cookies?{storageState:saved}:{})});
+  const context=await browser.newContext({locale:'th-TH',timezoneId:'Asia/Bangkok',viewport:{width:1280,height:900},...(saved.cookies?{storageState:saved}:{})});
   const page=await context.newPage();await page.goto(managerUrl(connection.account),{waitUntil:'domcontentloaded'});
   login={id:connection.sessionId,context,page};await db.lineOaBrowser.update({where:{id:'active'},data:{status:'AWAITING_LOGIN'}});
   context.on('page',page=>{if(login?.context===context)login.page=page;});
