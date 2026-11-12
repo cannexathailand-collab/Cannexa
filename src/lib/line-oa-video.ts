@@ -40,7 +40,10 @@ export async function syncReplyVideo(page:Page,account:string,code:string){
  stage='ORDER';console.info('OA video stage:',stage);
  for(let attempt=0;attempt<5;attempt++){
   const up=videoBlocks(page).locator('button').filter({has:page.locator('i.la-chevron-up')});
-  if(!await up.isEnabled())break;await up.click();
+  if(!await up.isEnabled())break;
+  // OA's floating chat preview can cover the arrow in a server viewport.
+  // Activate the same enabled button via keyboard, then verify the layout.
+  await up.press('Enter');
  }
  stage='VERIFY';console.info('OA video stage:',stage);await verifyReplyVideo(page);
  return file;
