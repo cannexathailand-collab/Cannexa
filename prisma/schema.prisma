@@ -671,6 +671,55 @@ model OpenAiConnection {
  updatedAt DateTime @updatedAt
 }
 
+model LineOaBrowser {
+ id String @id
+ encryptedConfig String
+ contextId String?
+ sessionId String?
+ sessionExpiresAt DateTime?
+ account String
+ status String @default("DISCONNECTED")
+ leaseUntil DateTime?
+ heartbeatAt DateTime?
+ screenshotData Bytes?
+ updatedAt DateTime @updatedAt
+}
+
+model LineOaBrowserCommand {
+ id String @id @default(cuid())
+ sessionId String
+ encryptedPayload String
+ createdAt DateTime @default(now())
+ @@index([sessionId,createdAt])
+}
+
+model LineOaJob {
+ id String @id @default(cuid())
+ requestKey String @unique
+ actor String
+ account String
+ status String @default("QUEUED")
+ phase String @default("RESEARCH")
+ cursor Int @default(0)
+ payload Json
+ results Json
+ error String?
+ leaseUntil DateTime?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@index([status,createdAt])
+}
+
+model LineOaArtifact {
+ account String
+ kind String
+ key String
+ remoteId String
+ fingerprint String
+ updatedAt DateTime @updatedAt
+ @@id([account,kind,key])
+}
+
 model ShopCatalogSettings {
  id String @id
  products Json @default("[]")

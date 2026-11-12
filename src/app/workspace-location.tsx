@@ -3,6 +3,7 @@ import Link from 'next/link';
 import {usePathname} from 'next/navigation';
 const pages:Record<string,[string,string]>={'/admin':['Affiliate','ภาพรวม Affiliate'],'/admin/affiliates':['Affiliate','ตั้งค่า Affiliate'],'/admin/users':['ระบบ','จัดการผู้ใช้'],'/admin/customers':['CRM','รหัสลูกค้า'],'/admin/crm':['CRM','ข้อมูลลูกค้า'],'/admin/crm/tiers':['CRM','Member'],'/admin/crm/points':['CRM','ตั้งค่า Green Coin'],'/admin/accounting':['บัญชี','บัญชีสรุป'],'/admin/accounting/daily':['บัญชี','บัญชีรายวัน'],'/admin/sales':['ยอดขาย','ภาพรวมยอดขาย'],'/admin/expenses':['บัญชี','รายจ่าย'],'/admin/reviews':['บัญชี','จ่ายค่าคอมมิชชัน'],'/admin/stock':['สต๊อก','รายการสินค้า'],'/admin/stock/history':['สต๊อก','รายการย้อนหลัง'],'/admin/stock/review':['สต๊อก','รอตรวจสอบ'],'/admin/orders':['เชื่อมต่อ LINE','ตั้งค่าบอทรับออเดอร์'],'/admin/orders/list':['ออเดอร์','รายการออเดอร์'],'/admin/line':['การเชื่อมต่อ','LINE'],'/admin/meta':['การเชื่อมต่อ','Meta Pixel'],'/admin/gmail':['การเชื่อมต่อ','Gmail'],'/admin/audit':['ระบบ','ประวัติการดำเนินการ']};
 pages['/admin/ai']=['การเชื่อมต่อ','OpenAI'];
+pages['/admin/line-browser']=['การเชื่อมต่อ','LINE OA บนเซิร์ฟเวอร์'];
 pages['/admin/executive']=['ผู้บริหาร','แดชบอร์ดเพื่อการตัดสินใจ'];
 pages['/admin/sales/line-report']=['ยอดขาย','รายงานเข้า LINE'];
 pages['/admin/accounting/product-costs']=['บัญชี','รายการต้นทุนสินค้า'];

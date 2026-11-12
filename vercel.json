@@ -24,5 +24,20 @@
   ],
   "regions": [
     "sin1"
-  ]
+  ],
+  "daemons": {
+    "line-oa-worker": {
+      "root": ".",
+      "entrypoint": "workers/line-oa/Dockerfile",
+      "instances": {
+        "sin1": 1
+      },
+      "resources": {
+        "requests": {
+          "memory": "1Gi"
+        }
+      },
+      "terminationGracePeriodSeconds": 120
+    }
+  }
 }

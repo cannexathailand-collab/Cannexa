@@ -20,6 +20,9 @@ importers:
       next:
         specifier: ^16.0.0
         version: 16.4.4(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      playwright-core:
+        specifier: ^1.65.0
+        version: 1.65.0
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
@@ -1418,6 +1421,11 @@ packages:
 
   pkg-types@2.4.0:
     resolution: {integrity: sha512-07Fys7iVx0X6TcviMOgogM1Lk33ZyqOezMnU79S+kffWqwolG/5W9V8EgQSeYCIfFTYVgssRbnH630Oa2+soBA==}
+
+  playwright-core@1.65.0:
+    resolution: {integrity: sha512-vNSKgH6YqtN7cdT/L334zo0a+YwkrpicyrHJlWWPIm/Q+Nn2SWInil01oT0mbu96U4GgoRtCYQD9CzJQgju+lA==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   pngjs@5.0.0:
     resolution: {integrity: sha512-40QW5YalBNfQo5yRYmiw7Yz6TKKVr3h6970B2YE+3fQpsWcrbj1PzJgxeJ19DRQjhMbKPIuMY8rFaXc8moolVw==}
@@ -3071,6 +3079,8 @@ snapshots:
       confbox: 0.3.2
       exsolve: 1.2.0
       pathe: 2.0.3
+
+  playwright-core@1.65.0: {}
 
   pngjs@5.0.0: {}
 

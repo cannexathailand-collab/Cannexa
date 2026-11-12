@@ -1,13 +1,14 @@
 'use client';
 import {useRef,useState} from 'react';
 import {useStockDeleteQueue} from './stock-delete-provider';
+import {OaJobList} from './oa-job-list';
 type Product={code:string;name:string|null;images:{slot:number;url:string|null}[];keyword:string;missingImageSlots:number[];research?:{text:string;needsReview:boolean};researchError?:string};
 type Draft={account:string|null;aiConfigured:boolean;sets:{title:string;products:Product[]}[];delivery:{savedToLineOA:boolean;requiresLocalRunner:boolean}};
 export function StockLineCardDraft(){
  const selection=useStockDeleteQueue(),dialog=useRef<HTMLDialogElement>(null);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[draft,setDraft]=useState<Draft|null>(null);
  if(!selection?.enabled)return null;
- return <><div className="actions" style={{marginBottom:16}}><button type="button" disabled={busy||selection.busy||!selection.selected.size} onClick={async()=>{
+ return <><OaJobList/><div className="actions" style={{marginBottom:16}}><button type="button" disabled={busy||selection.busy||!selection.selected.size} onClick={async()=>{
   setBusy(true);setError('');try{
    const r=await fetch('/api/admin/stock/line-card-draft',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({codes:[...selection.selected]})});const data:Draft&{error?:string}=await r.json();if(!r.ok)throw Error(data.error);setDraft(data);dialog.current?.showModal();
    if(data.aiConfigured)for(const product of data.sets.flatMap(set=>set.products)){
