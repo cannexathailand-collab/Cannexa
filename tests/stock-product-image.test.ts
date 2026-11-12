@@ -8,6 +8,35 @@ import {clearDeletedStockImages,saveStockProductImage} from '../src/lib/stock-pr
 const png=Buffer.from([137,80,78,71,13,10,26,10]);
 const image=(bytes=png)=>'data:image/png;base64,'+bytes.toString('base64');
 
+test('supplemental image slots are isolated from the main image and enforce independent versions',async t=>{
+ const original=db.$transaction;t.after(()=>{db.$transaction=original;});
+ const rows=new Map<number,any>();let writes=0;
+ const tx={
+  $queryRawUnsafe:async()=>[{locked:true}],stockSheetsConnection:{findUnique:async()=>null},
+  stockProduct:{findUnique:async()=>({code:'A1'})},
+  stockProductImage:{findUnique:async()=>assert.fail('Must not read main image'),upsert:async()=>assert.fail('Must not change main image')},
+  stockProductExtraImage:{findUnique:async({where}:any)=>rows.get(where.code_slot.slot)??null,upsert:async({where,create}:any)=>{writes++;const saved={...create,createdAt:new Date(),updatedAt:new Date()};rows.set(where.code_slot.slot,saved);return {code:saved.code,imageMime:saved.imageMime,imageVersion:saved.imageVersion};}},
+  auditLog:{create:async({data}:any)=>assert.ok([2,3].includes(data.details.slot))},
+ };
+ (db as any).$transaction=async(fn:any)=>fn(tx);
+ for(const slot of [0,4,'2',1.5])await assert.rejects(saveStockProductImage('owner',{code:'A1',slot,expectedVersion:null,image:image()}),/INVALID_STOCK_IMAGE/);
+ const second=await saveStockProductImage('owner',{code:'A1',slot:2,expectedVersion:null,image:image()});
+ await saveStockProductImage('owner',{code:'A1',slot:3,expectedVersion:null,image:image()});
+ assert.equal(rows.size,2);assert.equal(writes,2);
+ await saveStockProductImage('owner',{code:'A1',slot:2,expectedVersion:null,image:image()});
+ assert.equal(writes,2);
+ const changed=image(Buffer.concat([png,Buffer.from('new')]));
+ await assert.rejects(saveStockProductImage('owner',{code:'A1',slot:2,expectedVersion:null,image:changed}),/STOCK_IMAGE_VERSION_CONFLICT/);
+ await saveStockProductImage('owner',{code:'A1',slot:2,expectedVersion:second.imageVersion,image:changed});
+ assert.notEqual(rows.get(2).imageVersion,rows.get(3).imageVersion);
+});
+
+test('deleting a product also removes supplemental images when no main image exists',async()=>{
+ let deleted:string[]=[];
+ const tx={stockProductImage:{findMany:async()=>[],deleteMany:async()=>{}},stockProductExtraImage:{findMany:async()=>[{code:'A1'}],deleteMany:async({where}:any)=>{deleted=where.code.in;}}};
+ await clearDeletedStockImages(tx as any,['A1']);assert.deepEqual(deleted,['A1']);
+});
+
 test('stock images require versions, normalize codes, and retry identical content without duplicate writes',async t=>{
  const transaction=db.$transaction;
  t.after(()=>{db.$transaction=transaction;});
@@ -16,7 +45,7 @@ test('stock images require versions, normalize codes, and retry identical conten
   $queryRawUnsafe:async()=>[{locked:true}],
   stockSheetsConnection:{findUnique:async()=>null},
   stockProduct:{findUnique:async({where}:any)=>{assert.equal(where.code,'A1');return {code:'A1'};}},
-  stockProductImage:{findUnique:async()=>saved,upsert:async({create,update}:any)=>{writes++;const data=saved?update:create;saved={code:'A1',imageVersion:data.imageVersion,imageMime:data.imageMime,createdAt:new Date(),updatedAt:new Date()};return saved;}},
+  stockProductExtraImage:{findMany:async()=>[],deleteMany:async()=>{}},stockProductImage:{findUnique:async()=>saved,upsert:async({create,update}:any)=>{writes++;const data=saved?update:create;saved={code:'A1',imageVersion:data.imageVersion,imageMime:data.imageMime,createdAt:new Date(),updatedAt:new Date()};return saved;}},
   auditLog:{create:async({data}:any)=>{audits++;assert.ok(!JSON.stringify(data).includes(png.toString('base64')));}},
  };
  (db as any).$transaction=async(fn:any)=>fn(tx);
@@ -45,7 +74,7 @@ test('live-only images validate against Sheets and delete replay preserves re-ad
   $queryRawUnsafe:async()=>[{locked:true}],
   stockSheetsConnection:{findUnique:async()=>({id:'active'})},
   stockProduct:{findUnique:async()=>assert.fail('Live validation must not require cached StockProduct')},
-  stockProductImage:{findUnique:async()=>null,upsert:async({create}:any)=>({code:create.code,imageVersion:create.imageVersion,imageMime:create.imageMime}),findMany:async({where}:any)=>[...images.values()].filter(row=>where.code.in.includes(row.code)),deleteMany:async({where}:any)=>{for(const code of where.code.in)images.delete(code);}},
+  stockProductExtraImage:{findMany:async()=>[],deleteMany:async()=>{}},stockProductImage:{findUnique:async()=>null,upsert:async({create}:any)=>({code:create.code,imageVersion:create.imageVersion,imageMime:create.imageMime}),findMany:async({where}:any)=>[...images.values()].filter(row=>where.code.in.includes(row.code)),deleteMany:async({where}:any)=>{for(const code of where.code.in)images.delete(code);}},
   auditLog:{create:async()=>{}},
  };
  (db as any).$transaction=async(fn:any)=>fn(tx);

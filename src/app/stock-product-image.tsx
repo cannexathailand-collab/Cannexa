@@ -7,18 +7,21 @@ type Props = {
   code: string;
   name: string | null;
   imageVersion: string | null;
+  extraVersions?: Partial<Record<2 | 3, string>>;
   editable: boolean;
 };
 
 const maxImageBytes = 2 * 1024 * 1024;
 const imageTypes = ['image/jpeg', 'image/png', 'image/webp'];
 
-export function StockProductImage({code, name, imageVersion, editable}: Props) {
+export function StockProductImage({code, name, imageVersion, extraVersions = {}, editable}: Props) {
   const router = useRouter();
   const headingId = useId();
   const dialog = useRef<HTMLDialogElement>(null);
   const reader = useRef<FileReader | null>(null);
   const [version, setVersion] = useState(imageVersion);
+  const [extras, setExtras] = useState(extraVersions);
+  const [slot, setSlot] = useState<1 | 2 | 3>(1);
   const [expectedVersion, setExpectedVersion] = useState(imageVersion);
   const [draft, setDraft] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
@@ -26,8 +29,11 @@ export function StockProductImage({code, name, imageVersion, editable}: Props) {
   const [error, setError] = useState('');
   const [editorKey, setEditorKey] = useState(0);
   const imageUrl = version ? '/api/stock/' + encodeURIComponent(code) + '/image?v=' + version : null;
+  const selectedVersion = slot === 1 ? version : extras[slot] ?? null;
+  const selectedUrl = selectedVersion ? '/api/stock/' + encodeURIComponent(code) + '/image?slot=' + slot + '&v=' + selectedVersion : null;
 
   useEffect(() => setVersion(imageVersion), [imageVersion]);
+  useEffect(() => setExtras(extraVersions), [extraVersions[2], extraVersions[3]]);
   useEffect(() => () => reader.current?.abort(), []);
 
   function close() {
@@ -41,6 +47,7 @@ export function StockProductImage({code, name, imageVersion, editable}: Props) {
     reader.current?.abort();
     reader.current = null;
     setExpectedVersion(version);
+    setSlot(1);
     setDraft(null);
     setReading(false);
     setError('');
@@ -104,6 +111,16 @@ export function StockProductImage({code, name, imageVersion, editable}: Props) {
       }}>
         <h2 id={headingId}>รูปสินค้า {code}</h2>
         {name && <p className="muted">{name}</p>}
+        <p className="small muted">รูปหลักใช้ในหน้า Shop ส่วนรูปเสริมสองรูปเก็บไว้ใช้ประกอบการ์ด LINE OA</p>
+        <div className="actions" aria-label="เลือกรูปสินค้า">
+          {([1, 2, 3] as const).map(nextSlot => <button key={nextSlot} type="button" className={slot === nextSlot ? undefined : 'secondary'} aria-pressed={slot === nextSlot} disabled={busy || reading} onClick={() => {
+            setSlot(nextSlot);
+            setExpectedVersion(nextSlot === 1 ? version : extras[nextSlot] ?? null);
+            setDraft(null);
+            setError('');
+            setEditorKey(value => value + 1);
+          }}>{nextSlot === 1 ? 'รูปหลัก' : 'รูปเสริม ' + (nextSlot - 1)}</button>)}
+        </div>
         <form key={editorKey} onSubmit={async event => {
           event.preventDefault();
           if (!draft || busy || reading) return;
@@ -113,12 +130,13 @@ export function StockProductImage({code, name, imageVersion, editable}: Props) {
             const response = await fetch('/api/admin/stock/image', {
               method: 'POST',
               headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({code, expectedVersion, image: draft}),
+              body: JSON.stringify({code, slot, expectedVersion, image: draft}),
               signal: AbortSignal.timeout(30000),
             });
             const result = await response.json();
             if (!response.ok) throw Error(result.error || 'บันทึกรูปภาพไม่สำเร็จ');
-            setVersion(result.imageVersion);
+            if (slot === 1) setVersion(result.imageVersion);
+            else setExtras(previous => ({...previous, [slot]: result.imageVersion}));
             close();
             router.refresh();
           } catch (failure) {
@@ -127,8 +145,8 @@ export function StockProductImage({code, name, imageVersion, editable}: Props) {
             setBusy(false);
           }
         }}>
-          {(draft || imageUrl) && <img className="stock-product-image-preview" src={draft || imageUrl!} alt={'ตัวอย่างรูปสินค้า ' + code}/>}
-          <label>รูปภาพสินค้า
+          {(draft || selectedUrl) && <img className="stock-product-image-preview" src={draft || selectedUrl!} alt={'ตัวอย่าง' + (slot === 1 ? 'รูปหลัก ' : 'รูปเสริม ' + (slot - 1) + ' ') + code}/>}
+          <label>{slot === 1 ? 'รูปหลักสินค้า' : 'รูปเสริม ' + (slot - 1)}
             <input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || reading} onChange={event => selectImage(event.target.files?.[0])}/>
           </label>
           <p className="small muted">JPG, PNG หรือ WebP ขนาดไม่เกิน 2 MB</p>

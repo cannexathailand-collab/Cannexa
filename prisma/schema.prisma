@@ -653,6 +653,17 @@ model StockProductImage {
  updatedAt DateTime @updatedAt
 }
 
+model StockProductExtraImage {
+ code String
+ slot Int
+ imageData Bytes
+ imageMime String
+ imageVersion String
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@id([code, slot])
+}
+
 model ShopCatalogSettings {
  id String @id
  products Json @default("[]")
