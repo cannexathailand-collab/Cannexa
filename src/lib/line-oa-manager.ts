@@ -65,11 +65,14 @@ export async function saveManagerReply(page:Page,account:string,product:Product)
  if(!keywords.length){await page.locator('input[name="keyword-suggestions"]').fill(product.code);await page.getByRole('button',{name:'เพิ่ม',exact:true}).click();}
  const editor=page.getByRole('textbox',{name:'ใส่ข้อความ',exact:true});
  if(await editor.count()!==1)throw Error('OA_TEXT_LAYOUT_CHANGED');
+ const existingText=await editor.inputValue();
  const video=await syncReplyVideo(page,account,product.code);
+ // Video refreshes may preserve this item's existing text, as requested.
+ const textToSave=video&&existingText.trim()?existingText:product.research.text;
  // Adding or reordering a message remounts OA's text editor. Enter the text
  // after that operation so the saved editor model cannot revert to old text.
- await editor.click();await editor.press('ControlOrMeta+A');await editor.pressSequentially(product.research.text);
- const value=await editor.inputValue();if(value!==product.research.text)throw Error('OA_TEXT_NOT_ACCEPTED');
+ await editor.click();await editor.press('ControlOrMeta+A');await editor.pressSequentially(textToSave);
+ const value=await editor.inputValue();if(value!==textToSave)throw Error('OA_TEXT_NOT_ACCEPTED');
  console.info('OA reply stage: SAVE');
  await page.getByRole('button',{name:fresh?'บันทึก':'ใช้การเปลี่ยนแปลง',exact:true}).last().click();
  if(!fresh){
@@ -84,15 +87,16 @@ export async function saveManagerReply(page:Page,account:string,product:Product)
  while(Date.now()<deadline){
   name=await page.getByPlaceholder('ใส่ชื่อ',{exact:true}).inputValue();
   savedText=await editor.inputValue();
-  if(name===product.replyTitle&&savedText===product.research.text)break;
+  if(name===product.replyTitle&&savedText===textToSave)break;
   await page.waitForTimeout(250);
  }
  if(name!==product.replyTitle)throw Error('OA_NAME_VERIFY_FAILED');
- if(savedText!==product.research.text)throw Error('OA_TEXT_VERIFY_FAILED');
+ if(savedText!==textToSave)throw Error('OA_TEXT_VERIFY_FAILED');
  if(video)await verifyReplyVideo(page);
  const start=page.getByRole('button',{name:'เริ่มใช้งาน',exact:true});if(await start.count())await start.click();
  await page.getByRole('button',{name:'หยุดใช้งาน',exact:true}).waitFor({timeout:20000});
- await db.lineOaArtifact.upsert({where:{account_kind_key:{account,kind:'reply',key:product.code}},create:{account,kind:'reply',key:product.code,remoteId:id,fingerprint:artifactFingerprint(product.research)},update:{remoteId:id,fingerprint:artifactFingerprint(product.research)}});
+ const fingerprint=artifactFingerprint({text:savedText});
+ await db.lineOaArtifact.upsert({where:{account_kind_key:{account,kind:'reply',key:product.code}},create:{account,kind:'reply',key:product.code,remoteId:id,fingerprint},update:{remoteId:id,fingerprint}});
  if(video)await recordReplyVideo(account,product.code,video);
  return {kind:'reply',code:product.code,url:managerUrl(account,'autoresponse/edit/'+id),video:video?'synced':'not-found'};
 }
