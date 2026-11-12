@@ -34,13 +34,13 @@ export function validateOaPayload(value:unknown){
  if(products.some(p=>p.images.some(i=>!i.url)))throw Error('OA_IMAGES_MISSING');
  return parsed;
 }
-export function publicOaJob(job:{id:string;account?:string;status:string;phase:string;cursor:number;error:string|null;results:Prisma.JsonValue;payload:Prisma.JsonValue;progressLog?:Prisma.JsonValue;progressMessage?:string|null;progressAt?:Date|null;createdAt:Date;updatedAt:Date}){
+export function publicOaJob(job:{id:string;account?:string;status:string;phase:string;cursor:number;error:string|null;results:Prisma.JsonValue;payload:Prisma.JsonValue;progressLog?:Prisma.JsonValue;progressMessage?:string|null;progressAt?:Date|null;retryCount?:number;nextAttemptAt?:Date|null;createdAt:Date;updatedAt:Date}){
  const parsed=oaPayload.safeParse(job.payload);
  const products=parsed.success?parsed.data.sets.flatMap(set=>set.products):[];
  const current=products[job.cursor];
  const progressMessage=job.progressMessage??(job.status==='RUNNING'&&current?(job.phase==='RESEARCH'?'กำลังค้นข้อมูล ':job.phase==='REPLIES'?'กำลังบันทึกข้อความ ':'กำลังบันทึกการ์ด ')+current.code:undefined);
  const counts={products:products.length,replies:Array.isArray(job.results)?job.results.filter(result=>result&&typeof result==='object'&&!Array.isArray(result)&&result.kind==='reply').length:0,sets:parsed.success?parsed.data.sets.length:0,cards:Array.isArray(job.results)?job.results.filter(result=>result&&typeof result==='object'&&!Array.isArray(result)&&result.kind==='cards').length:0};
- return {id:job.id,account:job.account,progressMessage,progressAt:job.progressAt,progress:parseOaProgress(job.progressLog),counts,status:job.status,phase:job.phase,cursor:job.cursor,error:job.error,results:job.results,review:job.status==='AWAITING_REVIEW'&&parsed.success?parsed.data.sets.flatMap(s=>s.products).map(p=>({code:p.code,name:p.name,text:p.research?.text??'',sourceCount:p.research?.sources.length??0,reviewReason:p.research?.needsReview?(p.research.reviewReason??'กรุณาตรวจสอบว่าข้อมูลตรงกับสินค้าที่เลือก'):'',alternatives:researchAlternatives(p.research)})):[],createdAt:job.createdAt,updatedAt:job.updatedAt};
+ return {id:job.id,account:job.account,retryCount:job.retryCount,nextAttemptAt:job.nextAttemptAt,progressMessage,progressAt:job.progressAt,progress:parseOaProgress(job.progressLog),counts,status:job.status,phase:job.phase,cursor:job.cursor,error:job.error,results:job.results,review:job.status==='AWAITING_REVIEW'&&parsed.success?parsed.data.sets.flatMap(s=>s.products).map(p=>({code:p.code,name:p.name,text:p.research?.text??'',sourceCount:p.research?.sources.length??0,reviewReason:p.research?.needsReview?(p.research.reviewReason??'กรุณาตรวจสอบว่าข้อมูลตรงกับสินค้าที่เลือก'):'',alternatives:researchAlternatives(p.research)})):[],createdAt:job.createdAt,updatedAt:job.updatedAt};
 }
 export async function createOaJob(actor:string,value:unknown,canChooseOther=false){
  const input=oaRequest.parse(value);
@@ -57,7 +57,7 @@ export async function createOaJob(actor:string,value:unknown,canChooseOther=fals
   await userLock(tx,'line-oa-create-job');
   if(!await tx.lineOaAccount.findFirst({where:{account,available:true}}))throw Error('OA_TARGET_UNAVAILABLE');
   const replay=await tx.lineOaJob.findUnique({where:{requestKey:input.requestKey}});if(replay){if(!matches(replay))throw Error('OA_REQUEST_CHANGED');return publicOaJob(replay);}
-  const pending=await tx.lineOaJob.findMany({where:{account,status:{in:['QUEUED','RUNNING','AWAITING_LOGIN','AWAITING_REVIEW']}}});
+  const pending=await tx.lineOaJob.findMany({where:{account,status:{in:['QUEUED','RUNNING','RETRYING','AWAITING_LOGIN','AWAITING_REVIEW']}}});
   const codes=new Set(payload.sets.flatMap(s=>s.products).map(p=>p.code));if(pending.some(j=>oaPayload.parse(j.payload).sets.flatMap(s=>s.products).some(p=>codes.has(p.code))))throw Error('OA_JOB_ALREADY_PENDING');
   const job=await tx.lineOaJob.create({data:{requestKey:input.requestKey,actor,account,payload:payload as Prisma.InputJsonValue,results:[]}});
   await tx.auditLog.create({data:{actor,action:'LINE_OA_JOB_CREATED',entityId:job.id,details:{codes:input.codes,account}}});
@@ -71,7 +71,7 @@ export async function claimOaJob(){
   const now=new Date(),connection=await tx.lineOaBrowser.findUnique({where:{id:'active'}});
   if(!connection||connection.status!=='READY'||connection.leaseUntil&&connection.leaseUntil>now)return null;
   const targets=await tx.lineOaAccount.findMany({where:{available:true},select:{account:true}});
-  const job=await tx.lineOaJob.findFirst({where:{account:{in:targets.map(target=>target.account)},status:{in:['QUEUED','RUNNING']},OR:[{leaseUntil:null},{leaseUntil:{lt:now}}]},orderBy:{createdAt:'asc'}});
+  const job=await tx.lineOaJob.findFirst({where:{account:{in:targets.map(target=>target.account)},status:{in:['QUEUED','RUNNING','RETRYING']},AND:[{OR:[{leaseUntil:null},{leaseUntil:{lt:now}}]},{OR:[{nextAttemptAt:null},{nextAttemptAt:{lte:now}}]}]},orderBy:{createdAt:'asc'}});
   if(!job)return null;
   const leaseUntil=new Date(Date.now()+5*60000);
   await tx.lineOaBrowser.update({where:{id:'active'},data:{leaseUntil}});

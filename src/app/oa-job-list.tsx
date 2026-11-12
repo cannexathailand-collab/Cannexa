@@ -4,7 +4,7 @@ import {useEffect,useRef,useState} from 'react';
 import {useStockDeleteQueue} from './stock-delete-provider';
 import {OaAccountSelector} from './oa-account-selector';
 type Job={progressMessage?:string;progressAt?:string;progress?:{at:string;message:string}[];counts?:{products:number;replies:number;sets:number;cards:number};id:string;account?:string;accountName?:string;status:string;phase:string;cursor:number;error:string|null;review?:{code:string;name:string;text:string;sourceCount:number;reviewReason:string;alternatives:{name:string;url:string}[]}[];results:{kind:string;code?:string;codes?:string[];title?:string;url:string;video?:string}[]};
-const statuses:Record<string,string>={QUEUED:'รอทำงาน',RUNNING:'กำลังทำงาน',AWAITING_LOGIN:'รอเชื่อม LINE OA ใหม่',AWAITING_REVIEW:'รอยืนยันข้อมูลอ้างอิง',COMPLETE:'บันทึกและตรวจสอบแล้ว',FAILED:'งานหยุดก่อนเสร็จ'};
+const statuses:Record<string,string>={QUEUED:'รอทำงาน',RETRYING:'กำลังรอลองต่ออัตโนมัติ',RUNNING:'กำลังทำงาน',AWAITING_LOGIN:'รอเชื่อม LINE OA ใหม่',AWAITING_REVIEW:'รอยืนยันข้อมูลอ้างอิง',COMPLETE:'บันทึกและตรวจสอบแล้ว',FAILED:'งานหยุดก่อนเสร็จ'};
 export function OaJobList({oaAccount,setOaAccount}:{oaAccount:string;setOaAccount:(value:string)=>void}){
  const selection=useStockDeleteQueue(),requestKey=useRef<string|null>(null);
  const [researchContext,setResearchContext]=useState('');

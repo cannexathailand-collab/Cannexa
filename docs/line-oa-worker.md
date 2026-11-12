@@ -44,6 +44,11 @@ upload steps, completed reply count, card-set count, and review pauses.
 These events contain status messages only, never login state or tokens.
 If an OA item was deleted outside the application, the worker reconciles
 the exact title within the selected OA before recreating it.
+Transient failures retry the same unfinished step after 10, 30, then 90
+seconds; verified earlier results are retained. A successful step resets
+the retry budget. Login, identity, duplicate-keyword, duplicate-file, and
+permission failures pause for intervention. Exhausted retries show the
+last unfinished step instead of starting another job.
 
 When LINE expires the login, work pauses with `AWAITING_LOGIN`. Reconnecting
 the same account requeues those jobs. Existing remote item identifiers and

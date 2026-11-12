@@ -30,7 +30,7 @@ export async function POST(request:Request,{params}:{params:Promise<{id:string}>
    for(const product of payload.sets.flatMap(s=>s.products)){if(!product.research||!product.research.sources.length)throw Error('REVIEW_INCOMPLETE');product.research.needsReview=false;}
    phase='REPLIES';cursor=0;
   }
-  await tx.lineOaJob.update({where:{id},data:{status:'QUEUED',error:null,leaseUntil:null,payload:payload as Prisma.InputJsonValue,phase,cursor}});
+  await tx.lineOaJob.update({where:{id},data:{status:'QUEUED',error:null,leaseUntil:null,retryCount:0,nextAttemptAt:null,payload:payload as Prisma.InputJsonValue,phase,cursor}});
   await tx.auditLog.create({data:{actor,action:'LINE_OA_JOB_RESUMED',entityId:id,details:{reviewed:body.reviewed===true,restartResearch:body.restartResearch===true,...(body.chooseAlternative?{selectedProduct:body.chooseAlternative.code,alternativeIndex:body.chooseAlternative.index}:{})}}});
  });return Response.json({ok:true});}catch{return Response.json({error:'ยังทำงานนี้ต่อไม่ได้ กรุณารีเฟรชสถานะ'},{status:409});}
 }
