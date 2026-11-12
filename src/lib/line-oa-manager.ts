@@ -1,6 +1,7 @@
 import type {Page} from 'playwright-core';
 import {db} from './db';
 import {type OaPayload,artifactFingerprint} from './line-oa-job';
+import {syncReplyVideo,verifyReplyVideo,recordReplyVideo} from './line-oa-video';
 
 type Product=OaPayload['sets'][number]['products'][number];
 export function managerUrl(account:string,path=''){
@@ -59,6 +60,7 @@ export async function saveManagerReply(page:Page,account:string,product:Product)
  if(await editor.count()!==1)throw Error('OA_TEXT_LAYOUT_CHANGED');
  await editor.click();await editor.press('ControlOrMeta+A');await editor.pressSequentially(product.research.text);
  const value=await editor.inputValue();if(value!==product.research.text)throw Error('OA_TEXT_NOT_ACCEPTED');
+ const video=await syncReplyVideo(page,account,product.code);
  await page.getByRole('button',{name:fresh?'บันทึก':'ใช้การเปลี่ยนแปลง',exact:true}).last().click();
  if(!fresh){
   await page.getByRole('heading',{name:'ต้องการใช้การเปลี่ยนแปลงหรือไม่',exact:true}).waitFor({state:'visible',timeout:10000});
@@ -77,10 +79,12 @@ export async function saveManagerReply(page:Page,account:string,product:Product)
  }
  if(name!==product.replyTitle)throw Error('OA_NAME_VERIFY_FAILED');
  if(savedText!==product.research.text)throw Error('OA_TEXT_VERIFY_FAILED');
+ if(video)await verifyReplyVideo(page);
  const start=page.getByRole('button',{name:'เริ่มใช้งาน',exact:true});if(await start.count())await start.click();
  await page.getByRole('button',{name:'หยุดใช้งาน',exact:true}).waitFor({timeout:20000});
  await db.lineOaArtifact.upsert({where:{account_kind_key:{account,kind:'reply',key:product.code}},create:{account,kind:'reply',key:product.code,remoteId:id,fingerprint:artifactFingerprint(product.research)},update:{remoteId:id,fingerprint:artifactFingerprint(product.research)}});
- return {kind:'reply',code:product.code,url:managerUrl(account,'autoresponse/edit/'+id)};
+ if(video)await recordReplyVideo(account,product.code,video);
+ return {kind:'reply',code:product.code,url:managerUrl(account,'autoresponse/edit/'+id),video:video?'synced':'not-found'};
 }
 async function uploadCardImage(page:Page,product:Product,slot:number){
  console.info('OA card image stage: LOAD',slot);

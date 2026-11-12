@@ -591,6 +591,28 @@ model GmailOAuthAttempt {
  consumedAt DateTime?
 }
 
+model DriveConnection {
+ id String @id @default("active")
+ encryptedConfig String
+ revision String @default(uuid())
+ encryptedToken String?
+ email String?
+ folderId String?
+ connectedAt DateTime?
+ updatedAt DateTime @updatedAt
+}
+
+model DriveOAuthAttempt {
+ stateHash String @id
+ browserHash String
+ actor String
+ actorVersion String
+ revision String
+ verifier String
+ expiresAt DateTime
+ consumedAt DateTime?
+}
+
 model StockHistoryConfig {
  id String @id
  enabled Boolean @default(true)

@@ -44,9 +44,17 @@ recovery.
 - `Order Now` currently opens a test page, not a live purchase page.
 - Research includes a source and is limited to 500 characters. Ambiguous
   research pauses for review before saving.
-- Existing reply video is retained when updating its text. Downloading
-  and inserting new videos from Google Drive is not yet wired to this
-  daemon.
+- `/admin/drive` connects a Drive account using read-only OAuth and the
+  existing registered Google callback. The connection and tokens are
+  separate from Gmail. An optional folder restricts lookup to its children.
+- Drive video names match the exact SKU (case insensitive), such as
+  `AE05.mp4`. Missing files leave the reply text and any existing video in
+  place. Duplicate names, denied downloads, unsupported formats, and files
+  above 200 MiB stop the job with a reviewable error.
+- Videos stream to an isolated temporary directory and are removed after
+  upload, including failed uploads. File size and available MD5 checksums
+  are verified before uploading. The worker places the video first and
+  checks it again after saving. A source fingerprint avoids repeat uploads.
 - JPEG and PNG images are accepted by the current OA uploader; missing
   images and other formats require correction before completing a set.
 - The worker never broadcasts a message. Saved keyword replies are

@@ -36,7 +36,9 @@ export async function processOaStep(openPage:()=>Promise<{page:Page;close:()=>Pr
  }catch(e){
   console.error('LINE OA operation failed:',e instanceof Error&&/^[A-Z_]+$/.test(e.message)?e.message:'AUTOMATION_FAILED');
   const login=e instanceof Error&&e.message==='OA_LOGIN_REQUIRED';
-  await db.lineOaJob.update({where:{id:job.id},data:{status:login?'AWAITING_LOGIN':'FAILED',leaseUntil:null,error:login?'การล็อกอิน LINE OA หมดอายุ กรุณาเชื่อมใหม่':'ยังบันทึกไม่ครบ กรุณาตรวจงานก่อนลองต่อ'}});
+  const code=e instanceof Error?e.message:'';
+  const driveErrors:Record<string,string>={DRIVE_RECONNECT:'กรุณาเชื่อม Google Drive ใหม่ก่อนทำต่อ',DRIVE_VIDEO_DUPLICATE:'พบวิดีโอชื่อรหัสเดียวกันหลายไฟล์ใน Drive กรุณาจัดให้เหลือไฟล์เดียวหรือจำกัดโฟลเดอร์',DRIVE_VIDEO_FORMAT:'วิดีโอใน Drive ต้องเป็นไฟล์ MP4',DRIVE_VIDEO_SIZE:'วิดีโอว่างหรือใหญ่กว่า 200 MB',DRIVE_DOWNLOAD_DENIED:'บัญชี Google Drive ไม่มีสิทธิ์ดาวน์โหลดวิดีโอ',DRIVE_SEARCH_FAILED:'ค้น Google Drive ไม่สำเร็จ ตรวจสิทธิ์และการเปิด Drive API'};
+  await db.lineOaJob.update({where:{id:job.id},data:{status:login?'AWAITING_LOGIN':'FAILED',leaseUntil:null,error:login?'การล็อกอิน LINE OA หมดอายุ กรุณาเชื่อมใหม่':driveErrors[code]??'ยังบันทึกไม่ครบ กรุณาตรวจงานก่อนลองต่อ'}});
   if(login)await db.lineOaBrowser.update({where:{id:'active'},data:{status:'EXPIRED'}});
  }finally{
   clearInterval(heartbeat);if(context)await context.close().catch(()=>{});

@@ -5,9 +5,11 @@ import {db,transaction} from "@/lib/db";
 import {baseUrl} from "@/lib/config";
 import {sha,equal} from "@/lib/crypto";
 import {decryptGmail,encryptGmail,exchangeGmailCode,type GmailConfig} from "@/lib/gmail";
+import {finishDriveOAuth} from '@/lib/drive-connection';
 export async function GET(req:Request){
  const back=(status:string)=>NextResponse.redirect(baseUrl()+"/admin/gmail?status="+status,303);
  try{await admin();}catch{return back("session-expired");}
+ if(new URL(req.url).searchParams.get('state')?.startsWith('drive.'))return finishDriveOAuth(req);
  const url=new URL(req.url),state=url.searchParams.get("state")??"",code=url.searchParams.get("code")??"",jar=await cookies(),browser=jar.get("gmail_oauth")?.value??"";jar.delete("gmail_oauth");
  if(!state||state.length>256||!browser)return back("invalid-state");
  const actor=await currentAccount();

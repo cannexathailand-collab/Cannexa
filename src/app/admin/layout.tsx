@@ -33,7 +33,7 @@ export default async function AdminLayout({children}:{children:React.ReactNode})
  {owner&&<details aria-label="การเชื่อมต่อ" className="accounting-menu"><summary>การเชื่อมต่อ</summary><div className="accounting-submenu">
   <details className="expense-menu" aria-label="เชื่อมต่อ LINE"><summary>เชื่อมต่อ LINE</summary><div className="expense-submenu"><Link href="/admin/line">ตั้งค่า LINE</Link></div></details>
   <Link href="/admin/meta">Meta Pixel</Link>
-  <Link href="/admin/gmail">เชื่อม Gmail</Link>
+  <Link href="/admin/gmail">เชื่อม Gmail</Link><Link href="/admin/drive">เชื่อม Google Drive</Link>
   <Link href="/admin/ai">เชื่อม OpenAI</Link><Link href="/admin/line-browser">LINE OA บนเซิร์ฟเวอร์</Link>
  </div></details>}
  <details aria-label="ระบบ" className="accounting-menu"><summary>ระบบ</summary><div className="accounting-submenu">{owner&&<><Link href="/customer">หน้าลูกค้า</Link><Link href="/my-performance">หน้าพนักงาน</Link><form className="store-view-entry" action="/api/admin/store-view" method="post"><input type="hidden" name="mode" value="enter"/><button type="submit">หน้าพนักงานสโตร์</button></form><Link href="/admin/branding">ตั้งค่าแบรนด์ร้าน</Link><Link href="/admin/users">จัดการผู้ใช้</Link><Link href="/admin/audit">ประวัติการดำเนินการ</Link></>}<Link href="/account/password">เปลี่ยนรหัสผ่าน</Link><Link href="/privacy">ความเป็นส่วนตัว</Link></div></details>
