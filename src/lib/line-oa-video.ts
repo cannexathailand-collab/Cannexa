@@ -53,7 +53,8 @@ export async function syncReplyVideo(page:Page,account:string,code:string){
     active:Array.from(block.querySelectorAll('button.active')).map(button=>button.getAttribute('aria-label')),
     arrows:Array.from(block.querySelectorAll('i.la-chevron-up')).map(icon=>({disabled:(icon.parentElement as HTMLButtonElement)?.disabled,visible:!!icon.parentElement?.getBoundingClientRect().width})),
    }))).catch(()=>[])));
-   console.error('OA video ordering error:',error instanceof Error?error.message.slice(0,1600):'unknown');
+   const cause=error instanceof Error&&error.message.includes('intercepts pointer events')?'POINTER_INTERCEPTED':'CONTROL_NOT_READY';
+   console.error('OA video ordering error:',cause);
   }
   if(error instanceof Error&&/^(DRIVE_|OA_)/.test(error.message))throw error;
   throw Error('OA_VIDEO_'+stage+'_FAILED');
