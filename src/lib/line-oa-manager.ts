@@ -127,7 +127,10 @@ export async function saveManagerCards(page:Page,account:string,set:OaPayload['s
   await page.getByPlaceholder('ใส่ลิงก์',{exact:true}).fill('https://example.com/?test_product='+encodeURIComponent(product.code));
  }
  console.info('OA card stage: SAVE');
- await page.getByRole('button',{name:'บันทึก',exact:true}).last().click();const id=await savedId(page,'cardtypemessage',set.title);
+ await page.getByRole('button',{name:'บันทึก',exact:true}).last().click();
+ await page.getByRole('heading',{name:'บันทึกการ์ดเมสเสจ',exact:true}).waitFor({state:'visible',timeout:10000});
+ await page.getByRole('button',{name:'บันทึก',exact:true}).last().click();
+ const id=await savedId(page,'cardtypemessage',set.title);
  await page.reload({waitUntil:'domcontentloaded'});await tabs.first().waitFor();
  const cardsDeadline=Date.now()+20000;
  while(await tabs.count()!==set.products.length&&Date.now()<cardsDeadline)await page.waitForTimeout(250);
@@ -136,7 +139,7 @@ export async function saveManagerCards(page:Page,account:string,set:OaPayload['s
   await tabs.nth(i).click();const code=set.products[i].code;
   const deadline=Date.now()+20000;let verified=false;
   while(Date.now()<deadline){
-   verified=await page.getByPlaceholder('ใส่ข้อความแท็ก',{exact:true}).inputValue()===code&&await page.locator('select[name="imageNumber"]').inputValue()==='3'&&await page.getByPlaceholder('ข้อความในช่องนี้จะถูกส่งไปทางแชท',{exact:true}).inputValue()===code&&await page.getByRole('button',{name:'',exact:true}).count()===3;
+   verified=await page.getByPlaceholder('ใส่ข้อความแท็ก',{exact:true}).inputValue()===code&&await page.locator('select[name="imageNumber"]').inputValue()==='3'&&await page.getByPlaceholder('ข้อความในช่องนี้จะถูกส่งไปทางแชท',{exact:true}).inputValue()===code&&await page.getByRole('button',{name:'',exact:true}).count()===3&&await page.getByPlaceholder('ใส่ชื่อการ์ด',{exact:true}).inputValue()===Array.from(set.products[i].name).slice(0,20).join('')&&await page.getByPlaceholder('ใส่คำอธิบาย',{exact:true}).inputValue()==='ดูรายละเอียดสินค้า'&&await page.getByPlaceholder('ใส่ข้อความสำหรับป้ายแอ็กชัน',{exact:true}).nth(0).inputValue()==='Show details'&&await page.getByPlaceholder('ใส่ข้อความสำหรับป้ายแอ็กชัน',{exact:true}).nth(1).inputValue()==='Order Now'&&await page.getByPlaceholder('ใส่ลิงก์',{exact:true}).inputValue()==='https://example.com/?test_product='+encodeURIComponent(code);
    if(verified)break;await page.waitForTimeout(250);
   }
   if(!verified)throw Error('OA_VERIFY_FAILED');
