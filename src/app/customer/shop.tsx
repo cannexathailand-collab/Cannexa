@@ -1,5 +1,6 @@
 'use client';
 import {useCustomerLanguage} from '@/app/customer/language';
+import {shopEntryCookie} from '@/lib/customer-shop-link';
 
 import {useEffect, useRef, useState} from 'react';
 import {useRouter} from 'next/navigation';
@@ -34,7 +35,7 @@ function ShopProduct({product, disabled, onAdd}: {
     return () => window.clearTimeout(timer);
   }, [added]);
 
-  return <article className="shop-product">
+  return <article className="shop-product" data-product-code={product.code}>
     <div className="shop-product-picture">
       {product.imageVersion
         ? <img src={imageUrl(product)} alt={t('รูปสินค้า ' + product.code)} loading="lazy" width={240} height={240}/>
@@ -73,19 +74,29 @@ function ShopProduct({product, disabled, onAdd}: {
   </article>;
 }
 
-export function CustomerShop({customerCode, initialCatalog, initialDelivery={name:'',address:'',phone:''}, savedAddresses=[], readOnly = false,profileVersion=''}: {
+export function CustomerShop({customerCode, initialCatalog, initialDelivery={name:'',address:'',phone:''}, savedAddresses=[], readOnly = false,profileVersion='',targetProduct}: {
   customerCode: string;
   initialCatalog: CustomerCatalog;
   initialDelivery?: {name:string;address:string;phone:string};
   savedAddresses?: {id:string;name:string;address:string;phone:string}[];
   readOnly?: boolean;
   profileVersion?: string;
+  targetProduct?: string|null;
 }) {
  const {t,locale}=useCustomerLanguage();
   const router = useRouter();
   const [catalog, setCatalog] = useState(initialCatalog);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(targetProduct??'');
+  const [exactProduct,setExactProduct]=useState(targetProduct??'');
+  const shopSection=useRef<HTMLElement>(null);
   const [section,setSection]=useState('all'),[category,setCategory]=useState('');
+  useEffect(()=>{
+    if(!targetProduct)return;
+    setExactProduct(targetProduct);setQuery(targetProduct);setSection('all');setCategory('');
+    document.cookie=shopEntryCookie+'=; Path=/customer; Max-Age=0; SameSite=Lax';
+    const frame=requestAnimationFrame(()=>shopSection.current?.scrollIntoView({block:'start',behavior:'instant'}));
+    return ()=>cancelAnimationFrame(frame);
+  },[targetProduct]);
   const [delivery,setDelivery]=useState({name:initialDelivery.name,address:initialDelivery.address,phone:initialDelivery.phone});
   useEffect(()=>setDelivery({name:initialDelivery.name,address:initialDelivery.address,phone:initialDelivery.phone}),[initialDelivery.name,initialDelivery.address,initialDelivery.phone]);
   const [error, setError] = useState('');
@@ -340,7 +351,7 @@ export function CustomerShop({customerCode, initialCatalog, initialDelivery={nam
   const search = query.trim().normalize('NFKC').toLocaleLowerCase();
   const categories=[...new Set(catalog.products.map(product=>product.category).filter((value):value is string=>!!value))].sort();
   const sections=[{id:'all',label:'สินค้าทั้งหมด'},{id:'recommended',label:'สินค้าแนะนำ'},{id:'bestsellers',label:'สินค้าขายดี'}];
-  const visibleProducts = catalog.products.filter(product => (product.code + ' ' + (product.name ?? '')).normalize('NFKC').toLocaleLowerCase().includes(search)&&(!category||product.category===category)&&(section==='all'||section==='recommended'&&product.recommended||section==='bestsellers'&&product.bestSellerRank));
+  const visibleProducts = catalog.products.filter(product => (!exactProduct||product.code===exactProduct)&&(product.code + ' ' + (product.name ?? '')).normalize('NFKC').toLocaleLowerCase().includes(search)&&(!category||product.category===category)&&(section==='all'||section==='recommended'&&product.recommended||section==='bestsellers'&&product.bestSellerRank));
   if(section==='bestsellers')visibleProducts.sort((a,b)=>(a.bestSellerRank??999)-(b.bestSellerRank??999));
   const subtotal = items.reduce((sum, item) => {
     const original = pending?.items.find(candidate => cartItemKey(candidate) === cartItemKey(item));
@@ -354,7 +365,7 @@ export function CustomerShop({customerCode, initialCatalog, initialDelivery={nam
   const paymentReady = selectedPayment === 'COD' || selectedPayment === 'TRANSFER' && bankReady && !paymentLoading && !!slip;
   const shownSlip = pending?.slip ?? slip;
 
-  return <section className="portal-section customer-shop">
+  return <section className="portal-section customer-shop" ref={shopSection}>
     <div className="shop-heading">
       <div><h2>Shop</h2><p className="portal-muted">{t("เลือกสินค้าและจัดรายการในตะกร้า")}</p></div>
       <button className="shop-cart-button" type="button" aria-label={t("ตะกร้า")} onClick={() => {setError(''); cartDialog.current?.showModal();}}>
@@ -362,7 +373,7 @@ export function CustomerShop({customerCode, initialCatalog, initialDelivery={nam
       </button>
     </div>
     <div className="shop-toolbar">
-      <label>{t("ค้นหาสินค้า")}<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={t("รหัสหรือชื่อสินค้า")}/></label>
+      <label>{t("ค้นหาสินค้า")}<input type="search" value={query} onChange={event => {setExactProduct('');setQuery(event.target.value);}} placeholder={t("รหัสหรือชื่อสินค้า")}/></label>
       <button type="button" className="secondary" disabled={refreshing} onClick={async () => {
         setRefreshing(true);
         setError('');
@@ -376,6 +387,7 @@ export function CustomerShop({customerCode, initialCatalog, initialDelivery={nam
         } finally { setRefreshing(false); }
       }}>{t(refreshing ? 'กำลังอัปเดต…' : 'อัปเดตรายการ')}</button>
     </div>
+    {exactProduct&&<p className="portal-muted">{t('สินค้าจากลิงก์: ')}{exactProduct} <button type="button" className="secondary" onClick={()=>{setExactProduct('');setQuery('');setSection('all');setCategory('');}}>{t('แสดงสินค้าทั้งหมด')}</button></p>}
     <nav className="shop-category-tabs" aria-label={t('หมวดรายการสินค้า')}>{sections.map(item=><button key={item.id} type="button" aria-pressed={section===item.id} onClick={()=>setSection(item.id)}>{t(item.label)}</button>)}</nav>
     {categories.length>0&&<label className="shop-category-filter">{t('หมวดหมู่สินค้า')}<select value={category} onChange={event=>setCategory(event.target.value)}><option value="">{t('ทุกหมวดหมู่')}</option>{categories.map(name=><option key={name} value={name}>{name}</option>)}</select></label>}
     {catalog.readAt && <p className="shop-updated">{t("ข้อมูลล่าสุด ")}{new Date(catalog.readAt).toLocaleString(locale, {timeZone: 'Asia/Bangkok'})}</p>}

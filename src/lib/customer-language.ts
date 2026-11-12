@@ -4,6 +4,8 @@ export function readCustomerLanguage(value:string|undefined):CustomerLanguage|nu
 
 const english:Record<string,string>={
  "สินค้าทั้งหมด":"All products",
+ "สินค้าจากลิงก์: ":"Linked product: ",
+ "แสดงสินค้าทั้งหมด":"Show all products",
  "ยืนยันการเป็นเพื่อน LINE ร้าน":"Confirm you have added the shop on LINE",
  "ขั้นตอนยืนยันหมดอายุ กรุณาเข้าสู่ระบบใหม่":"Verification has expired. Please sign in again.",
  "กรุณาเพิ่มเพื่อนหรือปลดบล็อก LINE ร้านก่อนสร้างสมาชิก":"Please add or unblock the shop on LINE before creating your membership.",
