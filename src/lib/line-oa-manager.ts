@@ -166,8 +166,10 @@ export async function saveManagerCards(page:Page,account:string,set:OaPayload['s
  }
  console.info('OA card stage: SAVE');
  await page.getByRole('button',{name:'บันทึก',exact:true}).last().click();
- await page.getByRole('heading',{name:'บันทึกการ์ดเมสเสจ',exact:true}).waitFor({state:'visible',timeout:10000});
- await page.getByRole('button',{name:'บันทึก',exact:true}).last().click();
+ if(!fresh){
+  await page.getByRole('heading',{name:'บันทึกการ์ดเมสเสจ',exact:true}).waitFor({state:'visible',timeout:10000});
+  await page.getByRole('button',{name:'บันทึก',exact:true}).last().click();
+ }
  const id=await savedId(page,'cardtypemessage',set.title);
  await page.reload({waitUntil:'domcontentloaded'});await tabs.first().waitFor();
  const cardsDeadline=Date.now()+20000;
