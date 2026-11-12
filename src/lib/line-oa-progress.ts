@@ -2,6 +2,7 @@ import {AsyncLocalStorage} from 'node:async_hooks';
 import {db} from './db';
 export type OaProgressEvent={at:string;message:string};
 const scope=new AsyncLocalStorage<{jobId:string;events:OaProgressEvent[]}>();
+export const currentOaProgress=()=>scope.getStore()?.events.at(-1)?.message;
 export function parseOaProgress(value:unknown):OaProgressEvent[]{
  if(!Array.isArray(value))return [];
  return value.filter((item):item is OaProgressEvent=>!!item&&typeof item==='object'&&typeof item.at==='string'&&typeof item.message==='string').slice(-60);

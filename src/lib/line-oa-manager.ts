@@ -113,7 +113,7 @@ export async function saveManagerReply(page:Page,account:string,product:Product)
  await page.getByRole('button',{name:'หยุดใช้งาน',exact:true}).waitFor({timeout:20000});
  const fingerprint=artifactFingerprint({text:savedText});
  await db.lineOaArtifact.upsert({where:{account_kind_key:{account,kind:'reply',key:product.code}},create:{account,kind:'reply',key:product.code,remoteId:id,fingerprint},update:{remoteId:id,fingerprint}});
- if(video)await recordReplyVideo(account,product.code,video);
+ if(video){await recordReplyVideo(account,product.code,video);await reportOaProgress('วิดีโอ '+product.code+' สำเร็จแล้ว');}
  return {kind:'reply',code:product.code,url:managerUrl(account,'autoresponse/edit/'+id),video:video?'synced':'not-found'};
 }
 async function uploadCardImage(page:Page,product:Product,slot:number){
@@ -198,7 +198,8 @@ export async function saveManagerCards(page:Page,account:string,set:OaPayload['s
    if(verified)break;await page.waitForTimeout(250);
   }
   if(!verified)throw Error('OA_VERIFY_FAILED');
+  await reportOaProgress('การ์ด '+code+' สำเร็จแล้ว');
  }
  await db.lineOaArtifact.upsert({where:{account_kind_key:{account,kind:'cards',key:set.title}},create:{account,kind:'cards',key:set.title,remoteId:id,fingerprint:artifactFingerprint(set)},update:{remoteId:id,fingerprint:artifactFingerprint(set)}});
- return {kind:'cards',title:set.title,url:managerUrl(account,'cardtypemessage/edit/'+id)};
+ return {kind:'cards',title:set.title,codes:set.products.map(product=>product.code),url:managerUrl(account,'cardtypemessage/edit/'+id)};
 }

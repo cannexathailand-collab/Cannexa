@@ -5,7 +5,7 @@ import {researchProduct} from './product-research';
 import type {Page} from 'playwright-core';
 import {saveManagerCards,saveManagerReply,verifyManager} from './line-oa-manager';
 import {applySelectedProductName} from './line-oa-product-name';
-import {reportOaProgress,withOaProgress} from './line-oa-progress';
+import {currentOaProgress,reportOaProgress,withOaProgress} from './line-oa-progress';
 
 export async function processOaStep(openPage:()=>Promise<{page:Page;close:()=>Promise<void>}>){
  const job=await claimOaJob();if(!job)return false;
@@ -30,7 +30,7 @@ export async function processOaStep(openPage:()=>Promise<{page:Page;close:()=>Pr
    if(phase==='REPLIES'){
     const product=products[cursor];
     if(product.selectedReference&&product.selectedReference.name!==product.name){await applySelectedProductName(product.code,product.name,product.selectedReference.name,job.actor);product.name=product.selectedReference.name;}
-    results=[...results,await saveManagerReply(context.page,job.account,products[cursor])];await reportOaProgress('บันทึกและตรวจข้อความ '+product.code+' แล้ว ('+(cursor+1)+'/'+products.length+')');cursor++;
+    results=[...results,await saveManagerReply(context.page,job.account,products[cursor])];await reportOaProgress('ข้อความตอบกลับอัตโนมัติ '+product.code+' สำเร็จแล้ว ('+(cursor+1)+'/'+products.length+')');cursor++;
     if(cursor===products.length){phase='CARDS';cursor=0;}
    }else if(phase==='CARDS'){
     results=[...results,await saveManagerCards(context.page,job.account,payload.sets[cursor])];cursor++;
@@ -44,8 +44,9 @@ export async function processOaStep(openPage:()=>Promise<{page:Page;close:()=>Pr
   const login=e instanceof Error&&e.message==='OA_LOGIN_REQUIRED';
   const code=e instanceof Error?e.message:'';
   const driveErrors:Record<string,string>={DRIVE_RECONNECT:'กรุณาเชื่อม Google Drive ใหม่ก่อนทำต่อ',DRIVE_VIDEO_DUPLICATE:'พบวิดีโอชื่อรหัสเดียวกันหลายไฟล์ใน Drive กรุณาจัดให้เหลือไฟล์เดียวหรือจำกัดโฟลเดอร์',DRIVE_VIDEO_FORMAT:'วิดีโอใน Drive ต้องเป็นไฟล์ MP4',DRIVE_VIDEO_SIZE:'วิดีโอว่างหรือใหญ่กว่า 200 MB',DRIVE_DOWNLOAD_DENIED:'บัญชี Google Drive ไม่มีสิทธิ์ดาวน์โหลดวิดีโอ',DRIVE_SEARCH_FAILED:'ค้น Google Drive ไม่สำเร็จ ตรวจสิทธิ์และการเปิด Drive API'};
-  await reportOaProgress(login?'หยุดรอเชื่อม LINE OA ใหม่':'หยุดที่ขั้นล่าสุด · '+(driveErrors[code]??'ตรวจสอบไม่ผ่าน กดทำต่อจากจุดเดิมได้'));
-  await db.lineOaJob.update({where:{id:job.id},data:{status:login?'AWAITING_LOGIN':'FAILED',leaseUntil:null,error:login?'การล็อกอิน LINE OA หมดอายุ กรุณาเชื่อมใหม่':driveErrors[code]??'ยังบันทึกไม่ครบ กรุณาตรวจงานก่อนลองต่อ'}});
+  const message=login?'การล็อกอิน LINE OA หมดอายุ กรุณาเชื่อมใหม่':driveErrors[code]??'งานหยุดระหว่าง '+(currentOaProgress()??'การบันทึก')+' · ลองทำต่อจากจุดเดิมได้';
+  await reportOaProgress(message);
+  await db.lineOaJob.update({where:{id:job.id},data:{status:login?'AWAITING_LOGIN':'FAILED',leaseUntil:null,error:message}});
   if(login)await db.lineOaBrowser.update({where:{id:'active'},data:{status:'EXPIRED'}});
  }finally{
   clearInterval(heartbeat);if(context)await context.close().catch(()=>{});
