@@ -22,6 +22,12 @@ export async function researchProduct(name:string){
   if(item.type==='web_search_call')for(const source of item.action?.sources??[])if(typeof source.url==='string')urls.add(source.url);
   for(const part of item.content??[])for(const annotation of part.annotations??[])if(annotation.type==='url_citation'&&typeof annotation.url==='string')urls.add(annotation.url);
  }
- if(!parsed.data.sources.every(url=>urls.has(url))||!parsed.data.sources.some(url=>parsed.data.text.includes(url)))throw Error('RESEARCH_UNVERIFIED');
+ if(!parsed.data.sources.every(url=>urls.has(url)))throw Error('RESEARCH_UNVERIFIED');
+ // The model may return verified sources separately without repeating a URL in
+ // its summary. Attach that already-verified source before enforcing the limit.
+ if(!parsed.data.sources.some(url=>parsed.data.text.includes(url))){
+  parsed.data.text+='\nSource: '+parsed.data.sources[0];
+  if(parsed.data.text.length>500)throw Error('RESEARCH_INVALID');
+ }
  return parsed.data;
 }

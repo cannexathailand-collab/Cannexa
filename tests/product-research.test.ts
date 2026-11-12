@@ -5,6 +5,9 @@ test('research requires a key, enforces length and verifies URLs against web sea
  process.env.SESSION_SECRET='unit-research';(db.openAiConnection as any).findUnique=async()=>({encryptedKey:sealOpenAiKey('sk-test-only'),model:'test-model'});
  const source='https://example.com/product';let result={name:'Sample',text:'Sample information. Source: '+source,sources:[source],needsReview:false};
  globalThis.fetch=async(_url,init)=>{const body=JSON.parse(String(init?.body));assert.equal(body.store,false);assert.deepEqual(body.tools,[{type:'web_search'}]);return Response.json({output:[{type:'web_search_call',action:{sources:[{url:source}]}},{type:'message',content:[{type:'output_text',text:JSON.stringify(result)}]}]});};
- assert.equal((await researchProduct('Sample')).name,'Sample');result={...result,text:'x'.repeat(501)};await assert.rejects(researchProduct('Sample'),/RESEARCH_INVALID/);
+ assert.equal((await researchProduct('Sample')).name,'Sample');
+ result={...result,text:'Sample information.'};assert.equal((await researchProduct('Sample')).text,'Sample information.\nSource: '+source);
+ result={...result,text:'x'.repeat(490)};await assert.rejects(researchProduct('Sample'),/RESEARCH_INVALID/);
+ result={...result,text:'x'.repeat(501)};await assert.rejects(researchProduct('Sample'),/RESEARCH_INVALID/);
  result={...result,text:'Source: https://invented.invalid',sources:['https://invented.invalid']};await assert.rejects(researchProduct('Sample'),/RESEARCH_UNVERIFIED/);
 });
