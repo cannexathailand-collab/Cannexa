@@ -48,9 +48,11 @@ async function savedId(page:Page,kind:string,name:string){
  const id=page.url().match(/\/edit\/(\d+)/)?.[1];if(!id)throw Error('OA_SAVE_UNCONFIRMED');return id;
 }
 export async function saveManagerReply(page:Page,account:string,product:Product){
+ console.info('OA reply stage: FIND');
  if(!product.research||product.research.needsReview)throw Error('OA_REVIEW_REQUIRED');
  const known=await db.lineOaArtifact.findUnique({where:{account_kind_key:{account,kind:'reply',key:product.code}}});
  const fresh=await openItem(page,account,'autoresponse',product.replyTitle,known?.remoteId);
+ console.info('OA reply stage: EDIT');
  await page.getByPlaceholder('ใส่ชื่อ',{exact:true}).fill(product.replyTitle);
  await page.getByRole('radio',{name:'ตอบกลับตามคีย์เวิร์ด',exact:true}).check();
  const keywords=await page.locator('input[name="keyword[]"]').evaluateAll(nodes=>nodes.map(n=>(n as HTMLInputElement).value));
@@ -61,6 +63,7 @@ export async function saveManagerReply(page:Page,account:string,product:Product)
  await editor.click();await editor.press('ControlOrMeta+A');await editor.pressSequentially(product.research.text);
  const value=await editor.inputValue();if(value!==product.research.text)throw Error('OA_TEXT_NOT_ACCEPTED');
  const video=await syncReplyVideo(page,account,product.code);
+ console.info('OA reply stage: SAVE');
  await page.getByRole('button',{name:fresh?'บันทึก':'ใช้การเปลี่ยนแปลง',exact:true}).last().click();
  if(!fresh){
   await page.getByRole('heading',{name:'ต้องการใช้การเปลี่ยนแปลงหรือไม่',exact:true}).waitFor({state:'visible',timeout:10000});
