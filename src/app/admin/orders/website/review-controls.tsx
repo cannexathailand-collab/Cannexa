@@ -11,14 +11,15 @@ const satang = (value: string) => {
   return Number.isSafeInteger(amount) && amount > 0 && amount <= 2147483647 ? amount : null;
 };
 
-export function WebsiteOrderReviewControls({id, status, totalSatang, sellerCode}: {id: string; status: string; totalSatang: number; sellerCode: string}) {
+export function WebsiteOrderReviewControls({id, status, totalSatang, sellerCode,selfReview=false,paymentMethod}: {id: string; status: string; totalSatang: number; sellerCode: string;selfReview?:boolean;paymentMethod?:string|null}) {
   const router = useRouter();
   const [note, setNote] = useState('');
-  const [payment, setPayment] = useState('');
+  const [payment, setPayment] = useState(paymentMethod==='TRANSFER'?'โอน':paymentMethod==='COD'?'COD':'');
   const [amount, setAmount] = useState((totalSatang / 100).toFixed(2));
   const [seller, setSeller] = useState(sellerCode);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [savedNotice,setSavedNotice]=useState('บันทึกผลตรวจสอบแล้ว');
   const [error, setError] = useState('');
   if (status !== 'PENDING_REVIEW') return null;
 
@@ -28,7 +29,7 @@ export function WebsiteOrderReviewControls({id, status, totalSatang, sellerCode}
     if (decision === 'APPROVED') {
       if (!payment) { setError('กรุณาเลือกวิธีชำระเงินก่อนอนุมัติ'); return; }
       if (!amountSatang) { setError('กรุณาระบุยอดเก็บเงินเป็นตัวเลขที่มากกว่าศูนย์'); return; }
-      if (!/^[A-Za-z0-9._-]{3,64}$/.test(seller.trim())) { setError('กรุณาระบุรหัสผู้ขาย 3–64 ตัวอักษร'); return; }
+      if (!selfReview&&!/^[A-Za-z0-9._-]{3,64}$/.test(seller.trim())) { setError('กรุณาระบุรหัสผู้ขาย 3–64 ตัวอักษร'); return; }
     }
     setBusy(true);
     setError('');
@@ -43,6 +44,7 @@ export function WebsiteOrderReviewControls({id, status, totalSatang, sellerCode}
       });
       const result = await response.json();
       if (!response.ok) throw Error(result.error || 'บันทึกผลตรวจสอบไม่สำเร็จ');
+      if(selfReview&&result.order?.reviewedBy!==sellerCode)setSavedNotice('ออเดอร์นี้ได้รับการยืนยันโดยพนักงานอีกคนแล้ว ไม่ได้สร้างค่าคอมซ้ำ');
       setSaved(true);
       router.refresh();
     } catch (failure) {
@@ -57,12 +59,13 @@ export function WebsiteOrderReviewControls({id, status, totalSatang, sellerCode}
         <option value="">เลือกวิธีชำระเงิน</option><option value="COD">COD</option><option value="โอน">โอน</option>
       </select></label>
       <label>ยอดเก็บเงิน (บาท)<input inputMode="decimal" value={amount} disabled={disabled} onChange={event => setAmount(event.target.value)}/></label>
-      <label>รหัสผู้ขาย<input value={seller} maxLength={64} disabled={disabled} onChange={event => setSeller(event.target.value)}/></label>
+      {!selfReview&&<label>รหัสผู้ขาย / ผู้รับค่าคอม<input value={seller} maxLength={64} disabled={disabled} onChange={event => setSeller(event.target.value)}/></label>}
     </div>
     <p className="muted small">ยอดเก็บเงินรวมค่าส่งได้ ระบบใช้ยอดนี้จับคู่ COD และคิดยอดโอน</p>
+    <p className="muted small">{selfReview?'ค่าคอมเข้าบัญชีพนักงานที่กดยืนยัน ตามอัตราที่ตั้งไว้':'ค่าคอมเข้ารหัสผู้ขายที่ระบุ ตามอัตราที่ตั้งไว้'} และรอเงื่อนไขรับเงินกับต้นทุนครบก่อนเข้ารอบจ่ายเดิม</p>
     <label>หมายเหตุการตรวจสอบ<textarea value={note} maxLength={1000} rows={2} disabled={disabled} onChange={event => setNote(event.target.value)}/></label>
     {error && <p className="notice" role="alert">{error}</p>}
-    {saved && <p className="notice live" role="status">บันทึกผลตรวจสอบแล้ว</p>}
+    {saved && <p className="notice live" role="status">{savedNotice}</p>}
     <div className="actions">
       <button type="button" disabled={disabled} onClick={() => review('APPROVED')}>{busy ? 'กำลังบันทึก…' : 'อนุมัติและส่งเข้าระบบจัดส่ง'}</button>
       <button type="button" className="secondary" disabled={disabled} onClick={() => review('REJECTED')}>ปฏิเสธ</button>

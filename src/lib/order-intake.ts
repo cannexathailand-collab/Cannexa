@@ -67,7 +67,8 @@ export async function admitOrderText(tx:Prisma.TransactionClient,input:OrderText
  let customer=null;
  if(sellers.length===1&&parsed.recipient&&parsed.phone)customer=await resolveOrderCustomer(tx,{code:parsed.customerCode,name:parsed.recipient,phone:parsed.phone,sellerId:sellers[0].id});
  if(parsed.customerCode&&!customer)issues.push('ไม่พบรหัสลูกค้า กรุณาตรวจรหัสกับลูกค้าอีกครั้ง');
- const owner=customer?.referrerId&&customer.referrerId!==sellers[0]?.id?await tx.affiliate.findUnique({where:{id:customer.referrerId}}):sellers[0];
+ // Website review assigns commission to the selected seller; LINE referrals keep their existing rules.
+ const owner=input.groupKey==='website'?sellers[0]:customer?.referrerId&&customer.referrerId!==sellers[0]?.id?await tx.affiliate.findUnique({where:{id:customer.referrerId}}):sellers[0];
  if(!owner)issues.push('ไม่พบผู้แนะนำของลูกค้า');
  if(owner&&('active' in owner&&!owner.active||'archivedAt' in owner&&owner.archivedAt))issues.push('บัญชีผู้แนะนำถูกระงับ กรุณาตรวจสอบก่อนคิดค่าคอม');
  const total=quotedTotal(input.text);if(parsed.payment==="โอน"&&(total===null||total<=0))issues.push("ยอดโอนต้องระบุยอดรวมที่มากกว่าศูนย์เพียงยอดเดียว");

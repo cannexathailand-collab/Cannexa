@@ -9,6 +9,7 @@ export const managers:Role[]=["owner","admin","manager"];
 export const approvers:Role[]=["owner","admin"];
 export const stockOperators:Role[]=[...approvers,"store"];
 export const stockEditors:Role[]=["owner","store"];
+export const websiteOrderReviewers:Role[]=["owner","employee"];
 export const driveOperators:Role[]=["owner","store"];
 export async function account(username:string){
  const row=await db.userAccount.findUnique({where:{username}});

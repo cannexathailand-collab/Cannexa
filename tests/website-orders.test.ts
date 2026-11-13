@@ -8,6 +8,7 @@ import {parseOrderText} from '../src/lib/order-parser';
 import {orderStockItems} from '../src/lib/order-stock-items';
 import {quotedTotal} from '../src/lib/shipment-matching';
 import {pendingStockSaleItems} from '../src/lib/order-stock-admission';
+import {websiteReviewRequest} from '../src/lib/website-review-permissions';
 process.env.USER_HASH_SECRET??='website-order-test-secret';
 
 function fixture(t:TestContext){
@@ -26,6 +27,7 @@ function fixture(t:TestContext){
   stockSheetOperation:{findMany:async()=>[]},
   orderIntake:{create:async({data}:any)=>{const row={id:'intake-'+state.intakes.length,...data};state.intakes.push(row);return row;},findMany:async({where}:any)=>state.intakes.filter(row=>where.id.in.includes(row.id))},
   salesOrder:{create:async({data}:any)=>{state.sales.push(data);return data;}},
+  orderPaymentSlip:{create:async({data}:any)=>data},
   additionalCommission:{create:async({data}:any)=>data},
   employeeStockSnapshot:{findUnique:async()=>{state.snapshotReads++;return {rows:state.rows,fetchedAt:new Date(Date.now()-60000)};}},
   stockProductImage:{findMany:async()=>[]},
@@ -202,6 +204,39 @@ test('approval requires payment, amount and seller, then creates one delivery or
  assert.equal(audit.details.intakeOrderNumber,intake.orderNumber);
  await reviewWebsiteOrder('owner',{id:order.id,status:'APPROVED',note:'',expectedStatus:'PENDING_REVIEW',...approval},stockReader);
  assert.equal(state.intakes.length,1);
+});
+
+test('staff confirmation credits the confirming staff at their existing rate, not the customer referrer',async t=>{
+ const state=fixture(t);
+ state.customer.referrerId='different-referrer';
+ state.tx.affiliate.findUnique=async()=>assert.fail('Website commission must not resolve a different referrer');
+ const order=await createWebsiteOrder('C100',request());
+ const input=websiteReviewRequest({role:'employee',username:'sell01',affiliateId:'seller'}, {id:order.id,status:'APPROVED',expectedStatus:'PENDING_REVIEW',...approval,sellerCode:'forged-other-seller'});
+ const confirmed=await reviewWebsiteOrder('sell01',input);
+ assert.equal(confirmed.reviewedBy,'sell01');
+ assert.equal(state.intakes[0].sellerUsername,'sell01');
+ assert.equal(state.intakes[0].commissionAffiliateId,'seller');
+ assert.equal(state.intakes[0].salesCommissionBps,1000);
+ assert.equal(state.customer.referrerId,'different-referrer');
+ await reviewWebsiteOrder('another-reviewer',input);
+ assert.equal(state.intakes.length,1);
+ assert.equal(state.intakes[0].commissionAffiliateId,'seller');
+});
+
+test('website transfer posts one pending commission to its confirming employee at the configured rate',async t=>{
+ const state=fixture(t),slip='data:image/png;base64,iVBORw0KGgo=';
+ state.customer.referrerId='different-referrer';
+ state.tx.affiliate.findUnique=async()=>assert.fail('Must not credit the customer referrer for this website order');
+ const order=await createWebsiteOrder('C100',request({paymentMethod:'TRANSFER',bankVersion:state.bank.version,expectedShippingSatang:5000,expectedTotalSatang:7000,slip}));
+ const input=websiteReviewRequest({role:'employee',username:'sell01',affiliateId:'seller'},{id:order.id,status:'APPROVED',expectedStatus:'PENDING_REVIEW',payment:'โอน',amountSatang:7000});
+ await reviewWebsiteOrder('sell01',input);
+ assert.equal(state.sales.length,1);
+ assert.equal(state.sales[0].affiliateId,'seller');
+ assert.equal(state.sales[0].commissionBps,1000);
+ assert.equal(state.sales[0].commissionSatang,700);
+ assert.equal(state.sales[0].status,'PENDING');
+ await reviewWebsiteOrder('sell01',input);
+ assert.equal(state.sales.length,1);
 });
 
 test('approval rolls back with reasons when live stock or delivery data cannot be admitted',async t=>{

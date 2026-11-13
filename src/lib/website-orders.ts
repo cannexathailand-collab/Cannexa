@@ -281,6 +281,7 @@ export async function reviewWebsiteOrder(actor:string,value:unknown,stockReader?
     groupKey:'website',senderKey:null,eventAt:new Date(),actor,paymentSlip:storedSlip?.slipData?{imageData:storedSlip.slipData,imageMime:storedSlip.slipMime!,imageVersion:storedSlip.slipVersion!}:undefined,
    },stockReader);
    if('reasons' in admitted)throw new WebsiteOrderApprovalError(admitted.reasons);
+   if(admitted.order.status==='NEEDS_REVIEW')throw new WebsiteOrderApprovalError(Array.isArray(admitted.order.issues)?admitted.order.issues.map(String):['ข้อมูลพนักงานหรือออเดอร์ยังไม่ครบ']);
    intakeOrderNumber=admitted.order.orderNumber;
    await tx.websiteOrder.update({where:{id:current.id},data:{intakeOrderId:admitted.order.id}});
   }
