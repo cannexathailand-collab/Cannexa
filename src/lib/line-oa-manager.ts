@@ -1,5 +1,6 @@
 import type {Page} from 'playwright-core';
-import {db} from './db';
+import {db,transaction} from './db';
+import {createHash} from 'node:crypto';
 import {type OaPayload,artifactFingerprint} from './line-oa-job';
 import {syncReplyVideo,verifyReplyVideo,recordReplyVideo} from './line-oa-video';
 import {reportOaProgress} from './line-oa-progress';
@@ -204,11 +205,57 @@ async function uploadCardImage(page:Page,product:Product,slot:number){
  await page.getByRole('heading',{name:'ครอบตัด',exact:true}).waitFor({state:'hidden',timeout:30000}).catch(()=>{throw Error('OA_IMAGE_UPLOAD_FAILED');});
  await link.waitFor({state:'hidden',timeout:30000}).catch(()=>{throw Error('OA_IMAGE_READY_FAILED');});
 }
+export async function cardSetSourceFingerprint(set:OaPayload['sets'][number]){
+ const sources=[];
+ for(const product of set.products){
+  for(const slot of [1,2,3]){
+   const image=slot===1?await db.stockProductImage.findUnique({where:{code:product.code}}):await db.stockProductExtraImage.findUnique({where:{code_slot:{code:product.code,slot}}});
+   if(!image)throw Error('OA_IMAGES_MISSING');
+   sources.push({code:product.code,slot,mime:image.imageMime,hash:createHash('sha256').update(Buffer.from(image.imageData)).digest('hex')});
+  }
+ }
+ return artifactFingerprint({set,sources});
+}
+export async function verifySavedCardSet(page:Page,set:OaPayload['sets'][number]){
+ const tabs=page.locator('main a.nav-link');await tabs.first().waitFor();
+ const cardsDeadline=Date.now()+20000;
+ while(await tabs.count()!==set.products.length&&Date.now()<cardsDeadline)await page.waitForTimeout(250);
+ if(await tabs.count()!==set.products.length)throw Error('OA_VERIFY_FAILED');
+ for(let i=0;i<set.products.length;i++){
+  await tabs.nth(i).click();const code=set.products[i].code;
+  const deadline=Date.now()+20000;let verified=false;
+  while(Date.now()<deadline){
+   verified=await page.getByRole('checkbox',{name:'แท็ก',exact:true}).isChecked()&&await page.getByRole('checkbox',{name:'คำอธิบาย',exact:true}).isChecked()&&!await page.getByRole('checkbox',{name:'ราคา',exact:true}).isChecked()&&await page.getByRole('checkbox',{name:'แอ็กชัน 1',exact:true}).isChecked()&&await page.getByRole('checkbox',{name:'แอ็กชัน 2',exact:true}).isChecked()&&await page.getByPlaceholder('ใส่ข้อความแท็ก',{exact:true}).inputValue()===code&&await page.locator('select[name="imageNumber"]').inputValue()==='3'&&await page.getByPlaceholder('ข้อความในช่องนี้จะถูกส่งไปทางแชท',{exact:true}).inputValue()===code&&await page.getByRole('button',{name:'',exact:true}).count()===3&&await page.getByPlaceholder('ใส่ชื่อการ์ด',{exact:true}).inputValue()===Array.from(set.products[i].name).slice(0,20).join('')&&await page.getByPlaceholder('ใส่คำอธิบาย',{exact:true}).inputValue()===oaCardDescription(set.products[i])&&await page.getByPlaceholder('ใส่ข้อความสำหรับป้ายแอ็กชัน',{exact:true}).nth(0).inputValue()==='Show details'&&await page.getByPlaceholder('ใส่ข้อความสำหรับป้ายแอ็กชัน',{exact:true}).nth(1).inputValue()===cardActionLink(set.products[i]).label&&await page.getByPlaceholder('ใส่ลิงก์',{exact:true}).inputValue()===cardActionLink(set.products[i]).url;
+   if(verified)break;await page.waitForTimeout(250);
+  }
+  if(!verified)throw Error('OA_VERIFY_FAILED');
+  await reportOaProgress('การ์ด '+code+' สำเร็จแล้ว');
+ }
+}
+async function recordVerifiedCardSet(account:string,set:OaPayload['sets'][number],id:string,fingerprint:string){
+ await transaction(async tx=>{
+  await tx.lineOaArtifact.upsert({where:{account_kind_key:{account,kind:'cards',key:set.title}},create:{account,kind:'cards',key:set.title,remoteId:id,fingerprint},update:{remoteId:id,fingerprint}});
+  await tx.lineOaArtifact.deleteMany({where:{account,kind:'cards-pending',key:set.title}});
+ });
+ return {kind:'cards',title:set.title,codes:set.products.map(product=>product.code),url:managerUrl(account,'cardtypemessage/edit/'+id)};
+}
 export async function saveManagerCards(page:Page,account:string,set:OaPayload['sets'][number]){
  await reportOaProgress('กำลังเปิดชุดการ์ด '+set.title);
  console.info('OA card stage: FIND');
- const known=await db.lineOaArtifact.findUnique({where:{account_kind_key:{account,kind:'cards',key:set.title}}});
- const fresh=await openManagerItem(page,account,'cardtypemessage',set.title,known?.remoteId);
+ const [known,pending]=await Promise.all([
+  db.lineOaArtifact.findUnique({where:{account_kind_key:{account,kind:'cards',key:set.title}}}),
+  db.lineOaArtifact.findUnique({where:{account_kind_key:{account,kind:'cards-pending',key:set.title}}}),
+ ]);
+ const fingerprint=await cardSetSourceFingerprint(set),previous=pending??known;
+ const fresh=await openManagerItem(page,account,'cardtypemessage',set.title,previous?.remoteId);
+ if(!fresh&&previous?.fingerprint===fingerprint){
+  await reportOaProgress('กำลังตรวจชุดการ์ดเดิมก่อนตัดสินใจบันทึกซ้ำ');
+  try{
+   await verifySavedCardSet(page,set);
+   const id=page.url().match(/\/edit\/(\d+)/)?.[1];if(!id)throw Error('OA_SAVE_UNCONFIRMED');
+   return await recordVerifiedCardSet(account,set,id,fingerprint);
+  }catch(error){if(!(error instanceof Error)||error.message!=='OA_VERIFY_FAILED')throw error;}
+ }
  console.info('OA card stage: EDIT');
  await dismissManagerGuide(page);
  await page.getByPlaceholder('ใส่ชื่อไอเทม',{exact:true}).fill(set.title);
@@ -250,25 +297,15 @@ export async function saveManagerCards(page:Page,account:string,set:OaPayload['s
  await reportOaProgress('กำลังบันทึกชุดการ์ด '+set.title);
  await page.getByRole('button',{name:'บันทึก',exact:true}).last().click();
  if(!fresh){
+  await reportOaProgress('กำลังรอหน้าต่างยืนยันบันทึกชุดการ์ด');
   await page.getByRole('heading',{name:'บันทึกการ์ดเมสเสจ',exact:true}).waitFor({state:'visible',timeout:10000});
   await page.getByRole('button',{name:'บันทึก',exact:true}).last().click();
  }
+ await reportOaProgress('กำลังค้นชุดการ์ดที่บันทึกสำเร็จ');
  const id=await savedId(page,'cardtypemessage',set.title);
+ await db.lineOaArtifact.upsert({where:{account_kind_key:{account,kind:'cards-pending',key:set.title}},create:{account,kind:'cards-pending',key:set.title,remoteId:id,fingerprint},update:{remoteId:id,fingerprint}});
  await reportOaProgress('กำลังเปิดตรวจชุดการ์ดที่บันทึก');
- await page.reload({waitUntil:'domcontentloaded'});await tabs.first().waitFor();
- const cardsDeadline=Date.now()+20000;
- while(await tabs.count()!==set.products.length&&Date.now()<cardsDeadline)await page.waitForTimeout(250);
- if(await tabs.count()!==set.products.length)throw Error('OA_VERIFY_FAILED');
- for(let i=0;i<set.products.length;i++){
-  await tabs.nth(i).click();const code=set.products[i].code;
-  const deadline=Date.now()+20000;let verified=false;
-  while(Date.now()<deadline){
-   verified=await page.getByPlaceholder('ใส่ข้อความแท็ก',{exact:true}).inputValue()===code&&await page.locator('select[name="imageNumber"]').inputValue()==='3'&&await page.getByPlaceholder('ข้อความในช่องนี้จะถูกส่งไปทางแชท',{exact:true}).inputValue()===code&&await page.getByRole('button',{name:'',exact:true}).count()===3&&await page.getByPlaceholder('ใส่ชื่อการ์ด',{exact:true}).inputValue()===Array.from(set.products[i].name).slice(0,20).join('')&&await page.getByPlaceholder('ใส่คำอธิบาย',{exact:true}).inputValue()===oaCardDescription(set.products[i])&&await page.getByPlaceholder('ใส่ข้อความสำหรับป้ายแอ็กชัน',{exact:true}).nth(0).inputValue()==='Show details'&&await page.getByPlaceholder('ใส่ข้อความสำหรับป้ายแอ็กชัน',{exact:true}).nth(1).inputValue()===cardActionLink(set.products[i]).label&&await page.getByPlaceholder('ใส่ลิงก์',{exact:true}).inputValue()===cardActionLink(set.products[i]).url;
-   if(verified)break;await page.waitForTimeout(250);
-  }
-  if(!verified)throw Error('OA_VERIFY_FAILED');
-  await reportOaProgress('การ์ด '+code+' สำเร็จแล้ว');
- }
- await db.lineOaArtifact.upsert({where:{account_kind_key:{account,kind:'cards',key:set.title}},create:{account,kind:'cards',key:set.title,remoteId:id,fingerprint:artifactFingerprint(set)},update:{remoteId:id,fingerprint:artifactFingerprint(set)}});
- return {kind:'cards',title:set.title,codes:set.products.map(product=>product.code),url:managerUrl(account,'cardtypemessage/edit/'+id)};
+ await page.reload({waitUntil:'domcontentloaded'});
+ await verifySavedCardSet(page,set);
+ return recordVerifiedCardSet(account,set,id,fingerprint);
 }

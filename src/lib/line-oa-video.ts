@@ -43,13 +43,7 @@ export async function syncReplyVideo(page:Page,account:string,code:string){
  }
  stage='ORDER';console.info('OA video stage:',stage);
  await reportOaProgress('กำลังจัดวิดีโอ '+code+' ไว้ก่อนข้อความ');
- for(let attempt=0;attempt<5;attempt++){
-  const up=videoBlocks(page).locator('button').filter({has:page.locator('i.la-chevron-up')});
-  if(!await up.isEnabled())break;
-  // OA's floating chat preview can cover the arrow in a server viewport.
-  // Activate the same enabled button via keyboard, then verify the layout.
-  await up.press('Enter');
- }
+ await moveReplyVideoFirst(page);
  stage='VERIFY';console.info('OA video stage:',stage);await verifyReplyVideo(page);
  return file;
  }catch(error){
@@ -64,6 +58,30 @@ export async function syncReplyVideo(page:Page,account:string,code:string){
   if(error instanceof Error&&/^(DRIVE_|OA_)/.test(error.message))throw error;
   throw Error('OA_VIDEO_'+stage+'_FAILED');
  }
+}
+export async function moveReplyVideoFirst(page:Page){
+ const position=()=>messageBlocks(page).evaluateAll(blocks=>{
+  const flags=blocks.map(block=>!!block.querySelector('button[aria-label="วิดีโอ"].active'));
+  return {index:flags.indexOf(true),count:flags.filter(Boolean).length,total:flags.length};
+ });
+ for(let move=0;move<5;move++){
+  const before=await position();
+  if(before.count!==1)throw Error('OA_VIDEO_LAYOUT_CHANGED');
+  // The first block may have no up button at all. It is already correct.
+  if(before.index===0)return;
+  const up=videoBlocks(page).locator('button').filter({has:page.locator('i.la-chevron-up')}).first();
+  if(await up.count()!==1||!await up.isEnabled())throw Error('OA_VIDEO_ORDER_CONTROL_FAILED');
+  await reportOaProgress('กำลังเลื่อนวิดีโอจากลำดับ '+(before.index+1)+' ไปไว้ก่อนข้อความ');
+  await up.press('Enter');
+  // Wait for the actual model/DOM update before pressing again. Rapid
+  // presses against the same pre-render control could otherwise be lost.
+  await page.waitForFunction(previous=>{
+   const blocks=Array.from(document.querySelectorAll('main div.card.border-secondary'));
+   const indexes=blocks.flatMap((block,index)=>block.querySelector('button[aria-label="วิดีโอ"].active')?[index]:[]);
+   return indexes.length===1&&indexes[0]<previous;
+  },before.index,{timeout:10000}).catch(()=>{throw Error('OA_VIDEO_ORDER_MOVE_FAILED');});
+ }
+ throw Error('OA_VIDEO_ORDER_POSITION_FAILED');
 }
 export async function verifyReplyVideo(page:Page){
  const first=messageBlocks(page).first();

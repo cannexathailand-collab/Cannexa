@@ -31,3 +31,11 @@ Recorded: 13 November 2026 (Asia/Bangkok)
 - Perform an end-to-end run with synthetic products, including an induced failure between save and verification. Record evidence before closing this item.
 
 Status: **open**. Recorded for follow-up; no root-cause fix is claimed by this document.
+
+## Implemented safeguards pending live acceptance
+
+- Video ordering checks the actual video position first, so an already-first video does not require a missing up-arrow control. Each move waits for a lower DOM position before the next move. Missing controls and unchanged positions have distinct error categories.
+- Card saves record a separate pending artifact after the saved remote ID is known. Retries verify matching pending or completed sets before rewriting; only successful read-back promotes the completed artifact.
+- Reuse requires matching expected fields and a fingerprint of the actual source-image bytes, not only their URLs.
+- Unit tests cover already-first and delayed video moves, absent controls, failed moves, duplicate video blocks, pending-card recovery without uploads, changed image bytes, and failed read-back without promotion.
+- Live acceptance is still required before closing this reliability item.
