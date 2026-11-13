@@ -16,4 +16,6 @@ test('research enforces length and retains suggested URLs for explicit review',a
  result={...result,needsReview:false};await assert.rejects(researchProduct('Sample'),/RESEARCH_INVALID/);
  result={name:'Example strain',text:'A short source summary.',sources:[source],needsReview:false,strainProfile:{thc:'22%',indicaPercent:40,sativaPercent:60,genetics:'Example parents',aromaFlavor:'Citrus',effects:'Reported relaxation'}};
  const locked=await researchProduct('Example strain');assert.match(locked.text,/Indica 40% \/ Sativa 60% \| THC 22%/);assert.ok(locked.text.endsWith(source));assert.equal(locked.sourceStatus,'verified');
+ result={...result,reviewReason:null,alternatives:null,strainProfile:{thc:22,indicaPercent:'40%',sativaPercent:'60',genetics:['Parent A','Parent B'],aromaFlavor:['Citrus','Herbal'],effects:['Reported relaxation']}};
+ const normalized=await researchProduct('Example strain');assert.match(normalized.text,/Indica 40% \/ Sativa 60% \| THC 22%/);assert.match(normalized.text,/Citrus, Herbal/);assert.equal(normalized.reviewReason,undefined);
 });

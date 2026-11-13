@@ -4,6 +4,20 @@ import {unsealOpenAiKey} from './openai-connection';
 import {formatStrainResearch} from './research-strain-format';
 const sourceUrl=z.string().url().refine(url=>new URL(url).protocol==='https:');
 export const researchResult=z.object({name:z.string().min(1).max(200),text:z.string().min(1).max(500),sources:z.array(sourceUrl).max(5),needsReview:z.boolean(),sourceStatus:z.enum(['verified','suggested']).optional(),strainProfile:z.object({thc:z.string().max(80).nullable().optional(),indicaPercent:z.number().min(0).max(100).nullable().optional(),sativaPercent:z.number().min(0).max(100).nullable().optional(),genetics:z.string().max(300).nullable().optional(),aromaFlavor:z.string().max(300).nullable().optional(),effects:z.string().max(300).nullable().optional()}).optional(),reviewReason:z.string().max(300).optional(),alternatives:z.array(z.object({name:z.string().min(1).max(200),url:sourceUrl})).max(3).optional()}).refine(value=>value.needsReview||value.sources.length>0);
+export function normalizeResearchOutput(value:unknown):unknown{
+ if(!value||typeof value!=='object'||Array.isArray(value))return value;
+ const output={...value} as Record<string,any>;
+ for(const key of ['reviewReason','alternatives','strainProfile'])if(output[key]===null)delete output[key];
+ if(output.sources===null)output.sources=[];
+ if(output.strainProfile&&typeof output.strainProfile==='object'&&!Array.isArray(output.strainProfile)){
+  const profile={...output.strainProfile};
+  for(const key of ['genetics','aromaFlavor','effects'])if(Array.isArray(profile[key])&&profile[key].every((entry:unknown)=>typeof entry==='string'))profile[key]=profile[key].join(', ');
+  if(typeof profile.thc==='number'&&Number.isFinite(profile.thc))profile.thc=profile.thc+'%';
+  for(const key of ['indicaPercent','sativaPercent'])if(typeof profile[key]==='string'&&/^\d+(?:\.\d+)?\s*%?$/.test(profile[key].trim()))profile[key]=Number(profile[key].replace('%','').trim());
+  output.strainProfile=profile;
+ }
+ return output;
+}
 export function verifiedResearchUrls(output:any[]){
  const urls=new Set<string>();
  for(const item of output){
@@ -28,7 +42,7 @@ export async function researchProduct(name:string,context='',selectedReference?:
  if(!response.ok)throw Error(response.status===401?'OPENAI_KEY_REJECTED':response.status===429?'OPENAI_RATE_LIMIT':'OPENAI_REQUEST_FAILED');
  const data=await response.json();const output=Array.isArray(data.output)?data.output:[];
  const text=output.filter((item:any)=>item.type==='message').flatMap((item:any)=>item.content??[]).filter((item:any)=>item.type==='output_text').map((item:any)=>item.text).join('');
- const parsed=researchResult.safeParse(JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g,'')));
+ const parsed=researchResult.safeParse(normalizeResearchOutput(JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g,''))));
  if(!parsed.success)throw Error('RESEARCH_INVALID');
  const urls=verifiedResearchUrls(output);
  const confirmed=parsed.data.sources.length>0&&parsed.data.sources.every(url=>urls.has(url));
