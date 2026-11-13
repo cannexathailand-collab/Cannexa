@@ -29,8 +29,9 @@ export async function prepareLineCardDraft(value:unknown){
    const version=slot===1?product.imageVersion:extras.find(p=>p.code===code&&p.slot===slot)?.imageVersion;
    return {slot,url:version?'/api/stock/'+encodeURIComponent(code)+'/image?slot='+slot+'&v='+version:null};
   });
-  const details=descriptions.find(item=>item.code===code&&item.name===(product.name??''));
-  return {code,name:product.name,...(details?.text?{description:details.text}:{}),...(details?.linkUrl?{linkUrl:details.linkUrl}:{}),settingsVersion:details?.updatedAt?.toISOString()??'',prices:product.prices,images,replyTitle:'ข้อมูล '+code,keyword:code,missingImageSlots:images.filter(i=>!i.url).map(i=>i.slot)};
+  const savedDetails=descriptions.find(item=>item.code===code);
+  const details=savedDetails?.name===(product.name??'')?savedDetails:undefined;
+  return {code,name:product.name,...(details?.text?{description:details.text}:{}),...(details?.linkUrl?{linkUrl:details.linkUrl}:{}),settingsVersion:savedDetails?.updatedAt?.toISOString()??'',prices:product.prices,images,replyTitle:'ข้อมูล '+code,keyword:code,missingImageSlots:images.filter(i=>!i.url).map(i=>i.slot)};
  });
  return {version:1,createdAt:new Date().toISOString(),account:connection?.settings.basicId??null,aiConfigured:!!ai,status:'PREPARED' as const,
   sets:cardSets(products).map(items=>({title:cardSetTitle(items.map(p=>p.code)),products:items})),
