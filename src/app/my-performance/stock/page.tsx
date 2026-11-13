@@ -24,7 +24,7 @@ export default async function EmployeeStockPage({searchParams}:{searchParams:Pro
  const counts={all:data.rows.length,available:data.rows.filter(p=>p.available!==null&&p.available>0).length,empty:data.rows.filter(p=>p.available!==null&&p.available<=0).length};
  return <main className="center-page performance-page"><section className="customer employee-orders-page employee-stock-page">
   <h1>{t("สต๊อกสินค้า")}</h1><p className="muted">{t("ตรวจสอบสินค้าพร้อมขายและราคาขาย · ดูข้อมูลเท่านั้น")}</p><EmployeeNav active="stock"/>
-  <div className="employee-stock-summary">{[['all','สินค้าทั้งหมด'],['available','พร้อมขาย'],['empty','หมด / ติดลบ']].map(([key,label])=><Link href={'/my-performance/stock?status='+key} key={key}><span>{label}</span><strong>{counts[key as keyof typeof counts].toLocaleString(locale)}</strong></Link>)}</div>
+  <div className="employee-stock-summary">{[['all','สินค้าทั้งหมด'],['available','พร้อมขาย'],['empty','หมด / ติดลบ']].map(([key,label])=><Link href={'/my-performance/stock?status='+key} key={key}><span>{t(label)}</span><strong>{counts[key as keyof typeof counts].toLocaleString(locale)}</strong></Link>)}</div>
   {!data.live&&<p className="notice">{t("แสดงข้อมูลจากฐานข้อมูลระบบ อัปเดตสต๊อกเบื้องหลังทุก 1 นาที กรุณาดูเวลาอัปเดตล่าสุด")}</p>}
   {data.readAt&&Date.now()-data.readAt.getTime()>180000&&<p className="notice" role="status">{t("ข้อมูลยังไม่อัปเดตในช่วง 3 นาทีที่ผ่านมา กรุณาตรวจสอบยอดกับผู้ดูแลก่อนยืนยันสินค้า")}</p>}
   <p className="notice live">{t("จำนวนพร้อมขายหักยอดสำรอง 20 กรัมต่อสินค้าแล้ว สินค้าที่เหลือ 20 กรัมหรือน้อยกว่าถือว่าหมดสำหรับขาย")}</p>
