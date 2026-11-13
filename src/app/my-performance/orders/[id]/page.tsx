@@ -1,3 +1,4 @@
+import {employeeLanguage} from '@/lib/employee-language-server';
 import {OrderDocumentButtons} from '@/app/order-document-buttons';
 import {loadOrderTeamNames} from '@/lib/order-team';
 import {OrderShippingDetails} from '@/app/order-shipping-details';
@@ -18,6 +19,8 @@ import {DuplicateOrderNotice} from '@/app/duplicate-order-notice';
 import {EmployeeNav} from '../../employee-nav';
 
 export default async function SharedOrder({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{from?:string;scope?:string;range?:string;page?:string;q?:string;status?:string}>}){
+ const {t,locale,language}=await employeeLanguage();
+
  const actor=await requireEmployeePage();
  const {id}=await params;
  const filters=await searchParams;
@@ -25,7 +28,7 @@ export default async function SharedOrder({params,searchParams}:{params:Promise<
  if(filters.from==='tasks'){
   const data=await orderReview(id,actor.role==='owner'?{role:'owner'}:{role:'employee',username:actor.username,affiliateId:actor.affiliateId});
   if(!data)notFound();
-  return <main className="center-page"><section className="customer"><EmployeeNav active="orders"/><OrderReviewView data={data} backHref="/my-performance/tasks" backLabel="กลับงานค้าง"/></section></main>;
+  return <main className="center-page"><section className="customer"><EmployeeNav active="orders"/><OrderReviewView data={data} backHref="/my-performance/tasks" backLabel={t("กลับงานค้าง")}/></section></main>;
  }
  const order=await db.orderIntake.findUnique({
   where:{id},
@@ -44,14 +47,14 @@ export default async function SharedOrder({params,searchParams}:{params:Promise<
  const status=closed?'ยกเลิก / ปิดรายการ':order.status==='RETURNED'?'ตีกลับ':shipment?.tracking?'มีเลขพัสดุแล้ว':'รอจัดส่ง';
  return <main className="center-page performance-page">
   <section className="customer">
-   <h1>รายละเอียดออเดอร์</h1>
+   <h1>{t("รายละเอียดออเดอร์")}</h1>
    <EmployeeNav active="orders"/>
-   <Link href={'/my-performance/orders'+(backQuery?'?'+backQuery:'')}>กลับรายการออเดอร์</Link>
+   <Link href={'/my-performance/orders'+(backQuery?'?'+backQuery:'')}>{t("กลับรายการออเดอร์")}</Link>
    <h2>{order.orderNumber}</h2>
-   <p>สร้างออเดอร์ {order.createdAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
-   <p>รับออเดอร์ {order.eventAt.toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p>
-   <p>สถานะ {status}</p>
-   <OrderCommissionStatus visible={order.sellerUsername===actor.username} payment={order.payment} codReceived={!!receipt&&receipt.amountSatang===shipment?.codSatang} rows={commissions.rows.filter(row=>row.reference===order.orderNumber)}/>
+   <p>{t("สร้างออเดอร์ ")}{order.createdAt.toLocaleString(locale,{timeZone:'Asia/Bangkok'})}</p>
+   <p>{t("รับออเดอร์ ")}{order.eventAt.toLocaleString(locale,{timeZone:'Asia/Bangkok'})}</p>
+   <p>{t("สถานะ ")}{status}</p>
+   <OrderCommissionStatus language={language} visible={order.sellerUsername===actor.username} payment={order.payment} codReceived={!!receipt&&receipt.amountSatang===shipment?.codSatang} rows={commissions.rows.filter(row=>row.reference===order.orderNumber)}/>
    <OrderShippingDetails orderId={id} documentActions={<OrderDocumentButtons orderId={id}/>} teamName={teamName} copyDetails={{orderNumber:order.orderNumber,seller:order.sellerUsername,createdAt:order.createdAt,status,extraLines:orderCommissionCopyLines({visible:order.sellerUsername===actor.username,payment:order.payment,codReceived:!!receipt&&receipt.amountSatang===shipment?.codSatang,rows:commissions.rows.filter(row=>row.reference===order.orderNumber)})}} data={{recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:amount,items:items.items}} tracking={shipment?.tracking}>{!closed&&order.status!=='RETURNED'&&shipment?.fulfillmentStatus!=='DISPATCHED'&&!shipment?.dispatchedAt&&(actor.role==='owner'||order.sellerUsername===actor.username)&&<CancelOwnOrderButton id={id} version={orderEditVersion(order)} orderNumber={order.orderNumber}/>}</OrderShippingDetails>
    <DuplicateOrderNotice matches={duplicates.get(id)??[]} currentOrder={order} baseHref="/my-performance/orders/"/>
   </section>

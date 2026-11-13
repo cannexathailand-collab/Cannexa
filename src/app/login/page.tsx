@@ -1,8 +1,9 @@
 import {documentBrandingSnapshot} from '@/lib/document-branding';
 import {customerLanguage} from '@/lib/customer-language-server';
 import {PublicLanguageSwitch} from '@/app/public-language-switch';
-export const dynamic="force-dynamic";
+import {LoginContent} from './login-content';
+export const dynamic='force-dynamic';
 export default async function Login({searchParams}:{searchParams:Promise<{error?:string;changed?:string}>}){
- const {error,changed}=await searchParams,brand=await documentBrandingSnapshot().catch(()=>null),{language}=await customerLanguage(),en=language==='en';
- return <main className="center-page" lang={language}><div className="customer"><PublicLanguageSwitch language={language}/><div className="brand">{brand?.logoPath&&<img src={brand.logoPath} alt="" style={{maxWidth:80,maxHeight:60,objectFit:"contain"}}/>} {brand?.name||"Affiliate OS"}</div><h1>{en?'Sign in to ':'เข้าสู่ระบบ '}{brand?.name||(en?'your shop':'ร้านค้า')}</h1><p className="muted">LINE OA Affiliate Tracking System</p>{changed&&<p role="status">{en?'Password changed. Please sign in again.':'เปลี่ยนรหัสผ่านแล้ว กรุณาเข้าสู่ระบบอีกครั้ง'}</p>}{error&&<p role="alert">{error==='unavailable'?(en?'The database is temporarily unavailable. Please try again later.':'ระบบฐานข้อมูลไม่พร้อมให้บริการชั่วคราว กรุณาลองเข้าสู่ระบบอีกครั้งภายหลัง'):(en?'Incorrect username or password.':'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง')}</p>}<form action="/api/admin/login" method="post"><label>{en?'Username':'ชื่อผู้ใช้'}<input name="username" autoComplete="username" placeholder={en?'e.g. owner':'เช่น owner'} maxLength={64}/></label><p className="small muted">{en?'The system owner username is owner.':'ชื่อผู้ใช้เจ้าของระบบคือ owner'}</p><label>{en?'Password':'รหัสผ่าน'}<input name="password" type="password" required autoComplete="current-password"/></label><button>{en?'Sign in to dashboard':'เข้าสู่ Dashboard'}</button></form><p className="small muted">{en?'For authorized users only':'สำหรับผู้ใช้ที่ได้รับอนุญาต'}</p></div></main>;
+ const {error,changed}=await searchParams,brand=await documentBrandingSnapshot().catch(()=>null),{language}=await customerLanguage();
+ return <main className="center-page" lang={language}><div className="customer"><PublicLanguageSwitch language={language}/><LoginContent language={language} brand={brand} error={error} changed={changed}/></div></main>;
 }

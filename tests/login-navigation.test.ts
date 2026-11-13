@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {GET} from '../src/app/api/admin/login/route';
-import Login from '../src/app/login/page';
+import {LoginContent} from '../src/app/login/login-content';
 
 test('opening the login submission URL returns to the form instead of HTTP 405',async t=>{
  const original=process.env.APP_URL;
@@ -15,10 +15,16 @@ test('opening the login submission URL returns to the form instead of HTTP 405',
 });
 
 test('login distinguishes a service outage from invalid credentials and keeps the form available',async()=>{
- const unavailable=renderToStaticMarkup(await Login({searchParams:Promise.resolve({error:'unavailable'})}));
- assert.ok(unavailable.includes('ระบบฐานข้อมูลไม่พร้อมให้บริการชั่วคราว'));
- assert.ok(!unavailable.includes('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'));
+ const unavailable=renderToStaticMarkup(LoginContent({language:'en',brand:null,error:'unavailable'}));
+ assert.ok(unavailable.includes('The database is temporarily unavailable.'));
+ assert.ok(!unavailable.includes('Incorrect username or password.'));
  assert.ok(unavailable.includes('action="/api/admin/login"'));
- const invalid=renderToStaticMarkup(await Login({searchParams:Promise.resolve({error:'1'})}));
- assert.ok(invalid.includes('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'));
+ const invalid=renderToStaticMarkup(LoginContent({language:'en',brand:null,error:'1'}));
+ assert.ok(invalid.includes('Incorrect username or password.'));
+});
+
+test('login preserves an explicit Thai language selection',()=>{
+ const html=renderToStaticMarkup(LoginContent({language:'th',brand:null,error:'1'}));
+ assert.ok(html.includes('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'));
+ assert.ok(html.includes('ชื่อผู้ใช้'));
 });
