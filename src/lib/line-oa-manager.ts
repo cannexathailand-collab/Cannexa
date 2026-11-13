@@ -128,16 +128,23 @@ export async function saveReplyEditor(page:Page){
   await page.getByRole('button',{name:'ใช้การเปลี่ยนแปลง',exact:true}).last().click();
  }else await page.getByRole('button',{name:'บันทึก',exact:true}).last().click();
 }
+export class OaActivationError extends Error{
+ constructor(public readonly stage:string,public readonly buttons:string[]){super('OA_REPLY_ACTIVATION_VERIFY_FAILED');}
+}
+async function activationError(page:Page,stage:string){
+ let buttons:string[]=[];try{buttons=await page.getByRole('button').evaluateAll(nodes=>nodes.filter(node=>{const r=node.getBoundingClientRect();return r.width>0&&r.height>0;}).map(node=>(node.textContent??'').trim()).filter(text=>text.length<=60&&/(เริ่มใช้งาน|หยุดใช้งาน|ยืนยัน|ใช้งาน|ตกลง|บันทึก|ยกเลิก)/.test(text)).slice(0,20));}catch{}
+ return new OaActivationError(stage,buttons);
+}
 export async function activateReply(page:Page){
  // Controls hydrate separately from the saved text. Wait for either state
  // before deciding whether this reply still needs to be activated.
- await page.getByRole('button',{name:/^(เริ่มใช้งาน|หยุดใช้งาน)$/}).first().waitFor({state:'visible',timeout:20000}).catch(()=>{throw Error('OA_REPLY_ACTIVATION_VERIFY_FAILED');});
+ await page.getByRole('button',{name:/^(เริ่มใช้งาน|หยุดใช้งาน)$/}).first().waitFor({state:'visible',timeout:20000}).catch(async()=>{throw await activationError(page,'WAIT_CONTROLS');});
  const stop=page.getByRole('button',{name:'หยุดใช้งาน',exact:true}).last();
  if(await stop.isVisible())return;
  await page.getByRole('button',{name:'เริ่มใช้งาน',exact:true}).last().click();
- await stop.waitFor({state:'visible',timeout:20000}).catch(()=>{throw Error('OA_REPLY_ACTIVATION_VERIFY_FAILED');});
+ await stop.waitFor({state:'visible',timeout:20000}).catch(async()=>{throw await activationError(page,'WAIT_AFTER_CLICK');});
  await page.reload({waitUntil:'domcontentloaded'});
- await stop.waitFor({state:'visible',timeout:20000}).catch(()=>{throw Error('OA_REPLY_ACTIVATION_VERIFY_FAILED');});
+ await stop.waitFor({state:'visible',timeout:20000}).catch(async()=>{throw await activationError(page,'WAIT_AFTER_RELOAD');});
 }
 export async function saveManagerReply(page:Page,account:string,product:Product){
  await reportOaProgress('กำลังเปิดข้อความ '+product.code);

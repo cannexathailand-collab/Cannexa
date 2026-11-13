@@ -8,7 +8,7 @@ export function oaFailureCategory(error:unknown){
  return 'AUTOMATION_FAILED';
 }
 export function safeOaResponse(url:string,status:number,method:string){
- if(status<400)return null;
+ if(status<400&&method==='GET')return null;
  try{const parsed=new URL(url);if(!/(^|\.)line\.biz$/.test(parsed.hostname))return null;
  return {status,method:method.slice(0,8),path:parsed.pathname.replace(/[A-Za-z0-9_-]{24,}/g,':id').slice(0,160)};
  }catch{return null;}

@@ -4,7 +4,7 @@ import {db} from './db';
 import {claimOaJob,releaseOaBrowserLease,oaPayload} from './line-oa-job';
 import {researchProduct} from './product-research';
 import type {Page,Response as BrowserResponse} from 'playwright-core';
-import {saveManagerCards,saveManagerReply,verifyManager} from './line-oa-manager';
+import {saveManagerCards,saveManagerReply,verifyManager,OaActivationError} from './line-oa-manager';
 import {applySelectedProductName} from './line-oa-product-name';
 import {currentOaProgress,reportOaProgress,withOaProgress} from './line-oa-progress';
 import {oaRetryDelay} from './line-oa-retry';
@@ -15,7 +15,7 @@ export async function processOaStep(openPage:()=>Promise<{page:Page;close:()=>Pr
  const heartbeat=setInterval(()=>{const until=new Date(Date.now()+5*60000);void Promise.all([db.lineOaJob.updateMany({where:{id:job.id,status:'RUNNING'},data:{leaseUntil:until}}),db.lineOaBrowser.updateMany({where:{id:'active'},data:{leaseUntil:until,heartbeatAt:new Date()}})]).catch(()=>{});},15000);
  let context:Awaited<ReturnType<typeof openPage>>|undefined;
  const networkFailures:NonNullable<ReturnType<typeof safeOaResponse>>[]=[];
- const onResponse=(response:BrowserResponse)=>{try{const failure=safeOaResponse(response.url(),response.status(),response.request().method());if(failure){networkFailures.push(failure);if(networkFailures.length>8)networkFailures.shift();}}catch{}};
+ const onResponse=(response:BrowserResponse)=>{try{const method=response.request().method(),failure=safeOaResponse(response.url(),response.status(),method);if(failure&&(method!=='GET'||/autoresponse|cardtype|message/i.test(failure.path))){networkFailures.push(failure);if(networkFailures.length>8)networkFailures.shift();}}catch{}};
  try{
   const payload=oaPayload.parse(job.payload),products=payload.sets.flatMap(s=>s.products);
   let phase=job.phase,cursor=job.cursor,results=Array.isArray(job.results)?job.results:[];
@@ -47,7 +47,7 @@ export async function processOaStep(openPage:()=>Promise<{page:Page;close:()=>Pr
   console.error('LINE OA operation failed:',e instanceof Error&&/^[A-Z_]+$/.test(e.message)?e.message:'AUTOMATION_FAILED');
   const login=e instanceof Error&&e.message==='OA_LOGIN_REQUIRED';
   const code=e instanceof Error?e.message:'';
-  await db.auditLog.create({data:{actor:job.actor,action:'LINE_OA_STEP_FAILED',entityId:job.id,details:{phase:job.phase,cursor:job.cursor,category:oaFailureCategory(e),stage:currentOaProgress()??null,networkFailures}}}).catch(()=>{});
+  await db.auditLog.create({data:{actor:job.actor,action:'LINE_OA_STEP_FAILED',entityId:job.id,details:{phase:job.phase,cursor:job.cursor,category:oaFailureCategory(e),stage:currentOaProgress()??null,networkFailures,...(e instanceof OaActivationError?{activation:{stage:e.stage,buttons:e.buttons}}:{})}}}).catch(()=>{});
   const operationErrors:Record<string,string>={OA_VIDEO_ORDER_CLICK_FAILED:'สั่งปุ่มเลื่อนวิดีโอใน LINE OA ไม่สำเร็จ',OA_VIDEO_ORDER_CONTROL_FAILED:'วิดีโอยังไม่อยู่บนสุด แต่ไม่พบปุ่มเลื่อนที่ใช้งานได้',OA_VIDEO_ORDER_MOVE_FAILED:'สั่งเลื่อนวิดีโอแล้ว แต่ LINE OA ยังไม่เปลี่ยนลำดับ',OA_VIDEO_ORDER_POSITION_FAILED:'จัดลำดับวิดีโอแล้วยังยืนยันตำแหน่งบนสุดไม่ได้',OA_ACCOUNT_VERIFY_FAILED:'ยังตรวจยืนยันบัญชีร้านนี้ใน LINE OA ไม่สำเร็จ',OA_REPLY_ACTIVATION_VERIFY_FAILED:'ยังยืนยันการเปิดใช้งานข้อความใน LINE OA ไม่สำเร็จ',DRIVE_RECONNECT:'กรุณาเชื่อม Google Drive ใหม่ก่อนทำต่อ',DRIVE_VIDEO_DUPLICATE:'พบวิดีโอชื่อรหัสเดียวกันหลายไฟล์ใน Drive กรุณาจัดให้เหลือไฟล์เดียวหรือจำกัดโฟลเดอร์',DRIVE_VIDEO_FORMAT:'วิดีโอใน Drive ต้องเป็นไฟล์ MP4',DRIVE_VIDEO_SIZE:'วิดีโอว่างหรือใหญ่กว่า 200 MB',DRIVE_DOWNLOAD_DENIED:'บัญชี Google Drive ไม่มีสิทธิ์ดาวน์โหลดวิดีโอ',DRIVE_SEARCH_FAILED:'ค้น Google Drive ไม่สำเร็จ ตรวจสิทธิ์และการเปิด Drive API'};
   const message=login?'การล็อกอิน LINE OA หมดอายุ กรุณาเชื่อมใหม่':operationErrors[code]??'งานหยุดระหว่าง '+(currentOaProgress()??'การบันทึก')+' · ลองทำต่อจากจุดเดิมได้';
   const retryDelay=oaRetryDelay(e,job.retryCount);
