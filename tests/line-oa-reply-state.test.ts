@@ -56,3 +56,11 @@ test('repeated account labels are accepted without a strict locator failure',asy
  const page:any={goto:async()=>{},url:()=> 'https://manager.line.biz/account/@one',getByText:()=>({waitFor:async()=>{throw Error('strict mode violation: two labels');},first:()=>({waitFor:async()=>{chosen=true;}})})};
  await verifyManager(page,'@one');assert.ok(chosen);
 });
+
+test('a known shop name may confirm its exact account URL when the basic ID is not displayed',async()=>{
+ let current='https://manager.line.biz/account/@last';
+ const page:any={goto:async()=>{},url:()=>current,getByText:(text:string)=>({first:()=>({waitFor:async()=>{if(text!=='Last shop')throw Error('not shown');}})})};
+ await verifyManager(page,'@last','Last shop');
+ current='https://manager.line.biz/account/@wrong';
+ await assert.rejects(verifyManager(page,'@last','Last shop'),/OA_ACCOUNT_VERIFY_FAILED/);
+});

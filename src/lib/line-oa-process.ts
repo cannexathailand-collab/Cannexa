@@ -27,7 +27,7 @@ export async function processOaStep(openPage:()=>Promise<{page:Page;close:()=>Pr
    }else cursor=remaining;
   }else{
    await reportOaProgress('กำลังเปิด LINE OA '+job.account);
-   context=await openPage();await verifyManager(context.page,job.account);
+   context=await openPage();await verifyManager(context.page,job.account,job.targetName);
    if(phase==='REPLIES'){
     const product=products[cursor];
     if(product.selectedReference&&product.selectedReference.name!==product.name){await applySelectedProductName(product.code,product.name,product.selectedReference.name,job.actor);product.name=product.selectedReference.name;}

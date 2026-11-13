@@ -90,7 +90,7 @@ export async function claimOaJob(concurrency=1){
   // A browser lease with no active job belongs to login/discovery or a
   // closing legacy worker. Do not take it over while it is still valid.
   if(!running.length&&connection.leaseUntil&&connection.leaseUntil>now)return null;
-  const targets=await tx.lineOaAccount.findMany({where:{available:true},select:{account:true}});
+  const targets=await tx.lineOaAccount.findMany({where:{available:true},select:{account:true,name:true}});
   const busy=new Set(running.map(job=>job.account));
   const accounts=targets.map(target=>target.account).filter(account=>!busy.has(account));
   if(!accounts.length)return null;
@@ -98,7 +98,8 @@ export async function claimOaJob(concurrency=1){
   if(!job)return null;
   const leaseUntil=new Date(Date.now()+5*60000);
   await tx.lineOaBrowser.update({where:{id:'active'},data:{leaseUntil}});
-  return tx.lineOaJob.update({where:{id:job.id},data:{status:'RUNNING',leaseUntil,error:null}});
+  const claimed=await tx.lineOaJob.update({where:{id:job.id},data:{status:'RUNNING',leaseUntil,error:null}});
+  return {...claimed,targetName:targets.find(target=>target.account===job.account)?.name};
  });
 }
 

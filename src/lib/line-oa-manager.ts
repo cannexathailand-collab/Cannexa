@@ -13,10 +13,11 @@ export function managerUrl(account:string,path=''){
  if(!/^@[a-zA-Z0-9._-]+$/.test(account))throw Error('OA_ACCOUNT_INVALID');
  return 'https://manager.line.biz/account/'+account+(path?'/'+path:'');
 }
-export async function verifyManager(page:Page,account:string){
+export async function verifyManager(page:Page,account:string,expectedName?:string){
  const expected=new URL(managerUrl(account));
  await page.goto(expected.href,{waitUntil:'domcontentloaded'});
- const visible=await page.getByText(account,{exact:true}).first().waitFor({state:'visible',timeout:20000}).then(()=>true,()=>false);
+ const identities=[account,...(expectedName?.trim()?[expectedName.trim()]:[])];
+ const visible=await Promise.any(identities.map(identity=>page.getByText(identity,{exact:true}).first().waitFor({state:'visible',timeout:20000}))).then(()=>true,()=>false);
  const current=new URL(page.url());
  if(current.origin!==expected.origin||/\/login(?:\/|$)/.test(current.pathname))throw Error('OA_LOGIN_REQUIRED');
  const correctAccount=current.pathname===expected.pathname||current.pathname.startsWith(expected.pathname+'/');
