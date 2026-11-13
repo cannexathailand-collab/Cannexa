@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {saveReplyEditor,activateReply,savedId} from '../src/lib/line-oa-manager';
+import {saveReplyEditor,activateReply,savedId,verifyManager} from '../src/lib/line-oa-manager';
 
 function form(active:boolean){
  const events:string[]=[];
@@ -36,4 +36,17 @@ test('activation waits for the active UI before reload and refuses unconfirmed a
  await activateReply(page);assert.ok(reloaded);
  reloaded=false;page.getByRole=(_role:string,{name}:{name:string})=>{const locator:any={last:()=>locator,count:async()=>name==='เริ่มใช้งาน'?1:0,click:async()=>{},waitFor:async()=>{throw Error('not activated');}};return locator;};
  await assert.rejects(activateReply(page),/OA_REPLY_ACTIVATION_VERIFY_FAILED/);assert.equal(reloaded,false);
+});
+
+test('account verification waits for the target marker and does not expire all shops for an unverified shop',async()=>{
+ let waited=false,current='https://manager.line.biz/account/@one';
+ const page:any={goto:async()=>{},url:()=>current,getByText:()=>({waitFor:async()=>{await Promise.resolve();waited=true;}})};
+ await verifyManager(page,'@one');assert.ok(waited);
+ page.getByText=()=>({waitFor:async()=>{throw Error('marker missing');}});
+ await assert.rejects(verifyManager(page,'@one'),/OA_ACCOUNT_VERIFY_FAILED/);
+ current='https://manager.line.biz/account/@one-extra';
+ page.getByText=()=>({waitFor:async()=>{}});
+ await assert.rejects(verifyManager(page,'@one'),/OA_ACCOUNT_VERIFY_FAILED/);
+ current='https://access.line.me/login';
+ await assert.rejects(verifyManager(page,'@one'),/OA_LOGIN_REQUIRED/);
 });

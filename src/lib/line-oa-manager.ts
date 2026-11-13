@@ -14,9 +14,13 @@ export function managerUrl(account:string,path=''){
  return 'https://manager.line.biz/account/'+account+(path?'/'+path:'');
 }
 export async function verifyManager(page:Page,account:string){
- await page.goto(managerUrl(account),{waitUntil:'domcontentloaded'});
- await page.getByRole('button',{name:'ช่วยเหลือ',exact:true}).waitFor({timeout:20000}).catch(()=>{});
- if(!page.url().startsWith(managerUrl(account))||!await page.getByText(account,{exact:true}).count())throw Error('OA_LOGIN_REQUIRED');
+ const expected=new URL(managerUrl(account));
+ await page.goto(expected.href,{waitUntil:'domcontentloaded'});
+ const visible=await page.getByText(account,{exact:true}).waitFor({state:'visible',timeout:20000}).then(()=>true,()=>false);
+ const current=new URL(page.url());
+ if(current.origin!==expected.origin||/\/login(?:\/|$)/.test(current.pathname))throw Error('OA_LOGIN_REQUIRED');
+ const correctAccount=current.pathname===expected.pathname||current.pathname.startsWith(expected.pathname+'/');
+ if(!visible||!correctAccount)throw Error('OA_ACCOUNT_VERIFY_FAILED');
 }
 async function dismissManagerGuide(page:Page){
  const finish=page.getByText('จบการแนะนำ',{exact:true});
