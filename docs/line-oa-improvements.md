@@ -39,3 +39,23 @@ Status: **open**. Recorded for follow-up; no root-cause fix is claimed by this d
 - Reuse requires matching expected fields and a fingerprint of the actual source-image bytes, not only their URLs.
 - Unit tests cover already-first and delayed video moves, absent controls, failed moves, duplicate video blocks, pending-card recovery without uploads, changed image bytes, and failed read-back without promotion.
 - Live acceptance is still required before closing this reliability item.
+
+## Five-store production run: completed 13 November 2026
+
+- Green Hub (Wholesale), both Green house destinations, Happy Happy Farm,
+  and บ้านเขียว all reached `COMPLETE` / `DONE` with no final error.
+- Each destination completed ten keyword replies with synchronized videos
+  and two verified five-card sets: fifty replies/videos and ten card sets overall.
+- The final destination completed at 14:10 Bangkok time. Previously verified
+  results were retained while unfinished operations were retried.
+- Reply activation now reopens the exact saved editor when LINE returns to
+  the list after activation. The remaining replies passed with this change.
+- The 2 GiB worker exited with code 137 during overlapping image-crop work.
+  A 4 GiB replacement continued past that point and the run completed. This
+  observation supports keeping the added headroom; it does not prove every
+  browser failure was caused by memory exhaustion.
+- Card list lookup still produced control timeouts after successful save
+  responses, and one card attempt reported a closed browser. Recovery completed
+  those sets, but the underlying lookup race has not been isolated. Keep this
+  issue open, add finer-grained lookup diagnostics, and verify recovery with
+  an induced failure before claiming the entire reliability follow-up closed.
