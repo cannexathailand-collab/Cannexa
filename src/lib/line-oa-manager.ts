@@ -3,6 +3,7 @@ import {db} from './db';
 import {type OaPayload,artifactFingerprint} from './line-oa-job';
 import {syncReplyVideo,verifyReplyVideo,recordReplyVideo} from './line-oa-video';
 import {reportOaProgress} from './line-oa-progress';
+import {customerAccountLabel,customerAccountUrl} from './line-oa-links';
 
 type Product=OaPayload['sets'][number]['products'][number];
 export function oaCardDescription(product:Pick<Product,'priceSatang'>){
@@ -234,12 +235,11 @@ export async function saveManagerCards(page:Page,account:string,set:OaPayload['s
   await checkbox(page,'ราคา',false);
   await checkbox(page,'แอ็กชัน 1',true);await checkbox(page,'แอ็กชัน 2',true);
   await page.getByPlaceholder('ใส่ข้อความสำหรับป้ายแอ็กชัน',{exact:true}).nth(0).fill('Show details');
-  await page.getByPlaceholder('ใส่ข้อความสำหรับป้ายแอ็กชัน',{exact:true}).nth(1).fill('Order Now');
+  await page.getByPlaceholder('ใส่ข้อความสำหรับป้ายแอ็กชัน',{exact:true}).nth(1).fill(customerAccountLabel);
   await page.locator('select[name="typeId"]').nth(0).selectOption({label:'ข้อความ'});
   await page.locator('select[name="typeId"]').nth(1).selectOption({label:'ลิงก์'});
   await page.getByPlaceholder('ข้อความในช่องนี้จะถูกส่งไปทางแชท',{exact:true}).fill(product.code);
-  // The current acceptance run uses neutral product information and mock links.
-  await page.getByPlaceholder('ใส่ลิงก์',{exact:true}).fill('https://example.com/?test_product='+encodeURIComponent(product.code));
+  await page.getByPlaceholder('ใส่ลิงก์',{exact:true}).fill(customerAccountUrl());
  }
  console.info('OA card stage: SAVE');
  await reportOaProgress('กำลังบันทึกชุดการ์ด '+set.title);
@@ -258,7 +258,7 @@ export async function saveManagerCards(page:Page,account:string,set:OaPayload['s
   await tabs.nth(i).click();const code=set.products[i].code;
   const deadline=Date.now()+20000;let verified=false;
   while(Date.now()<deadline){
-   verified=await page.getByPlaceholder('ใส่ข้อความแท็ก',{exact:true}).inputValue()===code&&await page.locator('select[name="imageNumber"]').inputValue()==='3'&&await page.getByPlaceholder('ข้อความในช่องนี้จะถูกส่งไปทางแชท',{exact:true}).inputValue()===code&&await page.getByRole('button',{name:'',exact:true}).count()===3&&await page.getByPlaceholder('ใส่ชื่อการ์ด',{exact:true}).inputValue()===Array.from(set.products[i].name).slice(0,20).join('')&&await page.getByPlaceholder('ใส่คำอธิบาย',{exact:true}).inputValue()===oaCardDescription(set.products[i])&&await page.getByPlaceholder('ใส่ข้อความสำหรับป้ายแอ็กชัน',{exact:true}).nth(0).inputValue()==='Show details'&&await page.getByPlaceholder('ใส่ข้อความสำหรับป้ายแอ็กชัน',{exact:true}).nth(1).inputValue()==='Order Now'&&await page.getByPlaceholder('ใส่ลิงก์',{exact:true}).inputValue()==='https://example.com/?test_product='+encodeURIComponent(code);
+   verified=await page.getByPlaceholder('ใส่ข้อความแท็ก',{exact:true}).inputValue()===code&&await page.locator('select[name="imageNumber"]').inputValue()==='3'&&await page.getByPlaceholder('ข้อความในช่องนี้จะถูกส่งไปทางแชท',{exact:true}).inputValue()===code&&await page.getByRole('button',{name:'',exact:true}).count()===3&&await page.getByPlaceholder('ใส่ชื่อการ์ด',{exact:true}).inputValue()===Array.from(set.products[i].name).slice(0,20).join('')&&await page.getByPlaceholder('ใส่คำอธิบาย',{exact:true}).inputValue()===oaCardDescription(set.products[i])&&await page.getByPlaceholder('ใส่ข้อความสำหรับป้ายแอ็กชัน',{exact:true}).nth(0).inputValue()==='Show details'&&await page.getByPlaceholder('ใส่ข้อความสำหรับป้ายแอ็กชัน',{exact:true}).nth(1).inputValue()===customerAccountLabel&&await page.getByPlaceholder('ใส่ลิงก์',{exact:true}).inputValue()===customerAccountUrl();
    if(verified)break;await page.waitForTimeout(250);
   }
   if(!verified)throw Error('OA_VERIFY_FAILED');

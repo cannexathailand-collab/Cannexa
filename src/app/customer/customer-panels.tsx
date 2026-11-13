@@ -5,10 +5,10 @@ import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {useRouter} from 'next/navigation';
 import {CustomerPasswordForm} from './password/password-form';
 
-export function CustomerPanels({orders,shop,profile,promotions,coins,passwordRequiresCurrent=false,readOnly=false,openShop=false,shopTarget}:{orders:ReactNode;shop:ReactNode;profile:ReactNode;promotions:ReactNode;coins:ReactNode;passwordRequiresCurrent?:boolean;readOnly?:boolean;openShop?:boolean;shopTarget?:string|null}){
+export function CustomerPanels({orders,shop,profile,promotions,coins,passwordRequiresCurrent=false,readOnly=false,openShop=false,openProfile=false,shopTarget}:{orders:ReactNode;shop:ReactNode;profile:ReactNode;promotions:ReactNode;coins:ReactNode;passwordRequiresCurrent?:boolean;readOnly?:boolean;openShop?:boolean;openProfile?:boolean;shopTarget?:string|null}){
  const {t}=useCustomerLanguage();
- const [active,setActive]=useState(openShop?'shop':'orders');
- useEffect(()=>{if(openShop)setActive('shop');},[openShop,shopTarget]);
+ const [active,setActive]=useState(openProfile?'profile':openShop?'shop':'orders');
+ useEffect(()=>{if(openProfile)setActive('profile');else if(openShop)setActive('shop');},[openShop,openProfile,shopTarget]);
  const router=useRouter();
  const buttons=useRef<Array<HTMLButtonElement|null>>([]);
  const tabs=[{id:'orders',label:'ออเดอร์ของฉัน'},{id:'shop',label:'Shop'},{id:'profile',label:'ข้อมูลส่วนตัว'},...(!readOnly?[{id:'password',label:'เปลี่ยนรหัสผ่าน'}]:[]),{id:'promotions',label:'โปรโมชั่น'},{id:'coins',label:'Green Coin'}];

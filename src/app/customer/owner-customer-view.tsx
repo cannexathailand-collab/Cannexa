@@ -18,7 +18,7 @@ import {loadCustomerCatalog} from '@/lib/customer-catalog';
 import {CustomerWebsiteOrders} from './website-orders';
 import {ProfileForm} from './profile-form';
 
-export async function OwnerCustomerView({params,targetProduct,openShop=false}:{params:{q?:string;customer?:string};targetProduct?:string|null;openShop?:boolean}){
+export async function OwnerCustomerView({params,targetProduct,openShop=false,openProfile=false}:{params:{q?:string;customer?:string};targetProduct?:string|null;openShop?:boolean;openProfile?:boolean}){
  const {t,locale}=await customerLanguage();
  const query=typeof params.q==='string'?params.q.trim().slice(0,100):'';
  const selectedCode=typeof params.customer==='string'&&params.customer.length<=30?canonicalCustomerCode(params.customer):'';
@@ -47,7 +47,7 @@ export async function OwnerCustomerView({params,targetProduct,openShop=false}:{p
     <label>{t("ค้นหารหัสลูกค้า ชื่อ หรือเบอร์โทร")}<input name="q" defaultValue={query} maxLength={100}/></label>
     <button>{t("ค้นหาลูกค้า")}</button>
    </form>
-   <div className="portal-orders" aria-label={t("เลือกลูกค้าที่ต้องการดู")}>{customers.map(customer=><Link className="portal-order" key={customer.code} href={'/customer?'+new URLSearchParams({q:query,customer:customer.code,...(openShop?{tab:'shop'}:{}),...(targetProduct?{product:targetProduct}:{})})}>
+   <div className="portal-orders" aria-label={t("เลือกลูกค้าที่ต้องการดู")}>{customers.map(customer=><Link className="portal-order" key={customer.code} href={'/customer?'+new URLSearchParams({q:query,customer:customer.code,...(openProfile?{tab:'profile'}:openShop?{tab:'shop'}:{}),...(targetProduct?{product:targetProduct}:{})})}>
     <strong>{displayCustomerCode(customer.code)}</strong> · {customer.name??t('ยังไม่ระบุชื่อ')}{t(" · ดูข้อมูล ")}</Link>)}</div>
    {!customers.length&&<p>{t("ไม่พบลูกค้าที่ค้นหา")}</p>}
    {!query&&customers.length===30&&<p className="portal-muted">{t("แสดง 30 รายการแรก พิมพ์ค้นหาเพื่อเลือกลูกค้าที่ต้องการ")}</p>}
@@ -61,7 +61,7 @@ export async function OwnerCustomerView({params,targetProduct,openShop=false}:{p
     <MemberCard level={member?.level??'Bronze'} name={[selected.title??'คุณ',selected.name].filter(Boolean).join(' ')} code={(selected.portalUsername||displayCustomerCode(selected.code))}/>
     <section className="portal-coin-balance" aria-label={t("ยอด Green Coin")}><h2>Green Coin</h2><span className="portal-coin-mark" aria-hidden="true">G</span><strong>{balance.toLocaleString(locale)}</strong><span>{t("เหรียญคงเหลือ")}</span></section>
    </div>
-   <CustomerPanels key={selected.code} readOnly openShop={openShop} shopTarget={targetProduct} shop={<CustomerShop targetProduct={targetProduct} customerCode={selected.code} initialCatalog={catalog!} initialDelivery={{name:selected.name??'',address:selected.address??'',phone:selected.phone??''}} savedAddresses={savedAddresses} readOnly/>} orders={<><CustomerWebsiteOrders customerCode={selected.code}/><CustomerOrderHistory history={summary?.allHistory??[]} title={t("ออเดอร์จัดส่ง")} emptyText={t("ยังไม่มีออเดอร์จัดส่ง")}/></>} profile={
+   <CustomerPanels key={selected.code} readOnly openShop={openShop} openProfile={openProfile} shopTarget={targetProduct} shop={<CustomerShop targetProduct={targetProduct} customerCode={selected.code} initialCatalog={catalog!} initialDelivery={{name:selected.name??'',address:selected.address??'',phone:selected.phone??''}} savedAddresses={savedAddresses} readOnly/>} orders={<><CustomerWebsiteOrders customerCode={selected.code}/><CustomerOrderHistory history={summary?.allHistory??[]} title={t("ออเดอร์จัดส่ง")} emptyText={t("ยังไม่มีออเดอร์จัดส่ง")}/></>} profile={
     <section className="portal-section portal-profile-section"><h2>{t("ข้อมูลส่วนตัว")}</h2><p className="portal-muted">{t("โหมดเจ้าของระบบแสดงตัวอย่างเท่านั้น ลูกค้าสามารถเลือกที่อยู่และเพิ่มผู้รับจากบัญชีของตนเอง")}</p><ProfileForm readOnly registered initial={{title:selected.title??'คุณ',name:selected.name??'',phone:selected.phone??'',address:selected.address??''}} savedAddresses={savedAddresses}/></section>
    } promotions={<CustomerPromotions/>} coins={<CustomerGreenCoin customerCode={selected.code} balance={balance} readOnly/>}/>
   </>}
