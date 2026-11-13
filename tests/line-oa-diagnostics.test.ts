@@ -1,0 +1,5 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {oaFailureCategory,safeOaResponse} from '../src/lib/line-oa-diagnostics';
+test('OA diagnostics keep categorical causes without raw exception details',()=>{assert.equal(oaFailureCategory(Error('strict mode violation: secret text')),'LOCATOR_AMBIGUOUS');assert.equal(oaFailureCategory(Error('Timeout waiting for private page')),'CONTROL_TIMEOUT');assert.equal(oaFailureCategory(Error('OA_VIDEO_ORDER_MOVE_FAILED')),'OA_VIDEO_ORDER_MOVE_FAILED');assert.equal(oaFailureCategory(Error('private message and token')),'AUTOMATION_FAILED');});
+test('response diagnostics discard credentials, query parameters and unrelated hosts',()=>{assert.deepEqual(safeOaResponse('https://manager.line.biz/api/12345678901234567890123456/update?token=secret',403,'POST'),{status:403,method:'POST',path:'/api/:id/update'});assert.equal(safeOaResponse('https://unrelated.example/path?secret=value',500,'GET'),null);assert.equal(safeOaResponse('https://manager.line.biz/path',200,'GET'),null);});
