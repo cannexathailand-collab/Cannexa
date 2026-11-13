@@ -67,6 +67,7 @@ export function StockLineCardDraft(){
   <strong>{product.code} · {product.name??'ยังไม่มีชื่อ'}</strong>
   <div className="actions">{product.images.map(image=>image.url?<img key={image.slot} src={image.url} alt={'รูป '+image.slot+' '+product.code} width={90} height={90} style={{objectFit:'contain'}}/>:<span key={image.slot} className="muted">ยังไม่มีรูป {image.slot}</span>)}</div>
   <p className="small">Show details → {product.keyword}</p>
+  <p className="small">คำอธิบายการ์ด: {product.description||'ดูรายละเอียดสินค้า'}</p>
   {product.research&&<><p style={{whiteSpace:'pre-wrap'}}>{product.research.text}</p>
    {product.research.sources.map(source=><p key={source}><a href={source} target="_blank" rel="noreferrer">เว็บไซต์อ้างอิง: {new URL(source).hostname}</a>{product.research?.sourceStatus==='suggested'&&<span> · รอคุณตรวจและยืนยัน</span>}</p>)}
    {!product.confirmed&&product.research.needsReview&&<p className="notice">{product.research.reviewReason??'พบข้อมูลแล้ว กรุณาตรวจว่าตรงกับสินค้าก่อนยืนยัน'}</p>}

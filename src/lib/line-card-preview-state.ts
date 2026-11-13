@@ -1,5 +1,5 @@
 export type CardPreviewResearch={text:string;needsReview:boolean;sourceStatus?:'verified'|'suggested';reviewReason?:string;sources:string[];previewToken?:string;images?:{slot:number;url:string|null}[]};
-export type CardPreviewProduct={code:string;name:string|null;images:{slot:number;url:string|null}[];keyword:string;missingImageSlots:number[];research?:CardPreviewResearch;researchError?:string;confirmed?:boolean;previewToken?:string};
+export type CardPreviewProduct={code:string;name:string|null;description?:string;images:{slot:number;url:string|null}[];keyword:string;missingImageSlots:number[];research?:CardPreviewResearch;researchError?:string;confirmed?:boolean;previewToken?:string};
 export function canConfirmPreview(product:CardPreviewProduct){
  return !!product.research?.text.trim()&&!!product.research.sources.length&&!!product.previewToken&&!product.researchError;
 }

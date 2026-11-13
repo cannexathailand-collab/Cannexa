@@ -666,6 +666,15 @@ model StockWorkbook {
  updatedAt DateTime @updatedAt
 }
 
+model StockProductDescription {
+ code String @id
+ name String
+ text String
+ linkUrl String @default("")
+ editedBy String
+ updatedAt DateTime @updatedAt
+}
+
 model StockProductImage {
  code String @id
  imageData Bytes

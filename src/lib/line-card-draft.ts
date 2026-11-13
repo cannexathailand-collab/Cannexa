@@ -15,11 +15,12 @@ export function cardSetTitle(codes:string[],date=new Date()){
 }
 export async function prepareLineCardDraft(value:unknown){
  const input=lineCardSelection.parse(value);
- const [catalog,extras,connection,ai]=await Promise.all([
+ const [catalog,extras,connection,ai,descriptions]=await Promise.all([
   loadCustomerCatalog(db,{merchandising:false}),
   db.stockProductExtraImage.findMany({where:{code:{in:input.codes}},select:{code:true,slot:true,imageVersion:true}}),
   lineSettings(),
   db.openAiConnection.findUnique({where:{id:'active'},select:{id:true}}),
+  db.stockProductDescription.findMany({where:{code:{in:input.codes}},select:{code:true,name:true,text:true}}),
  ]);
  const products=input.codes.map(code=>{
   const product=catalog.products.find(p=>p.code===code);
@@ -28,7 +29,8 @@ export async function prepareLineCardDraft(value:unknown){
    const version=slot===1?product.imageVersion:extras.find(p=>p.code===code&&p.slot===slot)?.imageVersion;
    return {slot,url:version?'/api/stock/'+encodeURIComponent(code)+'/image?slot='+slot+'&v='+version:null};
   });
-  return {code,name:product.name,prices:product.prices,images,replyTitle:'ข้อมูล '+code,keyword:code,missingImageSlots:images.filter(i=>!i.url).map(i=>i.slot)};
+  const description=descriptions.find(item=>item.code===code&&item.name===product.name)?.text??'';
+  return {code,name:product.name,...(description?{description}:{}),prices:product.prices,images,replyTitle:'ข้อมูล '+code,keyword:code,missingImageSlots:images.filter(i=>!i.url).map(i=>i.slot)};
  });
  return {version:1,createdAt:new Date().toISOString(),account:connection?.settings.basicId??null,aiConfigured:!!ai,status:'PREPARED' as const,
   sets:cardSets(products).map(items=>({title:cardSetTitle(items.map(p=>p.code)),products:items})),

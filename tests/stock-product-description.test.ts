@@ -1,0 +1,22 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {db} from '../src/lib/db';
+import {saveStockDescription} from '../src/lib/stock-product-description';
+test('description saves exact user text and rejects stale edits or the wrong product',async t=>{
+ const original=db.$transaction;
+ t.after(()=>{db.$transaction=original;});
+ let row:any=null,writes=0;
+ const tx={$queryRawUnsafe:async()=>[],stockProductDescription:{findUnique:async()=>row,upsert:async({create,update}:any)=>{writes++;row={...(row?{...row,...update}:create),updatedAt:new Date('2026-11-13T00:00:00Z')};return row;}},auditLog:{create:async()=>({})}};
+ (db as any).$transaction=async(fn:any)=>fn(tx);
+ const readSource:any=async()=>({products:[{code:'CUP01',name:'Cup'}]});
+ const saved=await saveStockDescription('owner',{code:'CUP01',name:'Cup',text:'Ceramic cup.\nHand wash.',linkUrl:'https://example.com/cup',version:''},readSource);
+ assert.equal(saved.text,'Ceramic cup.\nHand wash.');assert.equal(saved.linkUrl,'https://example.com/cup');assert.equal(writes,1);
+ await assert.rejects(saveStockDescription('owner',{code:'CUP01',name:'Cup',text:'Stale',version:''},readSource),/DESCRIPTION_CHANGED/);
+ await assert.rejects(saveStockDescription('owner',{code:'CUP01',name:'Other',text:'Wrong',version:saved.version},readSource),/PRODUCT_CHANGED/);
+ await assert.rejects(saveStockDescription('owner',{code:'MISSING',name:'Cup',text:'Wrong'},readSource),/PRODUCT_NOT_FOUND/);
+ await assert.rejects(saveStockDescription('owner',{code:'CUP01',name:'Cup',text:'x'.repeat(61)},readSource));
+ await assert.rejects(saveStockDescription('owner',{code:'CUP01',name:'Cup',text:'Cup',linkUrl:'javascript:alert(1)'},readSource));
+ assert.equal(writes,1);
+ await saveStockDescription('owner',{code:'CUP01',name:'Cup',text:'',version:saved.version},readSource);
+ assert.equal(row.text,'');assert.equal(writes,2);
+});

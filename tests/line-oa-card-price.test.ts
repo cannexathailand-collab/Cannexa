@@ -10,5 +10,7 @@ test('optional card prices retain satang precision and reject invalid amounts',(
  assert.equal(oaCardDescription({priceSatang:9950}),'ราคา 99.50 บาท');
  assert.equal(oaCardDescription({priceSatang:0}),'ราคา 0 บาท');
  assert.equal(oaCardDescription({}),'ดูรายละเอียดสินค้า');
+ assert.equal(oaCardDescription({description:'Ceramic cup',priceSatang:9900}),'Ceramic cup');
+ assert.equal(oaProduct.safeParse({...product,description:'x'.repeat(61)}).success,false);
  for(const priceSatang of [-1,0.1,Infinity,1000000000])assert.equal(oaProduct.safeParse({...product,priceSatang}).success,false);
 });

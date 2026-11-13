@@ -6,8 +6,8 @@ import {reportOaProgress} from './line-oa-progress';
 import {customerAccountLabel,customerAccountUrl} from './line-oa-links';
 
 type Product=OaPayload['sets'][number]['products'][number];
-export function oaCardDescription(product:Pick<Product,'priceSatang'>){
- return product.priceSatang===undefined?'ดูรายละเอียดสินค้า':'ราคา '+new Intl.NumberFormat('th-TH',{minimumFractionDigits:product.priceSatang%100?2:0,maximumFractionDigits:2}).format(product.priceSatang/100)+' บาท';
+export function oaCardDescription(product:Pick<Product,'priceSatang'|'description'>){
+ return product.description?.trim()|| (product.priceSatang===undefined?'ดูรายละเอียดสินค้า':'ราคา '+new Intl.NumberFormat('th-TH',{minimumFractionDigits:product.priceSatang%100?2:0,maximumFractionDigits:2}).format(product.priceSatang/100)+' บาท');
 }
 export function managerUrl(account:string,path=''){
  if(!/^@[a-zA-Z0-9._-]+$/.test(account))throw Error('OA_ACCOUNT_INVALID');
