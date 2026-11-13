@@ -1,0 +1,32 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {db,currentDatabaseSchema} from '../src/lib/db';
+import {prepareLineCardDraft} from '../src/lib/line-card-draft';
+import {signOaPreview} from '../src/lib/line-card-preview-token';
+import {createOaJob} from '../src/lib/line-oa-job';
+
+test('using a confirmed preview queues the exact text directly for saving without research',async t=>{
+ const mock=(target:any,key:string,value:any)=>{const prior=target[key];target[key]=value;t.after(()=>{target[key]=prior;});};
+ const oldSecret=process.env.SESSION_SECRET;process.env.SESSION_SECRET='test-preview-secret';
+ t.after(()=>{if(oldSecret===undefined)delete process.env.SESSION_SECRET;else process.env.SESSION_SECRET=oldSecret;});
+ mock(db.lineOaBrowser,'findUnique',async()=>({account:'@test'}));
+ mock(db.lineOaAccount,'findMany',async()=>[{account:'@test',available:true}]);
+ mock(db.lineOaJob,'findUnique',async()=>null);
+ mock(db.employeeStockSnapshot,'findUnique',async()=>({rows:[{code:'TEST01',name:'Test cup',available:1,prices:[]}],fetchedAt:new Date()}));
+ mock(db.stockProductImage,'findMany',async()=>[{code:'TEST01',imageVersion:'a'.repeat(64)}]);
+ mock(db.stockProductExtraImage,'findMany',async()=>[2,3].map(slot=>({code:'TEST01',slot,imageVersion:String(slot).repeat(64)})));
+ mock(db.lineConnection,'findUnique',async()=>({encrypted:''}));
+ mock(db.openAiConnection,'findUnique',async()=>({id:'active'}));
+ let created:any;
+ const tx={$queryRawUnsafe:async()=>[],lineOaAccount:{findFirst:async()=>({account:'@test',available:true})},lineOaJob:{findUnique:async()=>null,findMany:async()=>[],create:async({data}:any)=>{created=data;return {...data,id:'test-job',status:'QUEUED',cursor:0,error:null,createdAt:new Date(),updatedAt:new Date()};}},auditLog:{create:async()=>({})}};
+ mock(db,'$transaction',async(fn:any)=>fn(tx));
+ mock(globalThis,'fetch',async()=>{throw Error('Unexpected network research');});
+ const product=(await prepareLineCardDraft({codes:['TEST01']})).sets[0].products[0];
+ const research={name:'Test cup',text:'The exact text the user reviewed.',sources:['https://example.com'],needsReview:true};
+ const token=signOaPreview({actor:'tester',schema:currentDatabaseSchema(),code:'TEST01',name:'Test cup',images:product.images,context:'',research});
+ await createOaJob('tester',{codes:['TEST01'],requestKey:'11111111-1111-4111-8111-111111111111',account:'@test',prepared:[{code:'TEST01',token,confirmed:true}]},true);
+ assert.equal(created.phase,'REPLIES');
+ assert.equal(created.payload.sets[0].products[0].research.text,research.text);
+ assert.equal(created.payload.sets[0].products[0].research.needsReview,false);
+ assert.deepEqual(created.payload.sets[0].products[0].images,product.images);
+});

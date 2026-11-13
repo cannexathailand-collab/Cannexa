@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {canConfirmPreview,confirmPreview,replacePreviewResearch,previewSummary,type CardPreviewProduct} from '../src/lib/line-card-preview-state';
 
-const product:CardPreviewProduct={code:'TEST01',name:'Test cup',images:[],keyword:'TEST01',missingImageSlots:[],research:{text:'Example',sources:['https://example.com'],needsReview:true}};
+const product:CardPreviewProduct={code:'TEST01',name:'Test cup',images:[],keyword:'TEST01',missingImageSlots:[],previewToken:'signed-preview',research:{text:'Example',sources:['https://example.com'],needsReview:true}};
 test('preview confirmation requires a usable result and is cleared by a new search',()=>{
  assert.equal(canConfirmPreview({...product,research:undefined}),false);
  assert.equal(canConfirmPreview({...product,research:{...product.research!,sources:[]}}),false);

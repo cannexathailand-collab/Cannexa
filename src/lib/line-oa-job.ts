@@ -1,12 +1,13 @@
 import {createHash} from 'node:crypto';
 import {Prisma} from '@prisma/client';
 import {z} from 'zod';
-import {db,transaction,userLock} from './db';
+import {db,transaction,userLock,currentDatabaseSchema} from './db';
 import {prepareLineCardDraft} from './line-card-draft';
 import {researchResult} from './product-research';
 import {stockCode} from './stock-code';
 import {oaAccountId,chooseOaTarget} from './line-oa-accounts';
 import {parseOaProgress} from './line-oa-progress';
+import {readOaPreview} from './line-card-preview-token';
 
 export const oaProduct=z.object({code:z.string().min(1).max(12),name:z.string().min(1),priceSatang:z.number().int().nonnegative().max(999999999).optional(),images:z.array(z.object({slot:z.number(),url:z.string().nullable()})).length(3),replyTitle:z.string().max(20),keyword:z.string().min(1).max(30),research:researchResult.optional(),selectedReference:z.object({name:z.string().min(1).max(200),url:z.string().url().refine(url=>new URL(url).protocol==='https:')}).optional()});
 export const oaPayload=z.object({version:z.literal(1),researchContext:z.string().trim().max(200).optional(),sets:z.array(z.object({title:z.string().max(100),products:z.array(oaProduct).min(1).max(5)})).min(1).max(10)});
@@ -21,7 +22,7 @@ export function chooseResearchAlternative(payload:OaPayload,code:string,index:nu
  if(!Number.isInteger(index)||index<0||!product?.research?.needsReview||!choice)throw Error('OA_ALTERNATIVE_INVALID');
  product.selectedReference={...choice};delete product.research;return cursor;
 }
-export const oaRequest=z.object({codes:z.array(stockCode).min(1).max(50),requestKey:z.string().uuid(),researchContext:z.string().trim().max(200).optional(),account:oaAccountId.optional()});
+export const oaRequest=z.object({codes:z.array(stockCode).min(1).max(50),requestKey:z.string().uuid(),researchContext:z.string().trim().max(200).optional(),account:oaAccountId.optional(),prepared:z.array(z.object({code:stockCode,token:z.string().min(1).max(32000),confirmed:z.literal(true)})).min(1).max(50).optional()});
 export function artifactFingerprint(value:unknown){return createHash('sha256').update(JSON.stringify(value)).digest('hex');}
 export function matchesOaRequest(job:{account:string;payload:Prisma.JsonValue},account:string,codes:string[]){
  return job.account===account&&JSON.stringify(oaPayload.parse(job.payload).sets.flatMap(set=>set.products).map(product=>product.code))===JSON.stringify(codes);
@@ -51,16 +52,24 @@ export async function createOaJob(actor:string,value:unknown,canChooseOther=fals
  const matches=(job:{account:string;payload:Prisma.JsonValue})=>matchesOaRequest(job,account,input.codes);
  const old=await db.lineOaJob.findUnique({where:{requestKey:input.requestKey}});if(old){if(!matches(old))throw Error('OA_REQUEST_CHANGED');return publicOaJob(old);}
  const draft=await prepareLineCardDraft({codes:input.codes});
- if(!draft.aiConfigured)throw Error('OPENAI_NOT_CONFIGURED');
+ if(!draft.aiConfigured&&!input.prepared)throw Error('OPENAI_NOT_CONFIGURED');
  const payload=validateOaPayload({version:1,sets:draft.sets,researchContext:input.researchContext});
+ if(input.prepared){
+  const products=payload.sets.flatMap(set=>set.products);
+  if(input.prepared.length!==products.length||new Set(input.prepared.map(item=>item.code)).size!==products.length)throw Error('OA_PREVIEW_CHANGED');
+  for(const product of products){
+   const prepared=input.prepared.find(item=>item.code===product.code);if(!prepared)throw Error('OA_PREVIEW_CHANGED');
+   product.research=readOaPreview(prepared.token,{actor,schema:currentDatabaseSchema(),code:product.code,name:product.name,images:product.images,context:input.researchContext??''});
+  }
+ }
  return transaction(async tx=>{
   await userLock(tx,'line-oa-create-job');
   if(!await tx.lineOaAccount.findFirst({where:{account,available:true}}))throw Error('OA_TARGET_UNAVAILABLE');
   const replay=await tx.lineOaJob.findUnique({where:{requestKey:input.requestKey}});if(replay){if(!matches(replay))throw Error('OA_REQUEST_CHANGED');return publicOaJob(replay);}
   const pending=await tx.lineOaJob.findMany({where:{account,status:{in:['QUEUED','RUNNING','RETRYING','AWAITING_LOGIN','AWAITING_REVIEW']}}});
   const codes=new Set(payload.sets.flatMap(s=>s.products).map(p=>p.code));if(pending.some(j=>oaPayload.parse(j.payload).sets.flatMap(s=>s.products).some(p=>codes.has(p.code))))throw Error('OA_JOB_ALREADY_PENDING');
-  const job=await tx.lineOaJob.create({data:{requestKey:input.requestKey,actor,account,payload:payload as Prisma.InputJsonValue,results:[]}});
-  await tx.auditLog.create({data:{actor,action:'LINE_OA_JOB_CREATED',entityId:job.id,details:{codes:input.codes,account}}});
+  const job=await tx.lineOaJob.create({data:{requestKey:input.requestKey,actor,account,payload:payload as Prisma.InputJsonValue,phase:input.prepared?'REPLIES':'RESEARCH',results:[]}});
+  await tx.auditLog.create({data:{actor,action:'LINE_OA_JOB_CREATED',entityId:job.id,details:{codes:input.codes,account,fromPreview:!!input.prepared}}});
   return publicOaJob(job);
  });
 }
