@@ -9,7 +9,7 @@ test('using a confirmed preview queues the exact text directly for saving withou
  const mock=(target:any,key:string,value:any)=>{const prior=target[key];target[key]=value;t.after(()=>{target[key]=prior;});};
  const oldSecret=process.env.SESSION_SECRET;process.env.SESSION_SECRET='test-preview-secret';
  t.after(()=>{if(oldSecret===undefined)delete process.env.SESSION_SECRET;else process.env.SESSION_SECRET=oldSecret;});
- mock(db.stockProductDescription,'findMany',async()=>[{code:'TEST01',name:'Test cup',text:'Ceramic cup, hand wash.'}]);
+ mock(db.stockProductDescription,'findMany',async()=>[{code:'TEST01',name:'Test cup',text:'Ceramic cup, hand wash.',linkUrl:'https://example.com/cup'}]);
  mock(db.lineOaBrowser,'findUnique',async()=>({account:'@test'}));
  mock(db.lineOaAccount,'findMany',async()=>[{account:'@test',available:true}]);
  mock(db.lineOaJob,'findUnique',async()=>null);
@@ -28,6 +28,7 @@ test('using a confirmed preview queues the exact text directly for saving withou
  await createOaJob('tester',{codes:['TEST01'],requestKey:'11111111-1111-4111-8111-111111111111',account:'@test',prepared:[{code:'TEST01',token,confirmed:true}]},true);
  assert.equal(created.phase,'REPLIES');
  assert.equal(created.payload.sets[0].products[0].description,'Ceramic cup, hand wash.');
+ assert.equal(created.payload.sets[0].products[0].linkUrl,'https://example.com/cup');
  assert.equal(created.payload.sets[0].products[0].research.text,research.text);
  assert.equal(created.payload.sets[0].products[0].research.needsReview,false);
  assert.deepEqual(created.payload.sets[0].products[0].images,product.images);

@@ -9,7 +9,7 @@ import {oaAccountId,chooseOaTarget} from './line-oa-accounts';
 import {parseOaProgress} from './line-oa-progress';
 import {readOaPreview} from './line-card-preview-token';
 
-export const oaProduct=z.object({code:z.string().min(1).max(12),name:z.string().min(1),description:z.string().max(60).optional(),priceSatang:z.number().int().nonnegative().max(999999999).optional(),images:z.array(z.object({slot:z.number(),url:z.string().nullable()})).length(3),replyTitle:z.string().max(20),keyword:z.string().min(1).max(30),research:researchResult.optional(),selectedReference:z.object({name:z.string().min(1).max(200),url:z.string().url().refine(url=>new URL(url).protocol==='https:')}).optional()});
+export const oaProduct=z.object({code:z.string().min(1).max(12),name:z.string().min(1),description:z.string().max(60).optional(),linkUrl:z.string().max(2048).url().refine(value=>{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password;}).optional(),priceSatang:z.number().int().nonnegative().max(999999999).optional(),images:z.array(z.object({slot:z.number(),url:z.string().nullable()})).length(3),replyTitle:z.string().max(20),keyword:z.string().min(1).max(30),research:researchResult.optional(),selectedReference:z.object({name:z.string().min(1).max(200),url:z.string().url().refine(url=>new URL(url).protocol==='https:')}).optional()});
 export const oaPayload=z.object({version:z.literal(1),researchContext:z.string().trim().max(200).optional(),sets:z.array(z.object({title:z.string().max(100),products:z.array(oaProduct).min(1).max(5)})).min(1).max(10)});
 export type OaPayload=z.infer<typeof oaPayload>;
 export function researchAlternatives(research:z.infer<typeof researchResult>|undefined){
