@@ -58,7 +58,7 @@ export function StockLineCardDraft(){
    }
   }catch(failure){if(token===generation.current)setError(failure instanceof Error?failure.message:'เตรียมข้อมูลไม่ได้');}
   finally{if(token===generation.current){setBusy(false);setResearching(null);}}
- }}>{busy?'กำลังเตรียมข้อมูล…':'ดูตัวอย่างการ์ด (ไม่บันทึก)'}</button></div>
+ }}>{busy?'กำลังเตรียมข้อมูล…':'สร้างข้อความและการ์ด LINE OA'}</button></div>
  {prepared&&<p role="status" className="notice">{prepared}</p>}{usedMessage&&<p role="status" className="notice">{usedMessage}</p>}{error&&<p role="alert" className="notice">{error}</p>}
  <dialog ref={dialog} className="stock-modal" aria-label="ตัวอย่างชุดการ์ด LINE OA"><h2>ตัวอย่างชุดการ์ด LINE OA</h2><p>บัญชีปลายทาง: {draft?.account??'ยังไม่ได้เลือก LINE OA'}</p>
  <p className="notice">ตรวจและยืนยันแต่ละรายการ แล้วกดใช้ข้อมูลชุดนี้เพื่อบันทึกข้อความและการ์ดใน LINE OA โดยไม่ค้นใหม่</p>{prepared&&<p role="status">{prepared}</p>}
