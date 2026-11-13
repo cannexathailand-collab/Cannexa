@@ -7,6 +7,7 @@ function pageWithDeletedItem(matches:number){
  const page:any={
   goto:async(url:string)=>{visits.push(url);},
   getByPlaceholder:()=>({waitFor:async()=>{throw Error('deleted');},fill:async()=>{}}),
+  getByText:()=>({waitFor:async()=>{throw Error('no guide');}}),
   getByRole:(_role:string,{name}:{name:string})=>({click:async()=>{if(name==='สร้างใหม่')creates++;},waitFor:async()=>{throw Error('no guide');}}),
   waitForTimeout:async()=>{},waitForLoadState:async()=>{},waitForURL:async()=>{},
   locator:()=>({getByRole:()=>({count:async()=>matches,click:async()=>{opens++;}})}),
@@ -24,6 +25,20 @@ test('deleted remote IDs are reconciled by title only inside the selected OA',as
  const duplicate=pageWithDeletedItem(2);
  await assert.rejects(openManagerItem(duplicate.page,'@second','autoresponse','ข้อมูล A1','123'),/OA_DUPLICATE_ITEM/);
  assert.equal(duplicate.creates,0);
+});
+test('empty edit forms from deleted cards fall back to the list without overwriting renamed cards',async t=>{
+ let clock=0;t.mock.method(Date,'now',()=>clock);
+ const empty=pageWithDeletedItem(0);
+ empty.page.getByPlaceholder=()=>({waitFor:async()=>{},inputValue:async()=>'',fill:async()=>{}});
+ empty.page.waitForTimeout=async()=>{clock+=21000;};
+ assert.equal(await openManagerItem(empty.page,'@second','cardtypemessage','Test set','123'),true);
+ assert.equal(empty.creates,1);
+ assert.ok(empty.visits.includes('https://manager.line.biz/account/@second/cardtypemessage'));
+ const renamed=pageWithDeletedItem(0);
+ renamed.page.getByPlaceholder=()=>({waitFor:async()=>{},inputValue:async()=>'User renamed card',fill:async()=>{}});
+ renamed.page.waitForTimeout=async()=>{clock+=21000;};
+ await assert.rejects(openManagerItem(renamed.page,'@second','cardtypemessage','Test set','123'),/OA_ARTIFACT_CHANGED/);
+ assert.equal(renamed.creates,0);
 });
 function keywordPage(rows:Record<string,string[]>){
  let url='',creates=0;const visits:string[]=[];

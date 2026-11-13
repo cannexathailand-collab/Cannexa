@@ -31,7 +31,11 @@ export async function openManagerItem(page:Page,account:string,kind:'cardtypemes
   // The control can exist before OA hydrates the saved item.
   const deadline=Date.now()+20000;
   while(await title.inputValue()!==name&&Date.now()<deadline)await page.waitForTimeout(250);
-  if(await title.inputValue()!==name)throw Error('OA_ARTIFACT_CHANGED');return false;
+  const savedTitle=await title.inputValue();
+  if(savedTitle===name)return false;
+  // Deleted cards can still render an empty edit form at their old URL.
+  // A real, differently named item must remain protected from overwrite.
+  if(savedTitle.trim())throw Error('OA_ARTIFACT_CHANGED');
   }
   // A user may delete the item in OA. Reconcile by exact title in the list
   // before creating anything, rather than trusting the old remote identifier.
