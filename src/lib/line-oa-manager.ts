@@ -96,7 +96,10 @@ async function checkbox(page:Page,label:string,value:boolean){
   if(await control.isChecked()!==value)throw Error('OA_OPTION_NOT_ACCEPTED');
  }
 }
-async function savedId(page:Page,kind:string,name:string){
+export async function savedId(page:Page,kind:string,name:string){
+ // Saving a new item navigates asynchronously to the list. Do not inspect
+ // the old /create URL and then wait for an edit URL that cannot arrive.
+ await page.waitForURL(new RegExp('/'+kind+'(?:/edit/\\d+)?(?:[?#]|$)'),{timeout:30000,waitUntil:'domcontentloaded'}).catch(()=>{throw Error('OA_SAVE_UNCONFIRMED');});
  await page.waitForLoadState('networkidle',{timeout:15000}).catch(()=>{});
  if(new URL(page.url()).pathname.endsWith('/'+kind)){
   const filter=page.getByPlaceholder(kind==='cardtypemessage'?'ใส่ชื่อไอเทม':'ใส่คีย์เวิร์ด',{exact:true});
@@ -120,8 +123,14 @@ export async function saveReplyEditor(page:Page){
 }
 export async function activateReply(page:Page){
  const start=page.getByRole('button',{name:'เริ่มใช้งาน',exact:true});
- if(await start.count())await start.last().click();
- await page.getByRole('button',{name:'หยุดใช้งาน',exact:true}).last().waitFor({state:'visible',timeout:20000});
+ if(await start.count()){
+  await start.last().click();
+  await page.waitForLoadState('networkidle',{timeout:15000}).catch(()=>{});
+  // Read the persisted state after activation instead of relying on a stale
+  // in-page button that can stay visible after the server accepted it.
+  await page.reload({waitUntil:'domcontentloaded'});
+ }
+ await page.getByRole('button',{name:'หยุดใช้งาน',exact:true}).last().waitFor({state:'visible',timeout:20000}).catch(()=>{throw Error('OA_REPLY_ACTIVATION_VERIFY_FAILED');});
 }
 export async function saveManagerReply(page:Page,account:string,product:Product){
  await reportOaProgress('กำลังเปิดข้อความ '+product.code);
@@ -164,6 +173,7 @@ export async function saveManagerReply(page:Page,account:string,product:Product)
  if(name!==product.replyTitle)throw Error('OA_NAME_VERIFY_FAILED');
  if(savedText!==textToSave)throw Error('OA_TEXT_VERIFY_FAILED');
  if(video)await verifyReplyVideo(page);
+ await reportOaProgress('กำลังยืนยันการเปิดใช้งานข้อความ '+product.code);
  await activateReply(page);
  const fingerprint=artifactFingerprint({text:savedText});
  await db.lineOaArtifact.upsert({where:{account_kind_key:{account,kind:'reply',key:product.code}},create:{account,kind:'reply',key:product.code,remoteId:id,fingerprint},update:{remoteId:id,fingerprint}});
