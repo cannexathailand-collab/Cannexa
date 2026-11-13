@@ -13,7 +13,7 @@ test('card account action opens only the customer profile without a product sele
 
 test('card action copies an explicit custom link and leaves blank links on the account page',t=>{
  const old=process.env.APP_URL;process.env.APP_URL='https://example.org';t.after(()=>{if(old===undefined)delete process.env.APP_URL;else process.env.APP_URL=old;});
- assert.deepEqual(cardActionLink({linkUrl:'https://example.com/information'}),{label:'เปิดลิงก์',url:'https://example.com/information'});
+ assert.deepEqual(cardActionLink({linkUrl:'https://example.com/information'}),{label:'Open Link',url:'https://example.com/information'});
  assert.equal(cardActionLink({}).url,'https://example.org/customer?tab=profile');
  for(const linkUrl of ['javascript:alert(1)','https://user:pass@example.com/'])assert.throws(()=>cardActionLink({linkUrl}));
 });
