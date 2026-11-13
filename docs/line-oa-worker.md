@@ -38,7 +38,7 @@ The stock page selects a discovered OA as the job destination. The default
 is the shop's configured OA; other destinations are owner-only. Jobs and
 artifacts remain keyed by OA, so identical product codes on different OAs
 do not conflict. A repeated request key cannot change its destination.
-The worker uses separate tabs within one shared authenticated context and verifies each job's OA
+The worker uses separate tabs with independent browser contexts cloned from the saved login and verifies each job's OA
 before editing. A transactional per-OA exclusion prevents two jobs for the same destination from running together. Authentication state is persisted once after all tabs finish. Removed or unavailable destinations cannot receive new jobs.
 
 Each running job stores its current step and the last 60 progress events.

@@ -1,4 +1,4 @@
-import {runOaWorkBatch} from '../../src/lib/line-oa-work-batch';
+import {runOaWorkBatch,createIsolatedOaSession} from '../../src/lib/line-oa-work-batch';
 import {chromium,type BrowserContext,type Page} from 'playwright-core';
 import {db} from '../../src/lib/db';
 import {oaCommand,sealOaState,unsealOaState} from '../../src/lib/line-oa-browser';
@@ -22,11 +22,9 @@ async function openPage(){
 async function createWorkSession(){
  const connection=await db.lineOaBrowser.findUniqueOrThrow({where:{id:'active'}});
  const saved=unsealOaState(connection.encryptedConfig);
- const context=await browser.newContext({locale:'th-TH',timezoneId:'Asia/Bangkok',viewport:{width:1280,height:900},...(saved.cookies?{storageState:saved}:{})});
- return {
-  openPage:async()=>{const page=await context.newPage();page.setDefaultTimeout(20000);return {page,close:async()=>{await page.close();}};},
-  close:async()=>{try{const state=await context.storageState({indexedDB:true});await db.lineOaBrowser.update({where:{id:'active'},data:{encryptedConfig:sealOaState(state)}});}finally{await context.close();}},
- };
+ return createIsolatedOaSession(browser,saved.cookies?saved:undefined,async state=>{
+  await db.lineOaBrowser.update({where:{id:'active'},data:{encryptedConfig:sealOaState(state)}});
+ });
 }
 async function loginStep(){
  const connection=await db.lineOaBrowser.findUnique({where:{id:'active'}});if(!connection)return false;

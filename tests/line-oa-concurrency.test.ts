@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {db} from '../src/lib/db';
 import {claimOaJob,releaseOaBrowserLease} from '../src/lib/line-oa-job';
-import {runOaWorkBatch,type OaWorkSession} from '../src/lib/line-oa-work-batch';
+import {runOaWorkBatch,createIsolatedOaSession,type OaWorkSession} from '../src/lib/line-oa-work-batch';
 
 test('parallel claims take different OAs, respect the cap, and keep the other OA lease on release',async t=>{
  const original=db.$transaction;t.after(()=>{db.$transaction=original;});
@@ -39,4 +39,15 @@ test('an idle wave creates no browser session, and a failed slot waits for the o
  assert.equal(await runOaWorkBatch(create,async()=>false),false);assert.equal(sessions,0);
  await assert.rejects(runOaWorkBatch(create,async open=>{if(slot++===0)throw Error('test failure');await open();await Promise.resolve();finished=true;return true;}),/test failure/);
  assert.ok(closed);assert.ok(finished);
+});
+
+test('five shops have isolated browser state and persist the login once after all tabs close',async()=>{
+ const created:any[]=[],saved:any[]=[];let closed=0;
+ const original={cookies:[],origins:[]};
+ const browser:any={newContext:async(options:any)=>{const state={cookies:[],origins:[{origin:'https://manager.line.biz',localStorage:[{name:'shop',value:String(created.length)}]}]};const context={state,newPage:async()=>({setDefaultTimeout:()=>{}}),storageState:async()=>state,close:async()=>{closed++;}};created.push(context);assert.equal(options.storageState,original);return context;}};
+ const session=createIsolatedOaSession(browser,original,async state=>{assert.equal(closed,5);saved.push(state);});
+ const pages=await Promise.all(Array.from({length:5},()=>session.openPage()));
+ assert.equal(new Set(created).size,5);assert.equal(new Set(created.map(c=>c.state.origins[0].localStorage[0].value)).size,5);
+ await Promise.all(pages.map(page=>page.close()));assert.equal(saved.length,0);
+ await session.close();assert.equal(saved.length,1);assert.equal(closed,5);
 });
