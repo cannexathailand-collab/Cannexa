@@ -5,13 +5,14 @@ import {OaJobList} from './oa-job-list';
 import {canConfirmPreview,confirmPreview,editCardDetails,replacePreviewResearch,previewSummary,type CardPreviewProduct,type CardPreviewResearch} from '@/lib/line-card-preview-state';
 type Draft={account:string|null;aiConfigured:boolean;sets:{title:string;products:CardPreviewProduct[]}[];delivery:{savedToLineOA:boolean;requiresLocalRunner:boolean}};
 export function StockLineCardDraft(){
- const selection=useStockDeleteQueue(),dialog=useRef<HTMLDialogElement>(null),generation=useRef(0);
- const [busy,setBusy]=useState(false),[error,setError]=useState(''),[draft,setDraft]=useState<Draft|null>(null);
+ const selection=useStockDeleteQueue(),previewSection=useRef<HTMLElement>(null),generation=useRef(0);
+ const [busy,setBusy]=useState(false),[error,setError]=useState(''),[draft,setDraft]=useState<Draft|null>(null),[previewOpen,setPreviewOpen]=useState(false);
  const [oaAccounts,setOaAccounts]=useState<string[]>([]),[researchContext,setResearchContext]=useState(''),[researching,setResearching]=useState<string|null>(null);
  const [using,setUsing]=useState(false),[usedMessage,setUsedMessage]=useState(''),[confirming,setConfirming]=useState<string|null>(null);
  const useRequestKey=useRef<string|null>(null);
  const signature=[...(selection?.selected??[])].sort().join('\0'),accountSignature=oaAccounts.join('\0');
- useEffect(()=>{generation.current++;setDraft(null);setBusy(false);setResearching(null);setUsedMessage('');useRequestKey.current=null;},[signature,accountSignature,researchContext]);
+ useEffect(()=>{generation.current++;setDraft(null);setPreviewOpen(false);setBusy(false);setResearching(null);setUsedMessage('');useRequestKey.current=null;},[signature,accountSignature,researchContext]);
+ useEffect(()=>{if(previewOpen)previewSection.current?.scrollIntoView({behavior:'smooth',block:'start'});},[previewOpen]);
  function updateProduct(code:string,update:(product:CardPreviewProduct)=>CardPreviewProduct){
   setDraft(current=>current?{...current,sets:current.sets.map(set=>({...set,products:set.products.map(product=>product.code===code?update(product):product)}))}:current);
  }
@@ -49,20 +50,21 @@ export function StockLineCardDraft(){
    const response=await fetch('/api/admin/stock/line-oa-jobs/batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({codes:products.map(product=>product.code),accounts:oaAccounts,researchContext,requestKey:useRequestKey.current,prepared:products.map(product=>({code:product.code,token:product.previewToken,confirmed:true}))})});
    const result=await response.json();if(!response.ok)throw Error(result.error??'ยังส่งข้อมูลชุดนี้ไม่ได้');
    if(result.failures?.length)throw Error('เข้าคิวแล้ว '+result.jobs.length+' ร้าน · '+result.failures.map((item:{name:string;error:string})=>item.name+': '+item.error).join(' · ')+' · กดใช้ข้อมูลชุดนี้เพื่อลองร้านที่ยังไม่สำเร็จได้');
-   setUsedMessage('เข้าคิวแล้ว '+result.jobs.length+' ร้าน โดยใช้ข้อมูลชุดเดียวกัน · ดูสถานะงานด้านล่าง');dialog.current?.close();
+   setUsedMessage('เข้าคิวแล้ว '+result.jobs.length+' ร้าน โดยใช้ข้อมูลชุดเดียวกัน · ดูสถานะงานด้านล่าง');setPreviewOpen(false);requestAnimationFrame(()=>document.getElementById('oa-job-status')?.scrollIntoView({behavior:'smooth',block:'start'}));
   }catch(failure){setError(failure instanceof Error?failure.message:'ยังส่งข้อมูลชุดนี้ไม่ได้');}
   finally{setUsing(false);}
  }
  const prepared=draft&&!busy?previewSummary(draft.sets.flatMap(set=>set.products)):'';
  if(!selection?.enabled)return null;
  return <><OaJobList oaAccounts={oaAccounts} setOaAccounts={setOaAccounts} researchContext={researchContext} setResearchContext={setResearchContext}/>
- <div className="actions" style={{marginBottom:16}}><button type="button" disabled={busy||using||!!researching||selection.busy||!selection.selected.size||!oaAccounts.length} onClick={async()=>{
-  const token=++generation.current;setBusy(true);setError('');setDraft(null);setUsedMessage('');useRequestKey.current=null;
+ <div className="actions" style={{marginBottom:16}}><button type="button" aria-expanded={previewOpen} aria-controls="oa-card-preview" disabled={busy||using||!!researching||selection.busy||!selection.selected.size||!oaAccounts.length} onClick={async()=>{
+  if(draft&&!usedMessage){setPreviewOpen(open=>!open);return;}
+  const token=++generation.current;setPreviewOpen(true);setBusy(true);setError('');setDraft(null);setUsedMessage('');useRequestKey.current=null;
   try{
    const response=await fetch('/api/admin/stock/line-card-draft',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({codes:[...selection.selected]})});
    const data:Draft&{error?:string}=await response.json();if(!response.ok)throw Error(data.error);
    if(token!==generation.current)return;
-   data.account=oaAccounts.join(', ')||data.account;setDraft(data);dialog.current?.showModal();
+   data.account=oaAccounts.join(', ')||data.account;setDraft(data);
    if(data.aiConfigured)for(const product of data.sets.flatMap(set=>set.products)){
     setResearching(product.code);
     try{const result=await research(product.code);if(token!==generation.current)return;updateProduct(product.code,current=>replacePreviewResearch(current,result));}
@@ -70,11 +72,11 @@ export function StockLineCardDraft(){
    }
   }catch(failure){if(token===generation.current)setError(failure instanceof Error?failure.message:'เตรียมข้อมูลไม่ได้');}
   finally{if(token===generation.current){setBusy(false);setResearching(null);}}
- }}>{busy?'กำลังเตรียมข้อมูล…':'สร้างข้อความและการ์ด LINE OA'}</button></div>
+ }}>{busy?'กำลังเตรียมข้อมูล…':draft&&!usedMessage?(previewOpen?'ซ่อนข้อมูลที่เตรียมไว้':'เปิดข้อมูลที่เตรียมไว้'):'สร้างข้อความและการ์ด LINE OA'}</button></div>
  {prepared&&<p role="status" className="notice">{prepared}</p>}{usedMessage&&<p role="status" className="notice">{usedMessage}</p>}{error&&<p role="alert" className="notice">{error}</p>}
- <dialog ref={dialog} className="stock-modal" aria-label="ตัวอย่างชุดการ์ด LINE OA"><h2>ตัวอย่างชุดการ์ด LINE OA</h2><p>บัญชีปลายทาง: {draft?.account??'ยังไม่ได้เลือก LINE OA'}</p>
+ {previewOpen&&<section id="oa-card-preview" ref={previewSection} className="card" aria-label="ตัวอย่างชุดการ์ด LINE OA" style={{scrollMarginTop:20,marginTop:16}}><h2>ตัวอย่างชุดการ์ด LINE OA</h2><p>บัญชีปลายทาง: {draft?.account??'ยังไม่ได้เลือก LINE OA'}</p>
  <p className="notice">กรอกคำอธิบายและลิงก์แยกตามสินค้า ระบบจะจำไว้เมื่อยืนยันข้อมูล ตรวจและยืนยันแต่ละรายการ แล้วกดใช้ข้อมูลชุดนี้เพื่อบันทึกข้อความและการ์ดใน LINE OA โดยไม่ค้นใหม่</p>{prepared&&<p role="status">{prepared}</p>}
- {!draft?.aiConfigured&&<p>ยังไม่ได้เชื่อม OpenAI กรุณาไปที่หมวดการเชื่อมต่อ</p>}
+ {draft&&!draft.aiConfigured&&<p>ยังไม่ได้เชื่อม OpenAI กรุณาไปที่หมวดการเชื่อมต่อ</p>}
  {draft?.sets.map(set=><section key={set.title}><h3>{set.title}</h3>{set.products.map(product=><article key={product.code} className="card" aria-label={'ตัวอย่าง '+product.code}>
   <strong>{product.code} · {product.name??'ยังไม่มีชื่อ'}</strong>
   <div className="actions">{product.images.map(image=>image.url?<img key={image.slot} src={image.url} alt={'รูป '+image.slot+' '+product.code} width={90} height={90} style={{objectFit:'contain'}}/>:<span key={image.slot} className="muted">ยังไม่มีรูป {image.slot}</span>)}</div>
@@ -97,5 +99,5 @@ export function StockLineCardDraft(){
  </article>)}</section>)}
  {busy&&<p role="status">{researching?`กำลังค้นข้อมูล ${researching}…`:'กำลังเตรียมรายการ…'}</p>}{error&&<p role="alert" className="notice">{error}</p>}
  <div className="actions"><button type="button" disabled={busy||using||!!researching||!!confirming||!oaAccounts.length||!!usedMessage||!draft?.sets.length||draft.sets.some(set=>set.products.some(product=>!product.confirmed||!canConfirmPreview(product)||product.images.some(image=>!image.url)))} onClick={()=>void usePreview()}>{using?'กำลังรับข้อมูล…':'ใช้ข้อมูลชุดนี้สร้างใน LINE OA'}</button>
- <button type="button" className="secondary" disabled={busy||using||!!researching||!!confirming} onClick={()=>dialog.current?.close()}>ปิด</button></div></dialog></>;
+ <button type="button" className="secondary" disabled={busy||using||!!researching||!!confirming} onClick={()=>setPreviewOpen(false)}>ซ่อนตัวอย่าง</button></div></section>}</>;
 }
