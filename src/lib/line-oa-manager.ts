@@ -141,10 +141,18 @@ export async function activateReply(page:Page){
  await page.getByRole('button',{name:/^(เริ่มใช้งาน|หยุดใช้งาน)$/}).first().waitFor({state:'visible',timeout:20000}).catch(async()=>{throw await activationError(page,'WAIT_CONTROLS');});
  const stop=page.getByRole('button',{name:'หยุดใช้งาน',exact:true}).last();
  if(await stop.isVisible())return;
+ const editorUrl=new URL(page.url()),listPath=editorUrl.pathname.replace(/\/edit\/\d+\/?$/,'');
+ if(editorUrl.origin!=='https://manager.line.biz'||listPath===editorUrl.pathname)throw Error('OA_REPLY_EDITOR_INVALID');
  await page.getByRole('button',{name:'เริ่มใช้งาน',exact:true}).last().click();
- await stop.waitFor({state:'visible',timeout:20000}).catch(async()=>{throw await activationError(page,'WAIT_AFTER_CLICK');});
- await page.reload({waitUntil:'domcontentloaded'});
- await stop.waitFor({state:'visible',timeout:20000}).catch(async()=>{throw await activationError(page,'WAIT_AFTER_RELOAD');});
+ // OA may navigate back to the list after accepting activation. Either
+ // that navigation or the active-state button is sufficient to re-open
+ // the exact editor and verify the persisted server state.
+ await Promise.any([
+  stop.waitFor({state:'visible',timeout:20000}),
+  page.waitForURL(url=>url.origin===editorUrl.origin&&(url.pathname===listPath||url.pathname===listPath+'/'),{timeout:20000,waitUntil:'domcontentloaded'}),
+ ]).catch(async()=>{throw await activationError(page,'WAIT_AFTER_CLICK');});
+ await page.goto(editorUrl.href,{waitUntil:'domcontentloaded'});
+ await stop.waitFor({state:'visible',timeout:20000}).catch(async()=>{throw await activationError(page,'WAIT_AFTER_REOPEN');});
 }
 export async function saveManagerReply(page:Page,account:string,product:Product){
  await reportOaProgress('กำลังเปิดข้อความ '+product.code);
