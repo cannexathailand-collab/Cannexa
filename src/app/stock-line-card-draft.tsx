@@ -1,12 +1,10 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import {useRouter} from 'next/navigation';
 import {useStockDeleteQueue} from './stock-delete-provider';
 import {OaJobList} from './oa-job-list';
 import {canConfirmPreview,confirmPreview,editCardDetails,replacePreviewResearch,previewSummary,type CardPreviewProduct,type CardPreviewResearch} from '@/lib/line-card-preview-state';
 type Draft={account:string|null;aiConfigured:boolean;sets:{title:string;products:CardPreviewProduct[]}[];delivery:{savedToLineOA:boolean;requiresLocalRunner:boolean}};
 export function StockLineCardDraft(){
- const router=useRouter(),settingsSaved=useRef(false);
  const selection=useStockDeleteQueue(),dialog=useRef<HTMLDialogElement>(null),generation=useRef(0);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[draft,setDraft]=useState<Draft|null>(null);
  const [oaAccount,setOaAccount]=useState(''),[researchContext,setResearchContext]=useState(''),[researching,setResearching]=useState<string|null>(null);
@@ -23,7 +21,6 @@ export function StockLineCardDraft(){
   try{
    const response=await fetch('/api/admin/stock/description',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:product.code,name:product.name??'',text:product.description??'',linkUrl:product.linkUrl??'',version:product.settingsVersion??''})});
    const saved=await response.json();if(!response.ok)throw Error(saved.error??'ยังบันทึกข้อมูลการ์ดไม่ได้');
-   settingsSaved.current=true;
    updateProduct(product.code,current=>confirmPreview({...current,description:saved.text,linkUrl:saved.linkUrl,settingsVersion:saved.version}));
   }catch(failure){setError(failure instanceof Error?failure.message:'ยังบันทึกข้อมูลการ์ดไม่ได้');}
   finally{setConfirming(null);}
@@ -73,7 +70,7 @@ export function StockLineCardDraft(){
   finally{if(token===generation.current){setBusy(false);setResearching(null);}}
  }}>{busy?'กำลังเตรียมข้อมูล…':'สร้างข้อความและการ์ด LINE OA'}</button></div>
  {prepared&&<p role="status" className="notice">{prepared}</p>}{usedMessage&&<p role="status" className="notice">{usedMessage}</p>}{error&&<p role="alert" className="notice">{error}</p>}
- <dialog ref={dialog} className="stock-modal" aria-label="ตัวอย่างชุดการ์ด LINE OA" onClose={()=>{if(settingsSaved.current){settingsSaved.current=false;router.refresh();}}}><h2>ตัวอย่างชุดการ์ด LINE OA</h2><p>บัญชีปลายทาง: {draft?.account??'ยังไม่ได้เลือก LINE OA'}</p>
+ <dialog ref={dialog} className="stock-modal" aria-label="ตัวอย่างชุดการ์ด LINE OA"><h2>ตัวอย่างชุดการ์ด LINE OA</h2><p>บัญชีปลายทาง: {draft?.account??'ยังไม่ได้เลือก LINE OA'}</p>
  <p className="notice">กรอกคำอธิบายและลิงก์แยกตามสินค้า ระบบจะจำไว้เมื่อยืนยันข้อมูล ตรวจและยืนยันแต่ละรายการ แล้วกดใช้ข้อมูลชุดนี้เพื่อบันทึกข้อความและการ์ดใน LINE OA โดยไม่ค้นใหม่</p>{prepared&&<p role="status">{prepared}</p>}
  {!draft?.aiConfigured&&<p>ยังไม่ได้เชื่อม OpenAI กรุณาไปที่หมวดการเชื่อมต่อ</p>}
  {draft?.sets.map(set=><section key={set.title}><h3>{set.title}</h3>{set.products.map(product=><article key={product.code} className="card" aria-label={'ตัวอย่าง '+product.code}>
