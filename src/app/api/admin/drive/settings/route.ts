@@ -1,3 +1,4 @@
+import {driveOperators} from '@/lib/accounts';
 import {NextResponse} from 'next/server';
 import {randomUUID} from 'node:crypto';
 import {admin,sameOrigin} from '@/lib/auth';
@@ -5,7 +6,7 @@ import {db,transaction} from '@/lib/db';
 import {baseUrl} from '@/lib/config';
 import {driveFolderId} from '@/lib/drive-connection';
 export async function POST(request:Request){
- let actor:string;try{actor=await admin();await sameOrigin();}catch{return new Response('Forbidden',{status:403});}
+ let actor:string;try{actor=await admin(driveOperators);await sameOrigin();}catch{return new Response('Forbidden',{status:403});}
  const form=await request.formData(),back=(status:string)=>NextResponse.redirect(baseUrl()+'/admin/drive?status='+status,303);
  try{await transaction(async tx=>{
   if(form.get('action')==='disconnect'){await tx.driveConnection.updateMany({where:{id:'active'},data:{encryptedToken:null,email:null,connectedAt:null,revision:randomUUID()}});await tx.driveOAuthAttempt.deleteMany({});}

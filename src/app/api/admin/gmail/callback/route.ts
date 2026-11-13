@@ -1,3 +1,4 @@
+import {driveOperators} from '@/lib/accounts';
 import {NextResponse} from "next/server";
 import {cookies} from "next/headers";
 import {admin,currentAccount} from "@/lib/auth";
@@ -8,8 +9,11 @@ import {decryptGmail,encryptGmail,exchangeGmailCode,type GmailConfig} from "@/li
 import {finishDriveOAuth} from '@/lib/drive-connection';
 export async function GET(req:Request){
  const back=(status:string)=>NextResponse.redirect(baseUrl()+"/admin/gmail?status="+status,303);
+ if(new URL(req.url).searchParams.get('state')?.startsWith('drive.')){
+  try{await admin(driveOperators);}catch{return NextResponse.redirect(baseUrl()+'/admin/drive?status=session-expired',303);}
+  return finishDriveOAuth(req);
+ }
  try{await admin();}catch{return back("session-expired");}
- if(new URL(req.url).searchParams.get('state')?.startsWith('drive.'))return finishDriveOAuth(req);
  const url=new URL(req.url),state=url.searchParams.get("state")??"",code=url.searchParams.get("code")??"",jar=await cookies(),browser=jar.get("gmail_oauth")?.value??"";jar.delete("gmail_oauth");
  if(!state||state.length>256||!browser)return back("invalid-state");
  const actor=await currentAccount();
