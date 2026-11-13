@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {adminChatTools,chatInput,chatRange,customerChatInput,runAdminChat} from '../src/lib/admin-chat';
+import {adminChatTools,chatInput,chatRange,customerChatInput,matchesStockThreshold,runAdminChat} from '../src/lib/admin-chat';
 
 test('chat validates bounded history and denies roles without financial access',()=>{
  assert.equal(chatInput.safeParse({message:' '}).success,false);
@@ -14,6 +14,14 @@ test('chat validates bounded history and denies roles without financial access',
  assert.equal(customerChatInput.safeParse({query:'',activity:'all',inactiveDays:0}).success,true);
  assert.equal(customerChatInput.safeParse({query:'',activity:'never',inactiveDays:0}).success,true);
  assert.equal(customerChatInput.safeParse({query:'',activity:'inactive',inactiveDays:0}).success,false);
+});
+test('stock threshold distinguishes less than from at most, including fractional grams',()=>{
+ const input={lowOnly:true,thresholdGrams:100,comparison:'below' as const};
+ assert.equal(matchesStockThreshold(99.9,input),true);
+ assert.equal(matchesStockThreshold(100,input),false);
+ assert.equal(matchesStockThreshold(100,{...input,comparison:'atMost'}),true);
+ assert.equal(matchesStockThreshold(null,input),false);
+ assert.equal(matchesStockThreshold(null,{...input,lowOnly:false}),true);
 });
 test('customer lists retain server-provided rows and detail links independently of model text',async()=>{
  let step=0;

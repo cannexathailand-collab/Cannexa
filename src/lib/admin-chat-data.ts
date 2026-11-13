@@ -7,7 +7,7 @@ import {salesReport} from './sales-report';
 import {dayStart,shiftDay,bangkokDay,DAY_MS} from './sales-dates';
 import {readStockSheet} from './stock-google';
 import {activeCustomerProfileFilter} from './customer-profile-deletion';
-import {customerChatInput,chatRange,stockChatInput,type ChatData} from './admin-chat';
+import {customerChatInput,chatRange,stockChatInput,matchesStockThreshold,type ChatData} from './admin-chat';
 
 export async function claimAdminChat(actor:string){
  await transaction(async tx=>{
@@ -43,8 +43,9 @@ export async function readAdminChatData(role:Role,name:string,args:unknown):Prom
   const products=live?live.products.map(p=>({code:p.code,name:p.name,remainingGrams:p.remainingQuantity,costSatangPerGram:p.costSatang})):cached.map(p=>({code:p.code,name:p.name,remainingGrams:p.remainingQuantity?.toNumber()??null,costSatangPerGram:p.costSatang}));
   const query=input.query.toLocaleLowerCase();
   const matching=products.filter(p=>!query||(p.code+' '+(p.name??'')).toLocaleLowerCase().includes(query));
-  const filtered=matching.filter(p=>!input.lowOnly||p.remainingGrams!==null&&p.remainingGrams<=input.thresholdGrams).sort((a,b)=>(a.remainingGrams??Infinity)-(b.remainingGrams??Infinity)||a.code.localeCompare(b.code));
-  return {source:{title:'สต๊อกสินค้า',url:base+'/stock'+(input.query?'?q='+encodeURIComponent(input.query):''),readAt},data:{basis:'Physical remaining grams, not sellable quantity. No inventory projection.',cached:!live,sourceReadAt:live?.readAt.toISOString()??null,oldestCachedAt:cached.length?new Date(Math.min(...cached.map(p=>+p.updatedAt))).toISOString():null,query:input,matchingCount:matching.length,resultCount:filtered.length,unknownBalanceCount:matching.filter(p=>p.remainingGrams===null).length,shown:filtered.slice(0,30),truncated:filtered.length>30}};
+  const filtered=matching.filter(p=>matchesStockThreshold(p.remainingGrams,input)).sort((a,b)=>(a.remainingGrams??Infinity)-(b.remainingGrams??Infinity)||a.code.localeCompare(b.code));
+  const shown=filtered.slice(0,30);
+  return {source:{title:'สต๊อกสินค้า',url:base+'/stock'+(input.query?'?q='+encodeURIComponent(input.query):''),readAt},data:{basis:'Physical remaining grams, not sellable quantity. No inventory projection.',cached:!live,sourceReadAt:live?.readAt.toISOString()??null,oldestCachedAt:cached.length?new Date(Math.min(...cached.map(p=>+p.updatedAt))).toISOString():null,filters:input,total:filtered.length,shownCount:shown.length,unknownBalanceCount:matching.filter(p=>p.remainingGrams===null).length,shown,truncated:filtered.length>30},table:{title:'สินค้าตรงเงื่อนไขสต๊อก',total:filtered.length,columns:['รหัสสินค้า','ชื่อ','คงเหลือ (กรัม)'],rows:shown.map(row=>({cells:[row.code,row.name||'ยังไม่ระบุชื่อ',row.remainingGrams===null?'ไม่ทราบ':String(row.remainingGrams)],url:base+'/stock?q='+encodeURIComponent(row.code)}))}};
  }
  const range=chatRange.parse(args),query=new URLSearchParams(range).toString();
  if(name==='sales_summary'&&slug){

@@ -14,7 +14,7 @@ export function adminChatTools(role:Role,tenant=false){
   fn('sales_summary',tenant?'Read booked sales by this shop close rounds, including gross profit and incomplete cost flags. All money is satang.':'Read recognized sales and comparisons from the sales report. All money is in satang. This differs from cash receipts and orders placed.',dates),
   fn('accounting_summary','Read income, expenses, profit and incomplete-cost notices from the accounting report. All money is in satang.',dates),
   fn('customer_lookup','Find customers by name or code; show a real list. activity all means all matching, inactive means a previous non-cancelled order at least inactiveDays ago (use at least 1), never means no qualifying order. inactiveDays may be 0 when activity is all or never. No phone numbers or addresses.',{query:{type:'string',maxLength:100},activity:{type:'string',enum:['all','inactive','never']},inactiveDays:{type:'integer',minimum:0,maximum:3650}}),
-  ...(!tenant||role==='owner'?[fn('stock_lookup','Read current stock. Empty query matches all. lowOnly limits to physical remaining quantity at or below thresholdGrams. Report missing balances separately.',{query:{type:'string'},lowOnly:{type:'boolean'},thresholdGrams:{type:'number'}})]:[]),
+  ...(!tenant||role==='owner'?[fn('stock_lookup','Read current stock. Empty query matches all. When lowOnly is true, comparison below means strictly less than thresholdGrams; atMost means less than or equal. For น้อยกว่า 100 use below and 100, not 99. The total is already filtered; shownCount is the displayed subset.',{query:{type:'string',maxLength:100},lowOnly:{type:'boolean'},thresholdGrams:{type:'number',minimum:0,maximum:1000000},comparison:{type:'string',enum:['below','atMost']}})]:[]),
   ...(role==='owner'?[fn('order_summary','Read order counts by status in a Bangkok calendar date range. No customer contact details.',dates)]:[]),
  ];
 }
@@ -22,7 +22,10 @@ export const chatRange=z.object({from:z.string(),to:z.string()}).strict().superR
  try{const days=(+dayStart(range.to)-+dayStart(range.from))/DAY_MS;if(days<0||days>365||range.to>bangkokDay(new Date()))throw Error();}
  catch{ctx.addIssue({code:'custom',message:'Choose valid dates up to today and no more than 366 days.'});}
 });
-export const stockChatInput=z.object({query:z.string().trim().max(100),lowOnly:z.boolean(),thresholdGrams:z.number().finite().min(0).max(1000000)}).strict();
+export const stockChatInput=z.object({query:z.string().trim().max(100),lowOnly:z.boolean(),thresholdGrams:z.number().finite().min(0).max(1000000),comparison:z.enum(['below','atMost']).default('below')}).strict();
+export function matchesStockThreshold(quantity:number|null,input:{lowOnly:boolean;thresholdGrams:number;comparison:'below'|'atMost'}){
+ return !input.lowOnly||quantity!==null&&(input.comparison==='below'?quantity<input.thresholdGrams:quantity<=input.thresholdGrams);
+}
 export const customerChatInput=z.object({query:z.string().trim().max(100),activity:z.enum(['all','inactive','never']),inactiveDays:z.number().int().min(0).max(3650)}).strict().refine(value=>value.activity!=='inactive'||value.inactiveDays>=1,{message:'Inactive customers require at least one day.'});
 
 type ChatDependencies={model:string;tenant?:boolean;request:(body:Record<string,unknown>)=>Promise<any>;read:(name:string,args:unknown)=>Promise<ChatData>};
