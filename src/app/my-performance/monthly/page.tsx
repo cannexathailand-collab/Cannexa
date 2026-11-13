@@ -17,7 +17,7 @@ export default async function EmployeeMonthly({searchParams}:{searchParams:Promi
  const amount=(status:'Approved'|'Paid')=>entries.filter(r=>r.status===status).reduce((n,r)=>n+r.amountSatang,0);
  return <main className="center-page performance-page"><section className="customer">
   <h1>{t("สรุปผลงานรายเดือน")}</h1><p className="muted">{a.username} {t(" · เลือกเดือนเพื่อดูผลงานและค่าคอมของคุณ")}</p><EmployeeNav active="monthly"/>
-  <CommissionMonthSelect action="/my-performance/monthly" month={result.month} months={result.months} label={t("เดือนที่ต้องการดู")}/>
+  <CommissionMonthSelect locale={locale} action="/my-performance/monthly" month={result.month} months={result.months} label={t("เดือนที่ต้องการดู")}/>
   <section className="commission-summary-grid" aria-label={t("ค่าคอมประจำเดือน")}>
    <article className="commission-metric"><span>{t("ค่าคอมรอจ่ายของเดือนที่เลือก")}</span><strong>{money(amount('Approved'))}</strong><small>{t("ค่าคอมที่คำนวณแล้วและยังไม่จ่าย")}</small></article>
    <article className="commission-metric"><span>{t("ค่าคอมจ่ายแล้วของเดือนที่เลือก")}</span><strong>{money(amount('Paid'))}</strong><small>{t("ยอดจ่ายของรายการในเดือนที่เลือก")}</small></article>

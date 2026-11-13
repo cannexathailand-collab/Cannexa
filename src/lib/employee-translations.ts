@@ -1,5 +1,9 @@
 // UI translations only; order data and submission templates remain unchanged.
 export const employeeEnglish:Record<string,string>={
+ "ค่าคอมเพิ่มเพื่อน":"Friend referral commission",
+ "ค่าคอมโอน":"Bank transfer commission",
+ "ค่าคอม COD":"COD commission",
+ "ค่าคอมพิเศษ / โบนัส":"Special commission / Bonus",
   "ดูรายละเอียดค่าคอม": "View commission details",
   "ดูประวัติ แยกประเภท และสถานะการจ่าย": "View history, categories and payment status",
   "รายละเอียดค่าคอม": "Commission details",

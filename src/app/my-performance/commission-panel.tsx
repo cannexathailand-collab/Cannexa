@@ -42,8 +42,8 @@ export async function CommissionPanel({affiliateId,username,filters}:{affiliateI
    <form method="get" action="/my-performance" className="commission-filters">
     <input type="hidden" name="commissionOpen" value="1"/>
     {filters.month&&<input type="hidden" name="month" value={filters.month}/>}
-    <label>{t("ประเภท")}<select name="kind" defaultValue={kind}>{[['ALL','ทุกประเภท'],...Object.entries(commissionKinds)].map(([v,t])=><option value={v} key={v}>{t}</option>)}</select></label>
-    <label>{t("สถานะ")}<select name="status" defaultValue={status}>{[['ALL','ทุกสถานะ'],...Object.entries(statuses)].map(([v,t])=><option value={v} key={v}>{t}</option>)}</select></label>
+    <label>{t("ประเภท")}<select name="kind" defaultValue={kind}>{[['ALL','ทุกประเภท'],...Object.entries(commissionKinds)].map(([v,label])=><option value={v} key={v}>{t(label)}</option>)}</select></label>
+    <label>{t("สถานะ")}<select name="status" defaultValue={status}>{[['ALL','ทุกสถานะ'],...Object.entries(statuses)].map(([v,label])=><option value={v} key={v}>{t(label)}</option>)}</select></label>
     <label>{t("เดือนของรายการ")}<select name="commissionMonth" defaultValue={month}><option value="ALL">{t("ทุกเดือน")}</option>{months.map(m=><option value={m} key={m}>{new Date(m+'-01T00:00:00+07:00').toLocaleDateString(locale,{timeZone:'Asia/Bangkok',month:'long',year:'numeric'})}</option>)}</select></label>
     <button type="submit">{t("แสดงรายการ")}</button>
    </form>
@@ -56,7 +56,7 @@ export async function CommissionPanel({affiliateId,username,filters}:{affiliateI
   </CommissionDialog>
   <section id="employee-review-orders" className="employee-review-orders">
    <div className="commission-section-title"><h2>{t("รายการต้องตรวจสอบ")}</h2><p>{t("ออเดอร์ของคุณทั้งหมด รวมรายการค้างจากเดือนก่อน")}</p></div>
-   {reviews.length?reviews.slice(0,3).map(r=><article className="commission-row" key={r.id}><div><h3>{r.number}</h3><p>{r.reasons.join(' · ')}</p><small>{t("รับออเดอร์ ")}{date(r.createdAt)}</small></div><Link className="review-order-link" href={'/my-performance/orders/'+encodeURIComponent(r.id)}>{t("ตรวจสอบ →")}</Link></article>):<p className="commission-empty">{t("ไม่มีรายการต้องตรวจสอบ")}</p>}
+   {reviews.length?reviews.slice(0,3).map(r=><article className="commission-row" key={r.id}><div><h3>{r.number}</h3><p>{r.reasons.map(reason=>t(reason)).join(' · ')}</p><small>{t("รับออเดอร์ ")}{date(r.createdAt)}</small></div><Link className="review-order-link" href={'/my-performance/orders/'+encodeURIComponent(r.id)}>{t("ตรวจสอบ →")}</Link></article>):<p className="commission-empty">{t("ไม่มีรายการต้องตรวจสอบ")}</p>}
    {reviews.length>0&&<Link className="employee-view-tasks" href="/my-performance/tasks">{t("ดูงานค้างทั้งหมด ")}{reviews.length} {t(" รายการ →")}</Link>}
   </section>
  </section>;
