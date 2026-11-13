@@ -52,11 +52,12 @@ export function StockLineCardDraft(){
    if(token!==generation.current)return;
    data.account=oaAccount||data.account;setDraft(data);dialog.current?.showModal();
    if(data.aiConfigured)for(const product of data.sets.flatMap(set=>set.products)){
+    setResearching(product.code);
     try{const result=await research(product.code);if(token!==generation.current)return;updateProduct(product.code,current=>replacePreviewResearch(current,result));}
     catch(failure){if(token!==generation.current)return;updateProduct(product.code,current=>({...current,researchError:failure instanceof Error?failure.message:'ค้นข้อมูลไม่สำเร็จ',confirmed:false}));}
    }
   }catch(failure){if(token===generation.current)setError(failure instanceof Error?failure.message:'เตรียมข้อมูลไม่ได้');}
-  finally{if(token===generation.current)setBusy(false);}
+  finally{if(token===generation.current){setBusy(false);setResearching(null);}}
  }}>{busy?'กำลังเตรียมข้อมูล…':'ดูตัวอย่างการ์ด (ไม่บันทึก)'}</button></div>
  {prepared&&<p role="status" className="notice">{prepared}</p>}{usedMessage&&<p role="status" className="notice">{usedMessage}</p>}{error&&<p role="alert" className="notice">{error}</p>}
  <dialog ref={dialog} className="stock-modal" aria-label="ตัวอย่างชุดการ์ด LINE OA"><h2>ตัวอย่างชุดการ์ด LINE OA</h2><p>บัญชีปลายทาง: {draft?.account??'ยังไม่ได้เลือก LINE OA'}</p>
@@ -73,11 +74,12 @@ export function StockLineCardDraft(){
   </>}
   {product.researchError&&<p role="alert" className="notice">{product.researchError}</p>}
   {product.confirmed&&<p role="status" className="notice">ยืนยันข้อมูลตัวอย่างแล้ว</p>}
-  {researching===product.code&&<p role="status">กำลังค้นหาข้อมูลใหม่…</p>}
+  {researching===product.code&&<p role="status">กำลังค้นข้อมูล {product.code}…</p>}
+  {busy&&researching!==product.code&&!product.research&&!product.researchError&&<p className="small">รอค้นข้อมูล {product.code}</p>}
   <div className="actions"><button type="button" disabled={busy||using||!!researching||product.confirmed||!canConfirmPreview(product)} onClick={()=>updateProduct(product.code,confirmPreview)}>{product.confirmed?'ยืนยันข้อมูลแล้ว':'ยืนยันข้อมูล'}</button>
    <button type="button" className="secondary" disabled={busy||using||!!researching||!draft.aiConfigured} onClick={()=>void retryResearch(product.code)}>ค้นหาข้อมูลใหม่</button></div>
  </article>)}</section>)}
- {busy&&<p role="status">กำลังค้นและเตรียมข้อมูล…</p>}{error&&<p role="alert" className="notice">{error}</p>}
+ {busy&&<p role="status">{researching?`กำลังค้นข้อมูล ${researching}…`:'กำลังเตรียมรายการ…'}</p>}{error&&<p role="alert" className="notice">{error}</p>}
  <div className="actions"><button type="button" disabled={busy||using||!!researching||!oaAccount||!!usedMessage||!draft?.sets.length||draft.sets.some(set=>set.products.some(product=>!product.confirmed||!canConfirmPreview(product)||product.images.some(image=>!image.url)))} onClick={()=>void usePreview()}>{using?'กำลังรับข้อมูล…':'ใช้ข้อมูลชุดนี้สร้างใน LINE OA'}</button>
  <button type="button" className="secondary" disabled={busy||using||!!researching} onClick={()=>dialog.current?.close()}>ปิด</button></div></dialog></>;
 }
