@@ -58,7 +58,10 @@ the same account requeues those jobs. Existing remote item identifiers and
 exact item titles are used to reconcile a retry; ambiguous duplicates or
 changed items stop for review instead of creating another item. Per-job leases and serializable claims protect against duplicate processing and restart
 recovery. The browser lease remains active until the last running operation releases it.
-The concurrency cap is five on the 2 GiB worker.
+The concurrency cap is five on the 4 GiB worker. The earlier 2 GiB instance
+exited with code 137 while two card-image crops and reply-video work overlapped;
+the larger memory request provides headroom for those concurrent browser tasks.
+Confirm instance restart counts and live completion after resource changes.
 
 ## Current acceptance scope
 
