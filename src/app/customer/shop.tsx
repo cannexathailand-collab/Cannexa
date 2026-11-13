@@ -44,6 +44,7 @@ function ShopProduct({product, disabled, onAdd}: {
     <div className="shop-product-details">
       <span className="shop-product-code">{product.code}</span>
       <h3>{product.name || t('ยังไม่ระบุชื่อสินค้า')}</h3>
+      {product.description&&<p className="shop-product-description" style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{product.description}</p>}
       {product.prices.length > 0 ? <label className="shop-package-label">{t("ขนาดสินค้า ")}<select aria-label={t('ขนาด ' + product.code)} value={selected?.pack ?? ''} onChange={event => setPack(event.target.value)}>
           {product.prices.map(price => <option key={price.pack} value={price.pack} disabled={price.priceSatang <= 0}>
             {price.pack} · {money(price.priceSatang)}{t(" บาท ")}</option>)}

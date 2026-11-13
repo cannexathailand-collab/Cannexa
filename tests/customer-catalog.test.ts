@@ -23,10 +23,11 @@ test('catalog prices normalize units, preserve zero, and remove invalid or ambig
 
 test('catalog DTO reads stored snapshot and image versions without leaking internal stock fields',async t=>{
  const originalSnapshot=db.employeeStockSnapshot.findUnique,originalImages=db.stockProductImage.findMany;
- const originalSettings=db.shopCatalogSettings.findUnique,originalSales=db.salesOrder.findMany;
+ const originalSettings=db.shopCatalogSettings.findUnique,originalSales=db.salesOrder.findMany,originalDescriptions=db.customerProductDescription.findMany;
+ (db.customerProductDescription as any).findMany=async()=>[{code:'A1',name:'Product A',description:'Product A description'},{code:'B2',name:'Old name',description:'Do not show for renamed product'}];
  db.shopCatalogSettings.findUnique=(async()=>null) as typeof originalSettings;
  db.salesOrder.findMany=(async()=>[]) as typeof originalSales;
- t.after(()=>{db.employeeStockSnapshot.findUnique=originalSnapshot;db.stockProductImage.findMany=originalImages;db.shopCatalogSettings.findUnique=originalSettings;db.salesOrder.findMany=originalSales;});
+ t.after(()=>{db.employeeStockSnapshot.findUnique=originalSnapshot;db.stockProductImage.findMany=originalImages;db.shopCatalogSettings.findUnique=originalSettings;db.salesOrder.findMany=originalSales;db.customerProductDescription.findMany=originalDescriptions;});
  const fetchedAt=new Date('2026-11-07T01:00:00Z');
  (db.employeeStockSnapshot as any).findUnique=async()=>({fetchedAt,rows:[
   {code:'B2',name:'  Product B  ',available:12.5,remaining:999,costSatang:111,sourceRow:23,prices:[{pack:'1 KG',priceSatang:10000}],secret:'hidden'},
@@ -44,10 +45,11 @@ test('catalog DTO reads stored snapshot and image versions without leaking inter
  };
  const result=await loadCustomerCatalog();
  assert.deepEqual(result,{readAt:fetchedAt.toISOString(),products:[
-  {code:'A1',name:'Product A',available:0,prices:[{pack:'10G',grams:10,priceSatang:0}],imageVersion:null},
+  {code:'A1',name:'Product A',description:'Product A description',available:0,prices:[{pack:'10G',grams:10,priceSatang:0}],imageVersion:null},
   {code:'B2',name:'Product B',available:12.5,prices:[{pack:'1000G',grams:1000,priceSatang:10000}],imageVersion:'a'.repeat(64)},
   {code:'C3',name:null,available:null,prices:[],imageVersion:null},
  ]});
+ const cardCatalog=await loadCustomerCatalog(db,{merchandising:false});assert.equal(cardCatalog.products.some(product=>product.description),false);
  const json=JSON.stringify(result);
  for(const key of ['cost','remaining','sourceRow','secret','imageData'])assert.ok(!json.includes(key));
  (db.employeeStockSnapshot as any).findUnique=async()=>null;

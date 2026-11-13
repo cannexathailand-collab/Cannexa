@@ -269,6 +269,12 @@
   color:#78917d;
   letter-spacing:.08em
 }
+.shop-product-description {
+  margin:0;
+  font-size:13px;
+  line-height:1.65;
+  color:#526859;
+}
 .shop-product h3 {
   font-size:17px;
   color:#204b32;

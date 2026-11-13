@@ -666,6 +666,14 @@ model StockWorkbook {
  updatedAt DateTime @updatedAt
 }
 
+model CustomerProductDescription {
+ code String @id
+ name String
+ description String
+ editedBy String
+ updatedAt DateTime @updatedAt
+}
+
 model StockProductDescription {
  code String @id
  name String

@@ -9,7 +9,7 @@ import type {Prisma} from '@prisma/client';
 import {loadShopCatalogSettings,loadBestSellerRanks} from './shop-catalog-settings';
 
 export type CustomerCatalogPrice={pack:string;grams:number;priceSatang:number};
-export type CustomerCatalogProduct={code:string;name:string|null;available:number|null;prices:CustomerCatalogPrice[];imageVersion:string|null;category?:string;recommended?:boolean;bestSellerRank?:number};
+export type CustomerCatalogProduct={code:string;name:string|null;available:number|null;prices:CustomerCatalogPrice[];imageVersion:string|null;description?:string;category?:string;recommended?:boolean;bestSellerRank?:number};
 export type CatalogProduct=CustomerCatalogProduct;
 export type CustomerCatalog={products:CustomerCatalogProduct[];readAt:string|null};
 
@@ -49,7 +49,8 @@ export async function loadCustomerCatalog(client:Prisma.TransactionClient=db,opt
  const images=visible.length?await client.stockProductImage.findMany({where:{code:{in:visible.map(product=>product.code)}},select:{code:true,imageVersion:true}}):[];
  const versions=new Map(images.map(image=>[image.code,/^[a-f0-9]{64}$/.test(image.imageVersion)?image.imageVersion:null]));
  const enrich=options.merchandising!==false&&visible.length>0;
- const [settings,ranks]=await Promise.all([enrich?loadShopCatalogSettings(client):Promise.resolve({products:[],version:''}),enrich?loadBestSellerRanks(client):Promise.resolve(new Map<string,number>())]);
+ const [settings,ranks,descriptions]=await Promise.all([enrich?loadShopCatalogSettings(client):Promise.resolve({products:[],version:''}),enrich?loadBestSellerRanks(client):Promise.resolve(new Map<string,number>()),enrich?client.customerProductDescription.findMany({where:{code:{in:visible.map(product=>product.code)}},select:{code:true,name:true,description:true}}):Promise.resolve([])]);
  const presentation=new Map(settings.products.map(row=>[row.code,row]));
- return {products:visible.map(product=>{const detail=presentation.get(product.code);return {...product,imageVersion:versions.get(product.code)??null,...(detail?.category?{category:detail.category}:{}),...(detail?.recommended?{recommended:true}:{}),...(ranks.has(product.code)?{bestSellerRank:ranks.get(product.code)}:{})};}),readAt:snapshot.readAt?.toISOString()??null};
+ const descriptionByCode=new Map(descriptions.map(row=>[row.code,row]));
+ return {products:visible.map(product=>{const detail=presentation.get(product.code),text=descriptionByCode.get(product.code);return {...product,imageVersion:versions.get(product.code)??null,...(text?.name===(product.name??'')&&text.description?{description:text.description}:{}),...(detail?.category?{category:detail.category}:{}),...(detail?.recommended?{recommended:true}:{}),...(ranks.has(product.code)?{bestSellerRank:ranks.get(product.code)}:{})};}),readAt:snapshot.readAt?.toISOString()??null};
 }
