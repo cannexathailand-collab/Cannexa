@@ -1,5 +1,8 @@
 # LINE OA worker
 
+Open reliability follow-ups and incident acceptance criteria are tracked in
+[LINE OA improvements](./line-oa-improvements.md).
+
 The stock page creates durable `LineOaJob` records. The Vercel daemon in
 `workers/line-oa` claims one operation at a time, performs research first,
 saves keyword replies, and then saves product-card sets. A job reaches
