@@ -126,9 +126,10 @@ export async function activateReply(page:Page){
  const start=page.getByRole('button',{name:'เริ่มใช้งาน',exact:true});
  if(await start.count()){
   await start.last().click();
-  await page.waitForLoadState('networkidle',{timeout:15000}).catch(()=>{});
-  // Read the persisted state after activation instead of relying on a stale
-  // in-page button that can stay visible after the server accepted it.
+  // Do not reload while the activation request is still pending. Network
+  // idleness does not prove that OA accepted the activation.
+  await page.getByRole('button',{name:'หยุดใช้งาน',exact:true}).last().waitFor({state:'visible',timeout:20000}).catch(()=>{throw Error('OA_REPLY_ACTIVATION_VERIFY_FAILED');});
+  // Then re-open to verify the server persisted the active state.
   await page.reload({waitUntil:'domcontentloaded'});
  }
  await page.getByRole('button',{name:'หยุดใช้งาน',exact:true}).last().waitFor({state:'visible',timeout:20000}).catch(()=>{throw Error('OA_REPLY_ACTIVATION_VERIFY_FAILED');});

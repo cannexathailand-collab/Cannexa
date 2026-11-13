@@ -13,7 +13,7 @@ function form(active:boolean){
 }
 test('existing inactive replies save without an active-edit confirmation and activate with duplicate controls',async()=>{
  const draft=form(false);await saveReplyEditor(draft.page);await activateReply(draft.page);
- assert.deepEqual(draft.events,['click:บันทึก','click:เริ่มใช้งาน','settled','reload','wait:หยุดใช้งาน']);
+ assert.deepEqual(draft.events,['click:บันทึก','click:เริ่มใช้งาน','wait:หยุดใช้งาน','reload','wait:หยุดใช้งาน']);
  const active=form(true);await saveReplyEditor(active.page);await activateReply(active.page);
  assert.deepEqual(active.events,['click:ใช้การเปลี่ยนแปลง','wait:ต้องการใช้การเปลี่ยนแปลงหรือไม่','click:ใช้การเปลี่ยนแปลง','wait:หยุดใช้งาน']);
 });
@@ -26,4 +26,14 @@ test('new item verification waits for list navigation before opening the saved i
  },waitForLoadState:async()=>{},getByPlaceholder:()=>({fill:async()=>events.push('filter')}),getByRole:()=>({click:async()=>{}}),locator:()=>({getByRole:()=>found})};
  assert.equal(await savedId(page,'autoresponse','Test'), '123');
  assert.deepEqual(events,['navigation','filter','open saved','navigation']);
+});
+
+test('activation waits for the active UI before reload and refuses unconfirmed activation',async()=>{
+ let activated=false,reloaded=false;
+ const page:any={reload:async()=>{assert.ok(activated);reloaded=true;},getByRole:(_role:string,{name}:{name:string})=>{
+  const locator:any={last:()=>locator,count:async()=>name==='เริ่มใช้งาน'?1:0,click:async()=>{},waitFor:async()=>{await Promise.resolve();activated=true;}};return locator;
+ }};
+ await activateReply(page);assert.ok(reloaded);
+ reloaded=false;page.getByRole=(_role:string,{name}:{name:string})=>{const locator:any={last:()=>locator,count:async()=>name==='เริ่มใช้งาน'?1:0,click:async()=>{},waitFor:async()=>{throw Error('not activated');}};return locator;};
+ await assert.rejects(activateReply(page),/OA_REPLY_ACTIVATION_VERIFY_FAILED/);assert.equal(reloaded,false);
 });
