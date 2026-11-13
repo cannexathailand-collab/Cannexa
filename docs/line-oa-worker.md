@@ -4,7 +4,7 @@ Open reliability follow-ups and incident acceptance criteria are tracked in
 [LINE OA improvements](./line-oa-improvements.md).
 
 The stock page creates durable `LineOaJob` records. The Vercel daemon in
-`workers/line-oa` claims one operation at a time, performs research first,
+`workers/line-oa` claims up to five operations for distinct OA destinations at a time, performs research first,
 saves keyword replies, and then saves product-card sets. A job reaches
 `COMPLETE` only after the manager pages have been re-opened and checked.
 
@@ -38,8 +38,8 @@ The stock page selects a discovered OA as the job destination. The default
 is the shop's configured OA; other destinations are owner-only. Jobs and
 artifacts remain keyed by OA, so identical product codes on different OAs
 do not conflict. A repeated request key cannot change its destination.
-The single worker uses the shared LINE login and verifies each job's OA
-before editing. Removed or unavailable destinations cannot receive new jobs.
+The worker uses separate tabs within one shared authenticated context and verifies each job's OA
+before editing. A transactional per-OA exclusion prevents two jobs for the same destination from running together. Authentication state is persisted once after all tabs finish. Removed or unavailable destinations cannot receive new jobs.
 
 Each running job stores its current step and the last 60 progress events.
 The stock page polls these events and shows the current SKU, video/image
@@ -56,9 +56,9 @@ last unfinished step instead of starting another job.
 When LINE expires the login, work pauses with `AWAITING_LOGIN`. Reconnecting
 the same account requeues those jobs. Existing remote item identifiers and
 exact item titles are used to reconcile a retry; ambiguous duplicates or
-changed items stop for review instead of creating another item. A lease
-and serializable claim protect against concurrent processing and restart
-recovery.
+changed items stop for review instead of creating another item. Per-job leases and serializable claims protect against duplicate processing and restart
+recovery. The browser lease remains active until the last running operation releases it.
+The concurrency cap is five on the 2 GiB worker.
 
 ## Current acceptance scope
 

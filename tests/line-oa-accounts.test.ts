@@ -29,7 +29,7 @@ test('the shared logged-in worker claims jobs for all discovered OAs',async t=>{
   $queryRawUnsafe:async()=>[],
   lineOaBrowser:{findUnique:async()=>({account:'@primary',status:'READY',leaseUntil:null}),update:async()=>({})},
   lineOaAccount:{findMany:async()=>[{account:'@primary'},{account:'@second'}]},
-  lineOaJob:{findFirst:async(args:any)=>{queried=args.where;return {id:'job',account:'@second'};},update:async()=>({id:'job',account:'@second'})},
+  lineOaJob:{findMany:async()=>[],findFirst:async(args:any)=>{queried=args.where;return {id:'job',account:'@second'};},update:async()=>({id:'job',account:'@second'})},
  };
  (db as any).$transaction=async(fn:any)=>fn(tx);
  assert.equal((await claimOaJob())?.account,'@second');

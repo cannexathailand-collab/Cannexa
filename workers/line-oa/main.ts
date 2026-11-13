@@ -1,3 +1,4 @@
+import {runOaWorkBatch} from '../../src/lib/line-oa-work-batch';
 import {chromium,type BrowserContext,type Page} from 'playwright-core';
 import {db} from '../../src/lib/db';
 import {oaCommand,sealOaState,unsealOaState} from '../../src/lib/line-oa-browser';
@@ -17,6 +18,15 @@ async function openPage(){
  const context=await browser.newContext({locale:'th-TH',timezoneId:'Asia/Bangkok',viewport:{width:1280,height:900},...(saved.cookies?{storageState:saved}:{})});
  const page=await context.newPage();page.setDefaultTimeout(20000);
  return {page,close:async()=>{const state=await context.storageState({indexedDB:true});await db.lineOaBrowser.update({where:{id:'active'},data:{encryptedConfig:sealOaState(state)}});await context.close();}};
+}
+async function createWorkSession(){
+ const connection=await db.lineOaBrowser.findUniqueOrThrow({where:{id:'active'}});
+ const saved=unsealOaState(connection.encryptedConfig);
+ const context=await browser.newContext({locale:'th-TH',timezoneId:'Asia/Bangkok',viewport:{width:1280,height:900},...(saved.cookies?{storageState:saved}:{})});
+ return {
+  openPage:async()=>{const page=await context.newPage();page.setDefaultTimeout(20000);return {page,close:async()=>{await page.close();}};},
+  close:async()=>{try{const state=await context.storageState({indexedDB:true});await db.lineOaBrowser.update({where:{id:'active'},data:{encryptedConfig:sealOaState(state)}});}finally{await context.close();}},
+ };
 }
 async function loginStep(){
  const connection=await db.lineOaBrowser.findUnique({where:{id:'active'}});if(!connection)return false;
@@ -74,7 +84,7 @@ async function accountDiscoveryStep(){
  return true;
 }
 process.on('SIGTERM',()=>{stopping=true;});process.on('SIGINT',()=>{stopping=true;});
-try{while(!stopping){try{if(await accountDiscoveryStep())continue;if(await loginStep()){await sleep(1500);continue;}if(await processOaStep(openPage))continue;}catch{console.error('LINE OA worker paused after a failed operation');}await sleep(5000);}}
+try{while(!stopping){try{if(await accountDiscoveryStep())continue;if(await loginStep()){await sleep(1500);continue;}if(await runOaWorkBatch(createWorkSession,processOaStep))continue;}catch{console.error('LINE OA worker paused after a failed operation');}await sleep(5000);}}
 finally{if(login)await login.context.close().catch(()=>{});await browser.close();await db.$disconnect();}
 }
 void main().catch(()=>{console.error('LINE OA worker could not start');process.exitCode=1;});

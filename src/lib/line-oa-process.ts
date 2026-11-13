@@ -1,6 +1,6 @@
 import {Prisma} from '@prisma/client';
 import {db} from './db';
-import {claimOaJob,oaPayload} from './line-oa-job';
+import {claimOaJob,releaseOaBrowserLease,oaPayload} from './line-oa-job';
 import {researchProduct} from './product-research';
 import type {Page} from 'playwright-core';
 import {saveManagerCards,saveManagerReply,verifyManager} from './line-oa-manager';
@@ -8,8 +8,8 @@ import {applySelectedProductName} from './line-oa-product-name';
 import {currentOaProgress,reportOaProgress,withOaProgress} from './line-oa-progress';
 import {oaRetryDelay} from './line-oa-retry';
 
-export async function processOaStep(openPage:()=>Promise<{page:Page;close:()=>Promise<void>}>){
- const job=await claimOaJob();if(!job)return false;
+export async function processOaStep(openPage:()=>Promise<{page:Page;close:()=>Promise<void>}>,concurrency=1){
+ const job=await claimOaJob(concurrency);if(!job)return false;
  return withOaProgress(job.id,job.progressLog,async()=>{
  const heartbeat=setInterval(()=>{const until=new Date(Date.now()+5*60000);void Promise.all([db.lineOaJob.updateMany({where:{id:job.id,status:'RUNNING'},data:{leaseUntil:until}}),db.lineOaBrowser.updateMany({where:{id:'active'},data:{leaseUntil:until,heartbeatAt:new Date()}})]).catch(()=>{});},15000);
  let context:Awaited<ReturnType<typeof openPage>>|undefined;
@@ -44,16 +44,16 @@ export async function processOaStep(openPage:()=>Promise<{page:Page;close:()=>Pr
   console.error('LINE OA operation failed:',e instanceof Error&&/^[A-Z_]+$/.test(e.message)?e.message:'AUTOMATION_FAILED');
   const login=e instanceof Error&&e.message==='OA_LOGIN_REQUIRED';
   const code=e instanceof Error?e.message:'';
-  const driveErrors:Record<string,string>={DRIVE_RECONNECT:'กรุณาเชื่อม Google Drive ใหม่ก่อนทำต่อ',DRIVE_VIDEO_DUPLICATE:'พบวิดีโอชื่อรหัสเดียวกันหลายไฟล์ใน Drive กรุณาจัดให้เหลือไฟล์เดียวหรือจำกัดโฟลเดอร์',DRIVE_VIDEO_FORMAT:'วิดีโอใน Drive ต้องเป็นไฟล์ MP4',DRIVE_VIDEO_SIZE:'วิดีโอว่างหรือใหญ่กว่า 200 MB',DRIVE_DOWNLOAD_DENIED:'บัญชี Google Drive ไม่มีสิทธิ์ดาวน์โหลดวิดีโอ',DRIVE_SEARCH_FAILED:'ค้น Google Drive ไม่สำเร็จ ตรวจสิทธิ์และการเปิด Drive API'};
-  const message=login?'การล็อกอิน LINE OA หมดอายุ กรุณาเชื่อมใหม่':driveErrors[code]??'งานหยุดระหว่าง '+(currentOaProgress()??'การบันทึก')+' · ลองทำต่อจากจุดเดิมได้';
+  const operationErrors:Record<string,string>={OA_REPLY_ACTIVATION_VERIFY_FAILED:'ยังยืนยันการเปิดใช้งานข้อความใน LINE OA ไม่สำเร็จ',DRIVE_RECONNECT:'กรุณาเชื่อม Google Drive ใหม่ก่อนทำต่อ',DRIVE_VIDEO_DUPLICATE:'พบวิดีโอชื่อรหัสเดียวกันหลายไฟล์ใน Drive กรุณาจัดให้เหลือไฟล์เดียวหรือจำกัดโฟลเดอร์',DRIVE_VIDEO_FORMAT:'วิดีโอใน Drive ต้องเป็นไฟล์ MP4',DRIVE_VIDEO_SIZE:'วิดีโอว่างหรือใหญ่กว่า 200 MB',DRIVE_DOWNLOAD_DENIED:'บัญชี Google Drive ไม่มีสิทธิ์ดาวน์โหลดวิดีโอ',DRIVE_SEARCH_FAILED:'ค้น Google Drive ไม่สำเร็จ ตรวจสิทธิ์และการเปิด Drive API'};
+  const message=login?'การล็อกอิน LINE OA หมดอายุ กรุณาเชื่อมใหม่':operationErrors[code]??'งานหยุดระหว่าง '+(currentOaProgress()??'การบันทึก')+' · ลองทำต่อจากจุดเดิมได้';
   const retryDelay=oaRetryDelay(e,job.retryCount);
-  const retryMessage=retryDelay===null?(job.retryCount>=3?'ลองอัตโนมัติครบ 3 ครั้งแล้วยังไม่ผ่าน · '+message:message):'พบข้อขัดข้อง ระบบจะลองขั้นเดิมอัตโนมัติครั้งที่ '+(job.retryCount+1)+' ใน '+retryDelay/1000+' วินาที';
+  const retryMessage=retryDelay===null?(job.retryCount>=3?'ลองอัตโนมัติครบ 3 ครั้งแล้วยังไม่ผ่าน · '+message:message):'พบข้อขัดข้อง ระบบจะลองขั้นเดิมอัตโนมัติครั้งที่ '+(job.retryCount+1)+' ใน '+retryDelay/1000+' วินาที · '+message;
   await reportOaProgress(retryMessage);
   await db.lineOaJob.update({where:{id:job.id},data:{status:login?'AWAITING_LOGIN':retryDelay===null?'FAILED':'RETRYING',leaseUntil:null,error:retryMessage,retryCount:retryDelay===null?job.retryCount:job.retryCount+1,nextAttemptAt:retryDelay===null?null:new Date(Date.now()+retryDelay)}});
   if(login)await db.lineOaBrowser.update({where:{id:'active'},data:{status:'EXPIRED'}});
  }finally{
   clearInterval(heartbeat);if(context)await context.close().catch(()=>{});
-  await db.lineOaBrowser.updateMany({where:{id:'active'},data:{leaseUntil:null,heartbeatAt:new Date()}});
+  await releaseOaBrowserLease();
  }
  return true;
  });

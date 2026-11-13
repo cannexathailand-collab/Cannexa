@@ -79,13 +79,22 @@ export async function createOaJob(actor:string,value:unknown,canChooseOther=fals
  });
 }
 
-export async function claimOaJob(){
+export async function claimOaJob(concurrency=1){
+ if(!Number.isInteger(concurrency)||concurrency<1||concurrency>5)throw Error('OA_CONCURRENCY_INVALID');
  return transaction(async tx=>{
-  await userLock(tx,'line-oa-job-claim');
+  await userLock(tx,'line-oa-browser-login');
   const now=new Date(),connection=await tx.lineOaBrowser.findUnique({where:{id:'active'}});
-  if(!connection||connection.status!=='READY'||connection.leaseUntil&&connection.leaseUntil>now)return null;
+  if(!connection||connection.status!=='READY')return null;
+  const running=await tx.lineOaJob.findMany({where:{status:'RUNNING',leaseUntil:{gt:now}},select:{account:true,leaseUntil:true}});
+  if(running.length>=concurrency)return null;
+  // A browser lease with no active job belongs to login/discovery or a
+  // closing legacy worker. Do not take it over while it is still valid.
+  if(!running.length&&connection.leaseUntil&&connection.leaseUntil>now)return null;
   const targets=await tx.lineOaAccount.findMany({where:{available:true},select:{account:true}});
-  const job=await tx.lineOaJob.findFirst({where:{account:{in:targets.map(target=>target.account)},status:{in:['QUEUED','RUNNING','RETRYING']},AND:[{OR:[{leaseUntil:null},{leaseUntil:{lt:now}}]},{OR:[{nextAttemptAt:null},{nextAttemptAt:{lte:now}}]}]},orderBy:{createdAt:'asc'}});
+  const busy=new Set(running.map(job=>job.account));
+  const accounts=targets.map(target=>target.account).filter(account=>!busy.has(account));
+  if(!accounts.length)return null;
+  const job=await tx.lineOaJob.findFirst({where:{account:{in:accounts},status:{in:['QUEUED','RUNNING','RETRYING']},AND:[{OR:[{leaseUntil:null},{leaseUntil:{lt:now}}]},{OR:[{nextAttemptAt:null},{nextAttemptAt:{lte:now}}]}]},orderBy:{createdAt:'asc'}});
   if(!job)return null;
   const leaseUntil=new Date(Date.now()+5*60000);
   await tx.lineOaBrowser.update({where:{id:'active'},data:{leaseUntil}});
@@ -93,6 +102,12 @@ export async function claimOaJob(){
  });
 }
 
-
-
-
+export async function releaseOaBrowserLease(){
+ return transaction(async tx=>{
+  await userLock(tx,'line-oa-browser-login');
+  const now=new Date();
+  const running=await tx.lineOaJob.findMany({where:{status:'RUNNING',leaseUntil:{gt:now}},select:{leaseUntil:true}});
+  const leaseUntil=running.reduce<Date|null>((latest,job)=>job.leaseUntil&&(!latest||job.leaseUntil>latest)?job.leaseUntil:latest,null);
+  await tx.lineOaBrowser.updateMany({where:{id:'active'},data:{leaseUntil,heartbeatAt:now}});
+ });
+}
