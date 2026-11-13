@@ -13,7 +13,7 @@ export function adminChatTools(role:Role,tenant=false){
  return [
   fn('sales_summary',tenant?'Read booked sales by this shop close rounds, including gross profit and incomplete cost flags. All money is satang.':'Read recognized sales and comparisons from the sales report. All money is in satang. This differs from cash receipts and orders placed.',dates),
   fn('accounting_summary','Read income, expenses, profit and incomplete-cost notices from the accounting report. All money is in satang.',dates),
-  fn('customer_lookup','Find customers by name or code; show a real list. activity all means all matching, inactive means a previous non-cancelled order at least inactiveDays ago, never means no qualifying order. No phone numbers or addresses.',{query:{type:'string'},activity:{type:'string',enum:['all','inactive','never']},inactiveDays:{type:'integer'}}),
+  fn('customer_lookup','Find customers by name or code; show a real list. activity all means all matching, inactive means a previous non-cancelled order at least inactiveDays ago (use at least 1), never means no qualifying order. inactiveDays may be 0 when activity is all or never. No phone numbers or addresses.',{query:{type:'string',maxLength:100},activity:{type:'string',enum:['all','inactive','never']},inactiveDays:{type:'integer',minimum:0,maximum:3650}}),
   ...(!tenant||role==='owner'?[fn('stock_lookup','Read current stock. Empty query matches all. lowOnly limits to physical remaining quantity at or below thresholdGrams. Report missing balances separately.',{query:{type:'string'},lowOnly:{type:'boolean'},thresholdGrams:{type:'number'}})]:[]),
   ...(role==='owner'?[fn('order_summary','Read order counts by status in a Bangkok calendar date range. No customer contact details.',dates)]:[]),
  ];
@@ -23,7 +23,7 @@ export const chatRange=z.object({from:z.string(),to:z.string()}).strict().superR
  catch{ctx.addIssue({code:'custom',message:'Choose valid dates up to today and no more than 366 days.'});}
 });
 export const stockChatInput=z.object({query:z.string().trim().max(100),lowOnly:z.boolean(),thresholdGrams:z.number().finite().min(0).max(1000000)}).strict();
-export const customerChatInput=z.object({query:z.string().trim().max(100),activity:z.enum(['all','inactive','never']),inactiveDays:z.number().int().min(1).max(3650)}).strict();
+export const customerChatInput=z.object({query:z.string().trim().max(100),activity:z.enum(['all','inactive','never']),inactiveDays:z.number().int().min(0).max(3650)}).strict().refine(value=>value.activity!=='inactive'||value.inactiveDays>=1,{message:'Inactive customers require at least one day.'});
 
 type ChatDependencies={model:string;tenant?:boolean;request:(body:Record<string,unknown>)=>Promise<any>;read:(name:string,args:unknown)=>Promise<ChatData>};
 export async function runAdminChat(input:z.infer<typeof chatInput>,role:Role,deps:ChatDependencies){
@@ -52,7 +52,7 @@ export async function runAdminChat(input:z.infer<typeof chatInput>,role:Role,dep
      result=read.data;
      if(!sources.some(source=>source.url===read.source.url))sources.push(read.source);
      if(read.table)tables.push(read.table);
-    }catch{result={error:'Could not read this report. Do not invent its values. Ask for a valid date range or report that the source is unavailable.'};}
+    }catch(error){result={error:error instanceof z.ZodError?'Invalid filters. Correct the parameters and retry. Dates must be valid and at most 366 days. inactiveDays can be 0 for all or never, but must be 1 or more for inactive.':'Could not read this report. Do not invent its values. Report that this data source is unavailable.'};}
    }
    messages.push({type:'function_call_output',call_id:call.call_id,output:JSON.stringify(result)});
   }

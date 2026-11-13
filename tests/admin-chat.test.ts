@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {adminChatTools,chatInput,chatRange,runAdminChat} from '../src/lib/admin-chat';
+import {adminChatTools,chatInput,chatRange,customerChatInput,runAdminChat} from '../src/lib/admin-chat';
 
 test('chat validates bounded history and denies roles without financial access',()=>{
  assert.equal(chatInput.safeParse({message:' '}).success,false);
@@ -11,6 +11,9 @@ test('chat validates bounded history and denies roles without financial access',
  assert.equal(adminChatTools('owner').some(tool=>tool.name==='order_summary'),true);
  assert.equal(adminChatTools('admin',true).some(tool=>tool.name==='stock_lookup'),false);
  assert.equal(adminChatTools('owner',true).some(tool=>tool.name==='stock_lookup'),true);
+ assert.equal(customerChatInput.safeParse({query:'',activity:'all',inactiveDays:0}).success,true);
+ assert.equal(customerChatInput.safeParse({query:'',activity:'never',inactiveDays:0}).success,true);
+ assert.equal(customerChatInput.safeParse({query:'',activity:'inactive',inactiveDays:0}).success,false);
 });
 test('customer lists retain server-provided rows and detail links independently of model text',async()=>{
  let step=0;
