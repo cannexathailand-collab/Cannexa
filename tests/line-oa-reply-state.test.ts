@@ -40,13 +40,19 @@ test('activation waits for the active UI before reload and refuses unconfirmed a
 
 test('account verification waits for the target marker and does not expire all shops for an unverified shop',async()=>{
  let waited=false,current='https://manager.line.biz/account/@one';
- const page:any={goto:async()=>{},url:()=>current,getByText:()=>({waitFor:async()=>{await Promise.resolve();waited=true;}})};
+ const page:any={goto:async()=>{},url:()=>current,getByText:()=>({first:()=>({waitFor:async()=>{await Promise.resolve();waited=true;}})})};
  await verifyManager(page,'@one');assert.ok(waited);
- page.getByText=()=>({waitFor:async()=>{throw Error('marker missing');}});
+ page.getByText=()=>({first:()=>({waitFor:async()=>{throw Error('marker missing');}})});
  await assert.rejects(verifyManager(page,'@one'),/OA_ACCOUNT_VERIFY_FAILED/);
  current='https://manager.line.biz/account/@one-extra';
- page.getByText=()=>({waitFor:async()=>{}});
+ page.getByText=()=>({first:()=>({waitFor:async()=>{}})});
  await assert.rejects(verifyManager(page,'@one'),/OA_ACCOUNT_VERIFY_FAILED/);
  current='https://access.line.me/login';
  await assert.rejects(verifyManager(page,'@one'),/OA_LOGIN_REQUIRED/);
+});
+
+test('repeated account labels are accepted without a strict locator failure',async()=>{
+ let chosen=false;
+ const page:any={goto:async()=>{},url:()=> 'https://manager.line.biz/account/@one',getByText:()=>({waitFor:async()=>{throw Error('strict mode violation: two labels');},first:()=>({waitFor:async()=>{chosen=true;}})})};
+ await verifyManager(page,'@one');assert.ok(chosen);
 });
