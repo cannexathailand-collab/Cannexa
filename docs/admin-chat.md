@@ -10,13 +10,21 @@ The server, rather than the model, chooses the database and validates the role.
 The model can call only a fixed allowlist of read functions. It cannot submit
 SQL, select another shop, perform writes, send messages, or create orders.
 
+The owner also has a schema-aware business-data explorer: it discovers sources,
+reads explicitly selected scalar fields, filters records, and counts/sums them.
+These operations still use the current shop database; they cannot submit SQL.
+Session material, credentials, platform databases, binary columns and opaque JSON
+are excluded. Admin accounts retain the narrower report access.
+
 Supported data:
 
 - Recognized sales from the main sales report. Separate shops use booked sales
   from their existing sales page, with the different accounting basis stated.
 - Accounting income, costs, expenses, profit and incomplete-data notices.
+- Best-selling product rankings from recognized sales, by distinct order count or grams.
+- Customer LINE binding, known profile name, last incoming-event time and message readiness. These do not imply that conversation text has been stored.
 - Stock balances for accounts that can open the corresponding stock page.
-  A cached fallback is labelled and an unavailable empty source is an error.
+  Sellable quantity uses the same pending-hold and safety-reserve calculation as the stock page. Physical-only cached fallback is labelled; unavailable live sellable data is an error.
 - Customer code/name lists, optionally filtered by days since a qualifying
   order or by never having ordered. Inactive and never-ordered are distinct.
   Phones, addresses, credentials, payment slips and raw order text are omitted.

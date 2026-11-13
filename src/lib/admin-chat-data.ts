@@ -1,3 +1,5 @@
+import {exploreChatData,explorerTools} from './admin-chat-explorer';
+import {loadCustomerLineStatuses} from './customer-line-message';
 import {z} from 'zod';
 import {pendingStockSaleItems} from './order-stock-admission';
 import {stockSellableQuantity} from './stock-sales-limit';
@@ -25,6 +27,19 @@ export async function claimAdminChat(actor:string){
 export async function readAdminChatData(role:Role,name:string,args:unknown):Promise<ChatData>{
  if(!['owner','admin'].includes(role))throw Error('CHAT_FORBIDDEN');
  const readAt=new Date().toISOString(),slug=currentShopSlug(),base=slug?'/shops/'+encodeURIComponent(slug):'/admin';
+ if(explorerTools.some(tool=>tool.name===name))return exploreChatData(role,name,args);
+ if(name==='customer_line_status'){
+  if(role!=='owner')throw Error('CHAT_FORBIDDEN');
+  const input=z.object({query:z.string().trim().max(100),filter:z.enum(['all','linked','unlinked','ready','not_ready'])}).strict().parse(args);
+  const customers=await db.customer.findMany({where:{AND:[activeCustomerProfileFilter,...(input.query?[{OR:[{code:{contains:input.query,mode:'insensitive' as const}},{name:{contains:input.query,mode:'insensitive' as const}}]}]:[])]},select:{code:true,name:true,lineUserKey:true},orderBy:{code:'asc'},take:5001});
+  if(customers.length>5000)throw Error('REFINE_CUSTOMER_SEARCH');
+  const statuses=await loadCustomerLineStatuses(customers);
+  const evidence=await db.lineMessageRecipient.findMany({where:{lineUserKey:{in:customers.flatMap(row=>row.lineUserKey?[row.lineUserKey]:[])}},select:{lineUserKey:true,displayName:true,lastMessageAt:true,encryptedUserId:true}});
+  const byKey=new Map(evidence.map(row=>[row.lineUserKey,row]));
+  const rows=customers.map(row=>{const saved=row.lineUserKey?byKey.get(row.lineUserKey):undefined;return {code:row.code,name:row.name,linked:!!row.lineUserKey,hasLineUserId:!!saved?.encryptedUserId,lineDisplayName:saved?.displayName??null,lastIncomingMessageAt:saved?.lastMessageAt?.toISOString()??null,messageBodyStored:false,...statuses.get(row.code)};}).filter(row=>input.filter==='all'||input.filter==='linked'&&row.linked||input.filter==='unlinked'&&!row.linked||input.filter==='ready'&&row.ready||input.filter==='not_ready'&&!row.ready);
+  const shown=rows.slice(0,30);
+  return {source:{title:'สถานะ LINE ของลูกค้า',url:slug?base+'/customers':'/admin/crm',readAt},data:{filter:input,total:rows.length,shownCount:shown.length,shown,truncated:rows.length>30,basis:'Binding is not complete conversation history. messageBodyStored false means message text is not stored; lastIncomingMessageAt is an event timestamp only. hasLineUserId refers to the Messaging API userId, not the public LINE ID. Binding and message readiness are separate. Readiness follows current shop LINE configuration and latest stored friendship/message state, not a live guarantee of delivery.'},table:{title:'สถานะ LINE ลูกค้า',columns:['รหัส','ชื่อ','ผูกบัญชี LINE','ชื่อ LINE','เคยส่งข้อความ','สถานะรับข้อความ'],total:rows.length,rows:shown.map(row=>({cells:[row.code,row.name??'—',row.linked?'ผูกแล้ว':'ยังไม่ผูก',row.lineDisplayName??'ยังไม่มีชื่อ',row.lastIncomingMessageAt?'พบเวลาส่งล่าสุด':'ยังไม่มีเหตุการณ์',row.label??'ไม่ทราบ'],url:slug?base+'/customers?q='+encodeURIComponent(row.code):'/admin/crm/'+encodeURIComponent(row.code)}))}};
+ }
  if(name==='customer_lookup'){
   const input=customerChatInput.parse(args);
   const activity=await db.orderIntake.groupBy({by:['customerCode'],where:{customerCode:{not:null},withdrawnAt:null,status:{notIn:['CANCELLED','WITHDRAWN','EXPIRED']},payment:{in:['โอน','COD']}},_max:{eventAt:true}});

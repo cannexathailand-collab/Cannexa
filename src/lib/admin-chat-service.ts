@@ -13,7 +13,7 @@ export async function adminChatResponse(request:Request,actor:{username:string;r
   const input=chatInput.safeParse(parsed);if(!input.success)return Response.json({error:'กรุณาพิมพ์คำถามไม่เกิน 3,000 ตัวอักษร'},{status:400});
   const connection=await db.openAiConnection.findUnique({where:{id:'active'}});if(!connection)throw Error('OPENAI_NOT_CONFIGURED');
   await claimAdminChat(actor.username);
-  const deadline=Date.now()+50000;
+  const deadline=Date.now()+80000;
   const result=await runAdminChat(input.data,actor.role as Role,{
    model:connection.model,tenant,
    read:(name,args)=>readAdminChatData(actor.role as Role,name,args),
