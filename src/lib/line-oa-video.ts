@@ -72,7 +72,9 @@ export async function moveReplyVideoFirst(page:Page){
   const up=videoBlocks(page).locator('button').filter({has:page.locator('i.la-chevron-up')}).first();
   if(await up.count()!==1||!await up.isEnabled())throw Error('OA_VIDEO_ORDER_CONTROL_FAILED');
   await reportOaProgress('กำลังเลื่อนวิดีโอจากลำดับ '+(before.index+1)+' ไปไว้ก่อนข้อความ');
-  await up.press('Enter');
+  // Invoke the same enabled control without depending on keyboard focus
+  // or the floating preview overlay in concurrent headless tabs.
+  await up.evaluate(button=>(button as HTMLButtonElement).click()).catch(()=>{throw Error('OA_VIDEO_ORDER_CLICK_FAILED');});
   // Wait for the actual model/DOM update before pressing again. Rapid
   // presses against the same pre-render control could otherwise be lost.
   await page.waitForFunction(previous=>{

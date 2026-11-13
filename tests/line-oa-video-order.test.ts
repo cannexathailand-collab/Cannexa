@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {moveReplyVideoFirst} from '../src/lib/line-oa-video';
 function fixture(initial:number,{button=true,enabled=true,moves=true,duplicate=false}:{button?:boolean;enabled?:boolean;moves?:boolean;duplicate?:boolean}={}){
  let position=initial,pending=false,presses=0,arrowReads=0;const events:string[]=[];
- const arrow:any={first:()=>arrow,count:async()=>{arrowReads++;return button?1:0;},isEnabled:async()=>enabled,press:async()=>{assert.equal(pending,false,'must wait for each move');presses++;pending=true;events.push('press');}};
+ const arrow:any={first:()=>arrow,count:async()=>{arrowReads++;return button?1:0;},isEnabled:async()=>enabled,press:async()=>{throw Error('keyboard focus must not be used');},evaluate:async(fn:any)=>fn({click:()=>{assert.equal(pending,false,'must wait for each move');presses++;pending=true;events.push('press');}})};
  const blocks:any={filter:()=>({locator:()=>({filter:()=>arrow})}),evaluateAll:async(fn:any)=>fn(Array.from({length:5},(_,index)=>({querySelector:()=>index===position||duplicate&&index===position+1?{}:null})))};
  const page:any={locator:(selector:string)=>selector.startsWith('main')?blocks:{},waitForFunction:async(_fn:any,before:number,options:any)=>{assert.equal(before,position);assert.equal(options.timeout,10000);assert.ok(pending);events.push('wait');if(!moves)throw Error('timeout');position--;pending=false;}};
  return {page,events,get position(){return position},get presses(){return presses},get arrowReads(){return arrowReads}};
