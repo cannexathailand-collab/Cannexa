@@ -16,7 +16,7 @@ export async function ShopWorkspaceNav({slug,role='owner'}:{slug:string;role?:st
   {href:base+'/shipping',label:'อัปโหลดจัดส่ง'},
   {href:base+'/stock/returns',label:'รับคืนสินค้า'},
  );
- if(['owner','admin'].includes(role))links.push({href:base+'/accounting',label:'บัญชี'});
+ if(['owner','admin'].includes(role))links.push({href:base+'/accounting',label:'บัญชี'},{href:base+'/chat',label:'Chat AI'});
  if(role==='owner')links.push({href:base+'/branding',label:'ตั้งค่าแบรนด์ร้าน'},{href:base+'/receipts',label:'ใบเสร็จรับเงิน'},{href:base+'/users',label:'พนักงานและทีม'},{href:base+'/connections',label:'การเชื่อมต่อ'});
  const primary=[links[0],links[1],links.find(link=>link.href===base+'/stock')??links.find(link=>link.href===base+'/sales')].filter((link):link is {href:string;label:string}=>!!link);
  return <>
