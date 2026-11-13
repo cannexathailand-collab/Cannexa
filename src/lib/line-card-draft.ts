@@ -20,7 +20,7 @@ export async function prepareLineCardDraft(value:unknown){
   db.stockProductExtraImage.findMany({where:{code:{in:input.codes}},select:{code:true,slot:true,imageVersion:true}}),
   lineSettings(),
   db.openAiConnection.findUnique({where:{id:'active'},select:{id:true}}),
-  db.stockProductDescription.findMany({where:{code:{in:input.codes}},select:{code:true,name:true,text:true,linkUrl:true}}),
+  db.stockProductDescription.findMany({where:{code:{in:input.codes}},select:{code:true,name:true,text:true,linkUrl:true,updatedAt:true}}),
  ]);
  const products=input.codes.map(code=>{
   const product=catalog.products.find(p=>p.code===code);
@@ -30,7 +30,7 @@ export async function prepareLineCardDraft(value:unknown){
    return {slot,url:version?'/api/stock/'+encodeURIComponent(code)+'/image?slot='+slot+'&v='+version:null};
   });
   const details=descriptions.find(item=>item.code===code&&item.name===(product.name??''));
-  return {code,name:product.name,...(details?.text?{description:details.text}:{}),...(details?.linkUrl?{linkUrl:details.linkUrl}:{}),prices:product.prices,images,replyTitle:'ข้อมูล '+code,keyword:code,missingImageSlots:images.filter(i=>!i.url).map(i=>i.slot)};
+  return {code,name:product.name,...(details?.text?{description:details.text}:{}),...(details?.linkUrl?{linkUrl:details.linkUrl}:{}),settingsVersion:details?.updatedAt?.toISOString()??'',prices:product.prices,images,replyTitle:'ข้อมูล '+code,keyword:code,missingImageSlots:images.filter(i=>!i.url).map(i=>i.slot)};
  });
  return {version:1,createdAt:new Date().toISOString(),account:connection?.settings.basicId??null,aiConfigured:!!ai,status:'PREPARED' as const,
   sets:cardSets(products).map(items=>({title:cardSetTitle(items.map(p=>p.code)),products:items})),

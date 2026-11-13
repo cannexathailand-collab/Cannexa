@@ -2,18 +2,28 @@
 import {useEffect,useRef,useState} from 'react';
 import {useStockDeleteQueue} from './stock-delete-provider';
 import {OaJobList} from './oa-job-list';
-import {canConfirmPreview,confirmPreview,replacePreviewResearch,previewSummary,type CardPreviewProduct,type CardPreviewResearch} from '@/lib/line-card-preview-state';
+import {canConfirmPreview,confirmPreview,editCardDetails,replacePreviewResearch,previewSummary,type CardPreviewProduct,type CardPreviewResearch} from '@/lib/line-card-preview-state';
 type Draft={account:string|null;aiConfigured:boolean;sets:{title:string;products:CardPreviewProduct[]}[];delivery:{savedToLineOA:boolean;requiresLocalRunner:boolean}};
 export function StockLineCardDraft(){
  const selection=useStockDeleteQueue(),dialog=useRef<HTMLDialogElement>(null),generation=useRef(0);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[draft,setDraft]=useState<Draft|null>(null);
  const [oaAccount,setOaAccount]=useState(''),[researchContext,setResearchContext]=useState(''),[researching,setResearching]=useState<string|null>(null);
- const [using,setUsing]=useState(false),[usedMessage,setUsedMessage]=useState('');
+ const [using,setUsing]=useState(false),[usedMessage,setUsedMessage]=useState(''),[confirming,setConfirming]=useState<string|null>(null);
  const useRequestKey=useRef<string|null>(null);
  const signature=[...(selection?.selected??[])].sort().join('\0');
  useEffect(()=>{generation.current++;setDraft(null);setBusy(false);setResearching(null);setUsedMessage('');useRequestKey.current=null;},[signature,oaAccount,researchContext]);
  function updateProduct(code:string,update:(product:CardPreviewProduct)=>CardPreviewProduct){
   setDraft(current=>current?{...current,sets:current.sets.map(set=>({...set,products:set.products.map(product=>product.code===code?update(product):product)}))}:current);
+ }
+ async function confirmProduct(product:CardPreviewProduct){
+  if(!canConfirmPreview(product)||confirming)return;
+  setConfirming(product.code);setError('');
+  try{
+   const response=await fetch('/api/admin/stock/description',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:product.code,name:product.name??'',text:product.description??'',linkUrl:product.linkUrl??'',version:product.settingsVersion??''})});
+   const saved=await response.json();if(!response.ok)throw Error(saved.error??'ยังบันทึกข้อมูลการ์ดไม่ได้');
+   updateProduct(product.code,current=>confirmPreview({...current,description:saved.text,linkUrl:saved.linkUrl,settingsVersion:saved.version}));
+  }catch(failure){setError(failure instanceof Error?failure.message:'ยังบันทึกข้อมูลการ์ดไม่ได้');}
+  finally{setConfirming(null);}
  }
  async function research(code:string){
   const response=await fetch('/api/admin/stock/line-card-research',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,researchContext})});
@@ -61,14 +71,16 @@ export function StockLineCardDraft(){
  }}>{busy?'กำลังเตรียมข้อมูล…':'สร้างข้อความและการ์ด LINE OA'}</button></div>
  {prepared&&<p role="status" className="notice">{prepared}</p>}{usedMessage&&<p role="status" className="notice">{usedMessage}</p>}{error&&<p role="alert" className="notice">{error}</p>}
  <dialog ref={dialog} className="stock-modal" aria-label="ตัวอย่างชุดการ์ด LINE OA"><h2>ตัวอย่างชุดการ์ด LINE OA</h2><p>บัญชีปลายทาง: {draft?.account??'ยังไม่ได้เลือก LINE OA'}</p>
- <p className="notice">ตรวจและยืนยันแต่ละรายการ แล้วกดใช้ข้อมูลชุดนี้เพื่อบันทึกข้อความและการ์ดใน LINE OA โดยไม่ค้นใหม่</p>{prepared&&<p role="status">{prepared}</p>}
+ <p className="notice">กรอกคำอธิบายและลิงก์แยกตามสินค้า ระบบจะจำไว้เมื่อยืนยันข้อมูล ตรวจและยืนยันแต่ละรายการ แล้วกดใช้ข้อมูลชุดนี้เพื่อบันทึกข้อความและการ์ดใน LINE OA โดยไม่ค้นใหม่</p>{prepared&&<p role="status">{prepared}</p>}
  {!draft?.aiConfigured&&<p>ยังไม่ได้เชื่อม OpenAI กรุณาไปที่หมวดการเชื่อมต่อ</p>}
  {draft?.sets.map(set=><section key={set.title}><h3>{set.title}</h3>{set.products.map(product=><article key={product.code} className="card" aria-label={'ตัวอย่าง '+product.code}>
   <strong>{product.code} · {product.name??'ยังไม่มีชื่อ'}</strong>
   <div className="actions">{product.images.map(image=>image.url?<img key={image.slot} src={image.url} alt={'รูป '+image.slot+' '+product.code} width={90} height={90} style={{objectFit:'contain'}}/>:<span key={image.slot} className="muted">ยังไม่มีรูป {image.slot}</span>)}</div>
   <p className="small">Show details → {product.keyword}</p>
-  <p className="small">คำอธิบายการ์ด: {product.description||'ดูรายละเอียดสินค้า'}</p>
-  <p className="small">ลิงก์การ์ด: {product.linkUrl||'หน้าบัญชีลูกค้า'}</p>
+  <label>คำอธิบายการ์ด {product.code}<textarea rows={2} maxLength={60} value={product.description??''} disabled={using||!!confirming} onChange={event=>updateProduct(product.code,current=>editCardDetails(current,{description:event.target.value}))}/></label>
+  <p className="small">{product.description?.length??0}/60 ตัวอักษร</p>
+  <label>ลิงก์การ์ด {product.code}<input type="url" placeholder="https://" maxLength={2048} value={product.linkUrl??''} disabled={using||!!confirming} onChange={event=>updateProduct(product.code,current=>editCardDetails(current,{linkUrl:event.target.value}))}/></label>
+  <p className="small">เก็บแยกตามรหัสเมื่อยืนยันข้อมูล หากเว้นลิงก์ว่างจะเปิดหน้าบัญชีลูกค้า</p>
   {product.research&&<><p style={{whiteSpace:'pre-wrap'}}>{product.research.text}</p>
    {product.research.sources.map(source=><p key={source}><a href={source} target="_blank" rel="noreferrer">เว็บไซต์อ้างอิง: {new URL(source).hostname}</a>{product.research?.sourceStatus==='suggested'&&<span> · รอคุณตรวจและยืนยัน</span>}</p>)}
    {!product.confirmed&&product.research.needsReview&&<p className="notice">{product.research.reviewReason??'พบข้อมูลแล้ว กรุณาตรวจว่าตรงกับสินค้าก่อนยืนยัน'}</p>}
@@ -78,10 +90,10 @@ export function StockLineCardDraft(){
   {product.confirmed&&<p role="status" className="notice">ยืนยันข้อมูลตัวอย่างแล้ว</p>}
   {researching===product.code&&<p role="status">กำลังค้นข้อมูล {product.code}…</p>}
   {busy&&researching!==product.code&&!product.research&&!product.researchError&&<p className="small">รอค้นข้อมูล {product.code}</p>}
-  <div className="actions"><button type="button" disabled={busy||using||!!researching||product.confirmed||!canConfirmPreview(product)} onClick={()=>updateProduct(product.code,confirmPreview)}>{product.confirmed?'ยืนยันข้อมูลแล้ว':'ยืนยันข้อมูล'}</button>
-   <button type="button" className="secondary" disabled={busy||using||!!researching||!draft.aiConfigured} onClick={()=>void retryResearch(product.code)}>ค้นหาข้อมูลใหม่</button></div>
+  <div className="actions"><button type="button" disabled={busy||using||!!researching||!!confirming||product.confirmed||!canConfirmPreview(product)} onClick={()=>void confirmProduct(product)}>{confirming===product.code?'กำลังบันทึก…':product.confirmed?'ยืนยันข้อมูลแล้ว':'ยืนยันข้อมูล'}</button>
+   <button type="button" className="secondary" disabled={busy||using||!!researching||!!confirming||!draft.aiConfigured} onClick={()=>void retryResearch(product.code)}>ค้นหาข้อมูลใหม่</button></div>
  </article>)}</section>)}
  {busy&&<p role="status">{researching?`กำลังค้นข้อมูล ${researching}…`:'กำลังเตรียมรายการ…'}</p>}{error&&<p role="alert" className="notice">{error}</p>}
- <div className="actions"><button type="button" disabled={busy||using||!!researching||!oaAccount||!!usedMessage||!draft?.sets.length||draft.sets.some(set=>set.products.some(product=>!product.confirmed||!canConfirmPreview(product)||product.images.some(image=>!image.url)))} onClick={()=>void usePreview()}>{using?'กำลังรับข้อมูล…':'ใช้ข้อมูลชุดนี้สร้างใน LINE OA'}</button>
- <button type="button" className="secondary" disabled={busy||using||!!researching} onClick={()=>dialog.current?.close()}>ปิด</button></div></dialog></>;
+ <div className="actions"><button type="button" disabled={busy||using||!!researching||!!confirming||!oaAccount||!!usedMessage||!draft?.sets.length||draft.sets.some(set=>set.products.some(product=>!product.confirmed||!canConfirmPreview(product)||product.images.some(image=>!image.url)))} onClick={()=>void usePreview()}>{using?'กำลังรับข้อมูล…':'ใช้ข้อมูลชุดนี้สร้างใน LINE OA'}</button>
+ <button type="button" className="secondary" disabled={busy||using||!!researching||!!confirming} onClick={()=>dialog.current?.close()}>ปิด</button></div></dialog></>;
 }
