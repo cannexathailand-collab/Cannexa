@@ -213,6 +213,8 @@ const english:Record<string,string>={
  "ยังไม่มีราคาขาย": "No price available",
  "รอระบุราคา": "Price pending",
  "พร้อมขาย": "Available",
+ "ไม่พร้อมขาย": "Unavailable",
+ "สินค้านี้ไม่พร้อมขาย": "This product is unavailable",
  "รอข้อมูลสต๊อก": "Stock information pending",
  "ขนาดนี้ยังไม่พร้อมขาย": "This size is unavailable",
  "เพิ่มลงตะกร้าแล้ว": "Added to cart",

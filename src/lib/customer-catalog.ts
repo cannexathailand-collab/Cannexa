@@ -7,9 +7,10 @@ import {normalizeStockPackage} from './stock-product-input';
 import {compareStockCodes} from './stock-sort';
 import type {Prisma} from '@prisma/client';
 import {loadShopCatalogSettings,loadBestSellerRanks} from './shop-catalog-settings';
+import {loadStockSaleAvailability} from './stock-sale-availability';
 
 export type CustomerCatalogPrice={pack:string;grams:number;priceSatang:number};
-export type CustomerCatalogProduct={code:string;name:string|null;available:number|null;prices:CustomerCatalogPrice[];imageVersion:string|null;description?:string;category?:string;recommended?:boolean;bestSellerRank?:number};
+export type CustomerCatalogProduct={code:string;name:string|null;available:number|null;prices:CustomerCatalogPrice[];imageVersion:string|null;saleEnabled?:boolean;description?:string;category?:string;recommended?:boolean;bestSellerRank?:number};
 export type CatalogProduct=CustomerCatalogProduct;
 export type CustomerCatalog={products:CustomerCatalogProduct[];readAt:string|null};
 
@@ -48,9 +49,10 @@ export async function loadCustomerCatalog(client:Prisma.TransactionClient=db,opt
  const visible=[...products.values()].filter((product):product is Omit<CustomerCatalogProduct,'imageVersion'>=>product!==null).sort((a,b)=>compareStockCodes(a.code,b.code));
  const images=visible.length?await client.stockProductImage.findMany({where:{code:{in:visible.map(product=>product.code)}},select:{code:true,imageVersion:true}}):[];
  const versions=new Map(images.map(image=>[image.code,/^[a-f0-9]{64}$/.test(image.imageVersion)?image.imageVersion:null]));
+ const paused=new Set((await loadStockSaleAvailability(client)).filter(entry=>!entry.enabled).map(entry=>entry.code));
  const enrich=options.merchandising!==false&&visible.length>0;
  const [settings,ranks,descriptions]=await Promise.all([enrich?loadShopCatalogSettings(client):Promise.resolve({products:[],version:''}),enrich?loadBestSellerRanks(client):Promise.resolve(new Map<string,number>()),enrich?client.customerProductDescription.findMany({where:{code:{in:visible.map(product=>product.code)}},select:{code:true,name:true,description:true}}):Promise.resolve([])]);
  const presentation=new Map(settings.products.map(row=>[row.code,row]));
  const descriptionByCode=new Map(descriptions.map(row=>[row.code,row]));
- return {products:visible.map(product=>{const detail=presentation.get(product.code),text=descriptionByCode.get(product.code);return {...product,imageVersion:versions.get(product.code)??null,...(text?.name===(product.name??'')&&text.description?{description:text.description}:{}),...(detail?.category?{category:detail.category}:{}),...(detail?.recommended?{recommended:true}:{}),...(ranks.has(product.code)?{bestSellerRank:ranks.get(product.code)}:{})};}),readAt:snapshot.readAt?.toISOString()??null};
+ return {products:visible.map(product=>{const detail=presentation.get(product.code),text=descriptionByCode.get(product.code);return {...product,...(paused.has(product.code)?{saleEnabled:false}:{}),imageVersion:versions.get(product.code)??null,...(text?.name===(product.name??'')&&text.description?{description:text.description}:{}),...(detail?.category?{category:detail.category}:{}),...(detail?.recommended?{recommended:true}:{}),...(ranks.has(product.code)?{bestSellerRank:ranks.get(product.code)}:{})};}),readAt:snapshot.readAt?.toISOString()??null};
 }

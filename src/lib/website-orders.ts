@@ -197,7 +197,7 @@ export async function createWebsiteOrder(customerCode:string,value:unknown){
   const snapshots:WebsiteOrderLine[]=input.items.map(item=>{
    const product=products.get(item.code);
    const price=product?.prices.find(candidate=>candidate.pack===item.pack);
-   if(!product||!price||price.priceSatang<=0)throw Error('PRODUCT_UNAVAILABLE');
+   if(!product||product.saleEnabled===false||!price||price.priceSatang<=0)throw Error('PRODUCT_UNAVAILABLE');
    if(price.priceSatang!==item.expectedUnitPriceSatang)throw Error('PRICE_CHANGED');
    if(product.available===null)throw Error('STOCK_CHANGED');
    const available=Math.round(product.available*1000);

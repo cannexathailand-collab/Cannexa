@@ -31,6 +31,7 @@ export function cartQuantityError(
   items: CustomerCartItem[], product: CustomerCatalogProduct,
   price: CustomerCatalogPrice, quantity: number,
 ) {
+  if (product.saleEnabled === false) return 'สินค้านี้ไม่พร้อมขาย';
   if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 999) return 'จำนวนต้องเป็นเลขเต็มตั้งแต่ 1 ถึง 999';
   if (price.priceSatang <= 0) return 'สินค้าขนาดนี้ยังไม่พร้อมแสดงราคา';
   if (!Number.isSafeInteger(price.priceSatang * quantity)) return 'ยอดรวมรายการนี้สูงเกินกว่าที่รองรับ';

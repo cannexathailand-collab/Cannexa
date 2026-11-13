@@ -9,6 +9,7 @@ test('using a confirmed preview queues the exact text directly for saving withou
  const mock=(target:any,key:string,value:any)=>{const prior=target[key];target[key]=value;t.after(()=>{target[key]=prior;});};
  const oldSecret=process.env.SESSION_SECRET;process.env.SESSION_SECRET='test-preview-secret';
  t.after(()=>{if(oldSecret===undefined)delete process.env.SESSION_SECRET;else process.env.SESSION_SECRET=oldSecret;});
+ mock(db.shopCatalogSettings,'findUnique',async()=>null);
  mock(db.stockProductDescription,'findMany',async()=>[{code:'TEST01',name:'Test cup',text:'Ceramic cup, hand wash.',linkUrl:'https://example.com/cup'}]);
  mock(db.lineOaBrowser,'findUnique',async()=>({account:'@test'}));
  mock(db.lineOaAccount,'findMany',async()=>[{account:'@test',available:true}]);

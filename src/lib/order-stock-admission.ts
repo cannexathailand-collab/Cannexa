@@ -7,6 +7,7 @@ import {milli} from './stock-flow-plan';
 import {reservationOperationId} from './stock-flow';
 import type {StockRow} from './stock-import';
 import {websiteOrderStockItems} from './website-order-stock';
+import {loadStockSaleAvailability,pausedStockReasons} from './stock-sale-availability';
 export type StockReader=typeof readStockSheet;
 export async function pendingStockSaleItems(tx:Prisma.TransactionClient=db,excludeOrderId?:string){
  const reservations=await tx.stockReservation.findMany({where:{status:'QUEUED',precounted:false,needsReconciliation:false,...(excludeOrderId?{orderId:{not:excludeOrderId}}:{})}});
@@ -40,9 +41,14 @@ export function unavailableStock(items:OrderStockItem[],products:StockRow[],pend
 // The shared stock lock prevents admission from racing sheet reservation/dispatch.
 // QUEUED reservations are deducted until their sheet operation is confirmed.
 export async function checkOrderStock(tx:Prisma.TransactionClient,text:string,read:StockReader=readStockSheet){
- const config=await tx.stockWorkflow.findUnique({where:{id:'active'}});if(!config?.enabled)return null;
  await userLock(tx,'stock-sheet-add');
  const parsed=orderStockItems(text);
+ const availability=await loadStockSaleAvailability(tx);
+ // Even an unparseable form must not bypass a specifically paused product code.
+ const codes=parsed.issues.length?(text.normalize('NFKC').toUpperCase().match(/[\p{L}\p{M}\p{N}._-]+/gu)??[]):parsed.items.map(item=>item.code);
+ const paused=pausedStockReasons(codes,availability);
+ if(paused.length)return {items:parsed.items,reasons:paused};
+ const config=await tx.stockWorkflow.findUnique({where:{id:'active'}});if(!config?.enabled)return null;
  if(parsed.issues.length)return {items:parsed.items,reasons:['ตรวจสอบสต๊อกไม่ได้ กรุณาระบุสินค้าเป็นรหัสและจำนวน เช่น CG13 x 20 G']};
  try{
   const source=await read();if(source.tab.title!==config.sourceSheet)return {items:parsed.items,reasons:['สต๊อกอยู่ระหว่างเปลี่ยนรอบ กรุณาติดต่อผู้ดูแลแล้วส่งใหม่']};

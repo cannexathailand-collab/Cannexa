@@ -14,13 +14,14 @@ function fixture(t:TestContext){
  const original=db.$transaction,originalFindMany=db.websiteOrder.findMany;
  t.after(()=>{db.$transaction=original;db.websiteOrder.findMany=originalFindMany;});
  const customer:any={code:'C100',referrerId:'seller',identityKey:null,title:'คุณ',name:'Example Customer',phone:'0812345678',address:'10 Example Road Bangkok 10200',portalRegistrationPending:false,portalProfileIncomplete:false};
- const state={customer,bank:{bankName:"Example Bank",accountName:"Example Account",accountNumber:"1234567890",version:"12345678-1234-4234-8234-123456789abc"},rows:[{code:'A1',name:'General product',available:100,prices:[{pack:'10G',priceSatang:1000},{pack:'20G',priceSatang:1800}]}] as any[],orders:new Map<string,any>(),audits:[] as any[],snapshotReads:0,locks:[] as string[],reservations:[] as any[],intakes:[] as any[],sales:[] as any[],workflow:null as any};
+ const state={customer,bank:{bankName:"Example Bank",accountName:"Example Account",accountNumber:"1234567890",version:"12345678-1234-4234-8234-123456789abc"},rows:[{code:'A1',name:'General product',available:100,prices:[{pack:'10G',priceSatang:1000},{pack:'20G',priceSatang:1800}]}] as any[],orders:new Map<string,any>(),audits:[] as any[],snapshotReads:0,locks:[] as string[],reservations:[] as any[],intakes:[] as any[],sales:[] as any[],saleEntries:[] as any[],workflow:null as any};
  const tx={
   $queryRawUnsafe:async(_sql:string,key:string)=>{state.locks.push(key);return [{locked:true}];},
   customer:{findUnique:async({where}:any)=>where.code===customer.code?structuredClone(customer):null,update:async({data}:any)=>Object.assign(customer,data)},
   affiliate:{findMany:async({where}:any)=>where.OR[0].code.equals.toUpperCase()==='SELL01'?[{id:'seller',salesCommissionBasis:'REVENUE',salesCommissionBps:1000,accounts:[{username:'sell01'}]}]:[],findUnique:async()=>null},
   crmPointRule:{findFirst:async()=>null},
   stockWorkflow:{findUnique:async()=>state.workflow},
+  shopCatalogSettings:{findUnique:async({where}:any)=>where.id==='stock-sale-availability'?{products:state.saleEntries}:null},
   stockReservation:{findMany:async({where}:any)=>state.reservations.filter(row=>row.status===where.status&&(!where.createdAt||row.createdAt>=where.createdAt.gte)),create:async({data}:any)=>{state.reservations.push({...data,status:'QUEUED',createdAt:new Date()});}},
   stockSheetOperation:{findMany:async()=>[]},
   orderIntake:{create:async({data}:any)=>{const row={id:'intake-'+state.intakes.length,...data};state.intakes.push(row);return row;},findMany:async({where}:any)=>state.intakes.filter(row=>where.id.in.includes(row.id))},
@@ -235,4 +236,14 @@ test('website order text round-trips through the LINE order parsers',()=>{
  assert.equal(parsed.payment,'โอน');assert.deepEqual(parsed.issues,[]);
  assert.equal(quotedTotal(text),4150);
  assert.deepEqual(orderStockItems(text),{items:[{code:'A1',quantityMilliG:10500},{code:'B2',quantityMilliG:10000}],issues:[]});
+});
+
+
+test('closed products reject new website orders while preserving idempotent existing orders and old snapshots',async t=>{
+ const state=fixture(t),input=request();const original=await createWebsiteOrder('C100',input);
+ state.saleEntries=[{code:'A1',enabled:false,version:randomUUID()}];
+ assert.equal((await createWebsiteOrder('C100',input)).id,original.id);
+ await assert.rejects(createWebsiteOrder('C100',request()),/PRODUCT_UNAVAILABLE/);
+ assert.equal(state.orders.size,1);assert.equal(original.items[0].unitPriceSatang,1000);
+ state.saleEntries[0].enabled=true;await createWebsiteOrder('C100',request());assert.equal(state.orders.size,2);
 });

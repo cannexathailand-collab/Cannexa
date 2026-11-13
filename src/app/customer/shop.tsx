@@ -27,7 +27,7 @@ function ShopProduct({product, disabled, onAdd}: {
     priceSatang: number;
   } | null>(null);
   const selected = product.prices.find(price => price.pack === pack) ?? product.prices.find(price => price.priceSatang > 0);
-  const available = selected && selected.priceSatang > 0 && product.available !== null && product.available >= selected.grams;
+  const available = product.saleEnabled !== false && selected && selected.priceSatang > 0 && product.available !== null && product.available >= selected.grams;
 
   useEffect(() => {
     if (!added) return;
@@ -52,7 +52,7 @@ function ShopProduct({product, disabled, onAdd}: {
       </label> : <p className="shop-unavailable">{t("ยังไม่มีราคาขาย")}</p>}
       <p className="shop-product-price">{t(selected ? money(selected.priceSatang) + ' บาท' : 'รอระบุราคา')}</p>
       <span className={'shop-availability' + (available ? ' available' : '')}>
-        {t(available ? 'พร้อมขาย' : product.available === null ? 'รอข้อมูลสต๊อก' : 'ขนาดนี้ยังไม่พร้อมขาย')}
+        {t(product.saleEnabled === false ? 'ไม่พร้อมขาย' : available ? 'พร้อมขาย' : product.available === null ? 'รอข้อมูลสต๊อก' : 'ขนาดนี้ยังไม่พร้อมขาย')}
       </span>
       <div className="shop-add-action">
         {added && <div key={added.sequence} className="shop-add-feedback" role="status">
