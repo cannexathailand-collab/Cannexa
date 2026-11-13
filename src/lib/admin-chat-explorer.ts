@@ -58,7 +58,7 @@ export async function exploreChatData(role:string,name:string,args:unknown):Prom
   const delegate=(db as any)[input.source[0].toLowerCase()+input.source.slice(1)];
   const [total,raw]=await Promise.all([delegate.count({where}),delegate.findMany({where,select:Object.fromEntries(fields.map(field=>[field,true])),orderBy:{[order]:input.direction},take:input.limit,skip:input.offset})]);
   const rows=raw.map(cleanRow);
-  return {source:reference(input.source),data:{source:input.source,filters:input.filters,total,offset:input.offset,shownCount:rows.length,rows,hasMore:input.offset+rows.length<total,moneyUnit:'Fields ending Satang are satang; all other numbers retain their schema units.'},table:{title:titles[input.source]??input.source,columns:fields.map(label),total,rows:rows.map((row:Record<string,unknown>)=>({cells:fields.map(field=>cell(field,row[field]))}))}};
+  return {source:reference(input.source),data:{source:input.source,filters:input.filters,total,offset:input.offset,shownCount:rows.length,textCharacterLimitPerCell:1500,rows,hasMore:input.offset+rows.length<total,moneyUnit:'Fields ending Satang are satang; all other numbers retain their schema units.'},table:{title:titles[input.source]??input.source,columns:fields.map(label),total,rows:rows.map((row:Record<string,unknown>)=>({cells:fields.map(field=>cell(field,row[field]))}))}};
  }
  if(name==='aggregate_data_source'){
   const input=aggregateInput.parse(args),where=explorerWhere(input.source,input.filters);

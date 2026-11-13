@@ -57,7 +57,7 @@ export async function runAdminChat(input:z.infer<typeof chatInput>,role:Role,dep
      result=read.data;
      if(!sources.some(source=>source.url===read.source.url))sources.push(read.source);
      if(read.table)tables.push(read.table);
-    }catch(error){result={error:error instanceof z.ZodError?'Invalid filters. Correct the parameters and retry. Dates must be valid and at most 366 days. inactiveDays can be 0 for all or never, but must be 1 or more for inactive.':'Could not read this report. Do not invent its values. Report that this data source is unavailable.'};}
+    }catch(error){result={error:(error instanceof z.ZodError||error instanceof Error&&['UNKNOWN_SOURCE','UNREADABLE_FIELD','INVALID_VALUE','INVALID_NULL_FILTER','INVALID_FILTER','INVALID_SUM','REFINE_CUSTOMER_SEARCH'].includes(error.message))?'Invalid query or filters. Describe the source and use its listed fields/types; narrow the search if needed. Do not say records are absent. Invalid filters. Correct the parameters and retry. Dates must be valid and at most 366 days. inactiveDays can be 0 for all or never, but must be 1 or more for inactive.':'Could not read this report. Do not invent its values. Report that this data source is unavailable.'};}
    }
    messages.push({type:'function_call_output',call_id:call.call_id,output:JSON.stringify(result)});
   }
