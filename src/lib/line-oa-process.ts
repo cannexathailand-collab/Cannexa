@@ -50,7 +50,8 @@ export async function processOaStep(openPage:()=>Promise<{page:Page;close:()=>Pr
   const retryMessage=retryDelay===null?(job.retryCount>=3?'ลองอัตโนมัติครบ 3 ครั้งแล้วยังไม่ผ่าน · '+message:message):'พบข้อขัดข้อง ระบบจะลองขั้นเดิมอัตโนมัติครั้งที่ '+(job.retryCount+1)+' ใน '+retryDelay/1000+' วินาที · '+message;
   await reportOaProgress(retryMessage);
   await db.lineOaJob.update({where:{id:job.id},data:{status:login?'AWAITING_LOGIN':retryDelay===null?'FAILED':'RETRYING',leaseUntil:null,error:retryMessage,retryCount:retryDelay===null?job.retryCount:job.retryCount+1,nextAttemptAt:retryDelay===null?null:new Date(Date.now()+retryDelay)}});
-  if(login)await db.lineOaBrowser.update({where:{id:'active'},data:{status:'EXPIRED'}});
+  // One destination can reject access while the same login still works
+  // for other OAs. Pause that job only; each next job verifies its own OA.
  }finally{
   clearInterval(heartbeat);if(context)await context.close().catch(()=>{});
   await releaseOaBrowserLease();
