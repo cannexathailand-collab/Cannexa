@@ -1,12 +1,15 @@
 import {admin,currentAccount,sameOrigin} from '@/lib/auth';
 import {stockEditors} from '@/lib/accounts';
 import {db} from '@/lib/db';
-import {createOaJob,publicOaJob} from '@/lib/line-oa-job';
+import {createOaJob,publicOaJob,oaPayload} from '@/lib/line-oa-job';
 export async function GET(){
  try{await admin(stockEditors);}catch{return new Response('Forbidden',{status:403});}
  const actor=await currentAccount();
  const connection=actor.role==='owner'?null:await db.lineOaBrowser.findUnique({where:{id:'active'},select:{account:true}});
- const jobs=await db.lineOaJob.findMany({where:actor.role==='owner'?{}:{account:connection?.account??''},orderBy:{createdAt:'desc'},take:10});
+ const visible=actor.role==='owner'?{}:{account:connection?.account??''};
+ const newest=await db.lineOaJob.findFirst({where:visible,orderBy:{createdAt:'desc'}});
+ const parsed=oaPayload.safeParse(newest?.payload),batchKey=parsed.success?parsed.data.batchKey:undefined;
+ const jobs=!newest?[]:batchKey?await db.lineOaJob.findMany({where:{...visible,payload:{path:['batchKey'],equals:batchKey}},orderBy:{createdAt:'asc'},take:50}):[newest];
  const accounts=await db.lineOaAccount.findMany({where:{account:{in:jobs.map(job=>job.account)}}});
  return Response.json(jobs.map(job=>({...publicOaJob(job),accountName:accounts.find(account=>account.account===job.account)?.name??job.account})),{headers:{'Cache-Control':'no-store'}});
 }

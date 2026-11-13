@@ -10,7 +10,7 @@ import {parseOaProgress} from './line-oa-progress';
 import {readOaPreview} from './line-card-preview-token';
 
 export const oaProduct=z.object({code:z.string().min(1).max(12),name:z.string().min(1),description:z.string().max(60).optional(),linkUrl:z.string().max(2048).url().refine(value=>{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password;}).optional(),priceSatang:z.number().int().nonnegative().max(999999999).optional(),images:z.array(z.object({slot:z.number(),url:z.string().nullable()})).length(3),replyTitle:z.string().max(20),keyword:z.string().min(1).max(30),research:researchResult.optional(),selectedReference:z.object({name:z.string().min(1).max(200),url:z.string().url().refine(url=>new URL(url).protocol==='https:')}).optional()});
-export const oaPayload=z.object({version:z.literal(1),researchContext:z.string().trim().max(200).optional(),sets:z.array(z.object({title:z.string().max(100),products:z.array(oaProduct).min(1).max(5)})).min(1).max(10)});
+export const oaPayload=z.object({version:z.literal(1),batchKey:z.string().uuid().optional(),batchAccounts:z.array(oaAccountId).optional(),researchContext:z.string().trim().max(200).optional(),sets:z.array(z.object({title:z.string().max(100),products:z.array(oaProduct).min(1).max(5)})).min(1).max(10)});
 export type OaPayload=z.infer<typeof oaPayload>;
 export function researchAlternatives(research:z.infer<typeof researchResult>|undefined){
  if(!research?.needsReview)return [];
@@ -22,7 +22,7 @@ export function chooseResearchAlternative(payload:OaPayload,code:string,index:nu
  if(!Number.isInteger(index)||index<0||!product?.research?.needsReview||!choice)throw Error('OA_ALTERNATIVE_INVALID');
  product.selectedReference={...choice};delete product.research;return cursor;
 }
-export const oaRequest=z.object({codes:z.array(stockCode).min(1).max(50),requestKey:z.string().uuid(),researchContext:z.string().trim().max(200).optional(),account:oaAccountId.optional(),prepared:z.array(z.object({code:stockCode,token:z.string().min(1).max(32000),confirmed:z.literal(true)})).min(1).max(50).optional()});
+export const oaRequest=z.object({batchKey:z.string().uuid().optional(),batchAccounts:z.array(oaAccountId).optional(),codes:z.array(stockCode).min(1).max(50),requestKey:z.string().uuid(),researchContext:z.string().trim().max(200).optional(),account:oaAccountId.optional(),prepared:z.array(z.object({code:stockCode,token:z.string().min(1).max(32000),confirmed:z.literal(true)})).min(1).max(50).optional()});
 export function artifactFingerprint(value:unknown){return createHash('sha256').update(JSON.stringify(value)).digest('hex');}
 export function matchesOaRequest(job:{account:string;payload:Prisma.JsonValue},account:string,codes:string[]){
  return job.account===account&&JSON.stringify(oaPayload.parse(job.payload).sets.flatMap(set=>set.products).map(product=>product.code))===JSON.stringify(codes);
@@ -41,7 +41,12 @@ export function publicOaJob(job:{id:string;account?:string;status:string;phase:s
  const current=products[job.cursor];
  const progressMessage=job.progressMessage??(job.status==='RUNNING'&&current?(job.phase==='RESEARCH'?'กำลังค้นข้อมูล ':job.phase==='REPLIES'?'กำลังบันทึกข้อความ ':'กำลังบันทึกการ์ด ')+current.code:undefined);
  const counts={products:products.length,replies:Array.isArray(job.results)?job.results.filter(result=>result&&typeof result==='object'&&!Array.isArray(result)&&result.kind==='reply').length:0,sets:parsed.success?parsed.data.sets.length:0,cards:Array.isArray(job.results)?job.results.filter(result=>result&&typeof result==='object'&&!Array.isArray(result)&&result.kind==='cards').length:0};
- return {id:job.id,account:job.account,retryCount:job.retryCount,nextAttemptAt:job.nextAttemptAt,progressMessage,progressAt:job.progressAt,progress:parseOaProgress(job.progressLog),counts,status:job.status,phase:job.phase,cursor:job.cursor,error:job.error,results:job.results,review:job.status==='AWAITING_REVIEW'&&parsed.success?parsed.data.sets.flatMap(s=>s.products).map(p=>({code:p.code,name:p.name,text:p.research?.text??'',sourceCount:p.research?.sources.length??0,reviewReason:p.research?.needsReview?(p.research.reviewReason??'กรุณาตรวจสอบว่าข้อมูลตรงกับสินค้าที่เลือก'):'',alternatives:researchAlternatives(p.research)})):[],createdAt:job.createdAt,updatedAt:job.updatedAt};
+ return {id:job.id,account:job.account,batchKey:parsed.success?parsed.data.batchKey:undefined,retryCount:job.retryCount,nextAttemptAt:job.nextAttemptAt,progressMessage,progressAt:job.progressAt,progress:parseOaProgress(job.progressLog),counts,status:job.status,phase:job.phase,cursor:job.cursor,error:job.error,results:job.results,review:job.status==='AWAITING_REVIEW'&&parsed.success?parsed.data.sets.flatMap(s=>s.products).map(p=>({code:p.code,name:p.name,text:p.research?.text??'',sourceCount:p.research?.sources.length??0,reviewReason:p.research?.needsReview?(p.research.reviewReason??'กรุณาตรวจสอบว่าข้อมูลตรงกับสินค้าที่เลือก'):'',alternatives:researchAlternatives(p.research)})):[],createdAt:job.createdAt,updatedAt:job.updatedAt};
+}
+export function latestOaJobs<T extends {payload:Prisma.JsonValue}>(jobs:T[]):T[]{
+ const latest=oaPayload.safeParse(jobs[0]?.payload);
+ const batchKey=latest.success?latest.data.batchKey:undefined;
+ return batchKey?jobs.filter(job=>{const parsed=oaPayload.safeParse(job.payload);return parsed.success&&parsed.data.batchKey===batchKey;}):jobs.slice(0,1);
 }
 export async function createOaJob(actor:string,value:unknown,canChooseOther=false){
  const input=oaRequest.parse(value);
@@ -53,7 +58,7 @@ export async function createOaJob(actor:string,value:unknown,canChooseOther=fals
  const old=await db.lineOaJob.findUnique({where:{requestKey:input.requestKey}});if(old){if(!matches(old))throw Error('OA_REQUEST_CHANGED');return publicOaJob(old);}
  const draft=await prepareLineCardDraft({codes:input.codes});
  if(!draft.aiConfigured&&!input.prepared)throw Error('OPENAI_NOT_CONFIGURED');
- const payload=validateOaPayload({version:1,sets:draft.sets,researchContext:input.researchContext});
+ const payload=validateOaPayload({version:1,batchKey:input.batchKey,batchAccounts:input.batchAccounts,sets:draft.sets,researchContext:input.researchContext});
  if(input.prepared){
   const products=payload.sets.flatMap(set=>set.products);
   if(input.prepared.length!==products.length||new Set(input.prepared.map(item=>item.code)).size!==products.length)throw Error('OA_PREVIEW_CHANGED');
