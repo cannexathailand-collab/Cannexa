@@ -3,19 +3,20 @@ import assert from 'node:assert/strict';
 import {saveReplyEditor,activateReply,savedId,verifyManager} from '../src/lib/line-oa-manager';
 
 function form(active:boolean){
- const events:string[]=[];
- const page:any={waitForLoadState:async()=>events.push('settled'),reload:async()=>events.push('reload'),getByRole:(role:string,{name}:{name:string})=>{
-  const locator:any={last:()=>locator,isVisible:async()=>active&&name==='ใช้การเปลี่ยนแปลง',count:async()=>name==='เริ่มใช้งาน'?(active?0:2):1,
-   click:async()=>events.push('click:'+name),waitFor:async()=>events.push('wait:'+name)};
+ const events:string[]=[];let currentActive=active;
+ const page:any={waitForLoadState:async()=>events.push('settled'),reload:async()=>events.push('reload'),getByRole:(role:string,{name:input}:{name:string|RegExp})=>{
+  const name=typeof input==='string'?input:'controls';
+  const locator:any={first:()=>locator,last:()=>locator,isVisible:async()=>name==='หยุดใช้งาน'?currentActive:active&&name==='ใช้การเปลี่ยนแปลง',count:async()=>name==='เริ่มใช้งาน'?(currentActive?0:2):1,
+   click:async()=>{events.push('click:'+name);if(name==='เริ่มใช้งาน')currentActive=true;},waitFor:async()=>events.push('wait:'+name)};
   return locator;
  }};
  return {page,events};
 }
 test('existing inactive replies save without an active-edit confirmation and activate with duplicate controls',async()=>{
  const draft=form(false);await saveReplyEditor(draft.page);await activateReply(draft.page);
- assert.deepEqual(draft.events,['click:บันทึก','click:เริ่มใช้งาน','wait:หยุดใช้งาน','reload','wait:หยุดใช้งาน']);
+ assert.deepEqual(draft.events,['click:บันทึก','wait:controls','click:เริ่มใช้งาน','wait:หยุดใช้งาน','reload','wait:หยุดใช้งาน']);
  const active=form(true);await saveReplyEditor(active.page);await activateReply(active.page);
- assert.deepEqual(active.events,['click:ใช้การเปลี่ยนแปลง','wait:ต้องการใช้การเปลี่ยนแปลงหรือไม่','click:ใช้การเปลี่ยนแปลง','wait:หยุดใช้งาน']);
+ assert.deepEqual(active.events,['click:ใช้การเปลี่ยนแปลง','wait:ต้องการใช้การเปลี่ยนแปลงหรือไม่','click:ใช้การเปลี่ยนแปลง','wait:controls']);
 });
 test('new item verification waits for list navigation before opening the saved item',async()=>{
  let url='https://manager.line.biz/account/@test/autoresponse/create';const events:string[]=[];
@@ -31,10 +32,10 @@ test('new item verification waits for list navigation before opening the saved i
 test('activation waits for the active UI before reload and refuses unconfirmed activation',async()=>{
  let activated=false,reloaded=false;
  const page:any={reload:async()=>{assert.ok(activated);reloaded=true;},getByRole:(_role:string,{name}:{name:string})=>{
-  const locator:any={last:()=>locator,count:async()=>name==='เริ่มใช้งาน'?1:0,click:async()=>{},waitFor:async()=>{await Promise.resolve();activated=true;}};return locator;
+  const locator:any={first:()=>locator,last:()=>locator,isVisible:async()=>false,count:async()=>name==='เริ่มใช้งาน'?1:0,click:async()=>{},waitFor:async()=>{await Promise.resolve();activated=true;}};return locator;
  }};
  await activateReply(page);assert.ok(reloaded);
- reloaded=false;page.getByRole=(_role:string,{name}:{name:string})=>{const locator:any={last:()=>locator,count:async()=>name==='เริ่มใช้งาน'?1:0,click:async()=>{},waitFor:async()=>{throw Error('not activated');}};return locator;};
+ reloaded=false;page.getByRole=(_role:string,{name}:{name:string})=>{const locator:any={first:()=>locator,last:()=>locator,isVisible:async()=>false,count:async()=>name==='เริ่มใช้งาน'?1:0,click:async()=>{},waitFor:async()=>{throw Error('not activated');}};return locator;};
  await assert.rejects(activateReply(page),/OA_REPLY_ACTIVATION_VERIFY_FAILED/);assert.equal(reloaded,false);
 });
 
@@ -63,4 +64,10 @@ test('a known shop name may confirm its exact account URL when the basic ID is n
  await verifyManager(page,'@last','Last shop');
  current='https://manager.line.biz/account/@wrong';
  await assert.rejects(verifyManager(page,'@last','Last shop'),/OA_ACCOUNT_VERIFY_FAILED/);
+});
+
+test('an inactive reply whose activation controls hydrate late is activated instead of skipped',async()=>{
+ let ready=false,clicked=false,reloaded=false;
+ const page:any={reload:async()=>{reloaded=true;},getByRole:(_role:string,{name}:{name:string|RegExp})=>{const locator:any={first:()=>locator,last:()=>locator,isVisible:async()=>name==='หยุดใช้งาน'&&clicked,click:async()=>{assert.ok(ready);clicked=true;},waitFor:async()=>{if(name instanceof RegExp){await Promise.resolve();ready=true;}else assert.ok(clicked);}};return locator;}};
+ await activateReply(page);assert.ok(ready&&clicked&&reloaded);
 });

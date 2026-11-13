@@ -128,16 +128,15 @@ export async function saveReplyEditor(page:Page){
  }else await page.getByRole('button',{name:'บันทึก',exact:true}).last().click();
 }
 export async function activateReply(page:Page){
- const start=page.getByRole('button',{name:'เริ่มใช้งาน',exact:true});
- if(await start.count()){
-  await start.last().click();
-  // Do not reload while the activation request is still pending. Network
-  // idleness does not prove that OA accepted the activation.
-  await page.getByRole('button',{name:'หยุดใช้งาน',exact:true}).last().waitFor({state:'visible',timeout:20000}).catch(()=>{throw Error('OA_REPLY_ACTIVATION_VERIFY_FAILED');});
-  // Then re-open to verify the server persisted the active state.
-  await page.reload({waitUntil:'domcontentloaded'});
- }
- await page.getByRole('button',{name:'หยุดใช้งาน',exact:true}).last().waitFor({state:'visible',timeout:20000}).catch(()=>{throw Error('OA_REPLY_ACTIVATION_VERIFY_FAILED');});
+ // Controls hydrate separately from the saved text. Wait for either state
+ // before deciding whether this reply still needs to be activated.
+ await page.getByRole('button',{name:/^(เริ่มใช้งาน|หยุดใช้งาน)$/}).first().waitFor({state:'visible',timeout:20000}).catch(()=>{throw Error('OA_REPLY_ACTIVATION_VERIFY_FAILED');});
+ const stop=page.getByRole('button',{name:'หยุดใช้งาน',exact:true}).last();
+ if(await stop.isVisible())return;
+ await page.getByRole('button',{name:'เริ่มใช้งาน',exact:true}).last().click();
+ await stop.waitFor({state:'visible',timeout:20000}).catch(()=>{throw Error('OA_REPLY_ACTIVATION_VERIFY_FAILED');});
+ await page.reload({waitUntil:'domcontentloaded'});
+ await stop.waitFor({state:'visible',timeout:20000}).catch(()=>{throw Error('OA_REPLY_ACTIVATION_VERIFY_FAILED');});
 }
 export async function saveManagerReply(page:Page,account:string,product:Product){
  await reportOaProgress('กำลังเปิดข้อความ '+product.code);
