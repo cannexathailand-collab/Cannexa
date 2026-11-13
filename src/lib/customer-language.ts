@@ -1,6 +1,8 @@
 export type CustomerLanguage='th'|'en';
 export const customerLanguageCookie='cannexa_customer_language';
+export const defaultCustomerLanguage:CustomerLanguage='en';
 export function readCustomerLanguage(value:string|undefined):CustomerLanguage|null{return value==='th'||value==='en'?value:null;}
+export function resolveCustomerLanguage(value:string|undefined):CustomerLanguage{return readCustomerLanguage(value)??defaultCustomerLanguage;}
 
 const english:Record<string,string>={
  "สินค้าทั้งหมด":"All products",

@@ -1,11 +1,13 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {customerLanguageTools,readCustomerLanguage} from '../src/lib/customer-language';
+import {customerLanguageTools,readCustomerLanguage,resolveCustomerLanguage} from '../src/lib/customer-language';
 import {orderSummaryText} from '../src/lib/order-shipping-summary';
 
 test('customer language selection accepts only supported languages',()=>{
  assert.equal(readCustomerLanguage('en'),'en');assert.equal(readCustomerLanguage('th'),'th');
  assert.equal(readCustomerLanguage(undefined),null);assert.equal(readCustomerLanguage('fr'),null);
+ assert.equal(resolveCustomerLanguage(undefined),'en');assert.equal(resolveCustomerLanguage('fr'),'en');
+ assert.equal(resolveCustomerLanguage('th'),'th');assert.equal(resolveCustomerLanguage('en'),'en');
 });
 test('customer translations preserve Thai and translate labels, amounts and status messages',()=>{
  const th=customerLanguageTools('th'),en=customerLanguageTools('en');

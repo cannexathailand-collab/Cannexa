@@ -1,5 +1,5 @@
 import {cookies} from 'next/headers';
-import {customerLanguageCookie,readCustomerLanguage} from '@/lib/customer-language';
+import {customerLanguageCookie,resolveCustomerLanguage} from '@/lib/customer-language';
 import {CustomerLanguageProvider} from './language';
 import './portal.css';
 import localFont from 'next/font/local';
@@ -19,6 +19,6 @@ const platinumFont=localFont({
 });
 
 export default async function CustomerLayout({children}:{children:React.ReactNode}){
- const language=readCustomerLanguage((await cookies()).get(customerLanguageCookie)?.value);
+ const language=resolveCustomerLanguage((await cookies()).get(customerLanguageCookie)?.value);
  return <div className={customerFont.variable+' '+platinumFont.variable+' customer-shell'}><CustomerLanguageProvider initialLanguage={language}>{children}</CustomerLanguageProvider></div>;
 }
