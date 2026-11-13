@@ -1,3 +1,7 @@
+import {z} from 'zod';
+import {pendingStockSaleItems} from './order-stock-admission';
+import {stockSellableQuantity} from './stock-sales-limit';
+import {rankChatProductSales} from './admin-chat-product-sales';
 import {db,transaction,userLock,currentShopSlug} from './db';
 import type {Role} from './accounts';
 import {accountingReport} from './accounting-report';
@@ -40,14 +44,26 @@ export async function readAdminChatData(role:Role,name:string,args:unknown):Prom
   const live=await readStockSheet().catch(()=>null);
   const cached=live?[]:await db.stockProduct.findMany({orderBy:{code:'asc'}});
   if(!live&&!cached.length)throw Error('STOCK_UNAVAILABLE');
-  const products=live?live.products.map(p=>({code:p.code,name:p.name,remainingGrams:p.remainingQuantity,costSatangPerGram:p.costSatang})):cached.map(p=>({code:p.code,name:p.name,remainingGrams:p.remainingQuantity?.toNumber()??null,costSatangPerGram:p.costSatang}));
+  if(!live&&input.quantityBasis==='sellable')throw Error('STOCK_LIVE_REQUIRED');
+  const pending=input.quantityBasis==='sellable'?await pendingStockSaleItems():[];
+  const products=live?live.products.map(p=>({code:p.code,name:p.name,remainingGrams:p.remainingQuantity,sellableGrams:stockSellableQuantity(p,pending.filter(item=>item.code===p.code).reduce((sum,item)=>sum+item.quantityMilliG,0)),costSatangPerGram:p.costSatang})):cached.map(p=>({code:p.code,name:p.name,remainingGrams:p.remainingQuantity?.toNumber()??null,sellableGrams:null,costSatangPerGram:p.costSatang}));
+  const quantity=(p:typeof products[number])=>input.quantityBasis==='sellable'?p.sellableGrams:p.remainingGrams;
   const query=input.query.toLocaleLowerCase();
   const matching=products.filter(p=>!query||(p.code+' '+(p.name??'')).toLocaleLowerCase().includes(query));
-  const filtered=matching.filter(p=>matchesStockThreshold(p.remainingGrams,input)).sort((a,b)=>(a.remainingGrams??Infinity)-(b.remainingGrams??Infinity)||a.code.localeCompare(b.code));
+  const filtered=matching.filter(p=>matchesStockThreshold(quantity(p),input)).sort((a,b)=>(quantity(a)??Infinity)-(quantity(b)??Infinity)||a.code.localeCompare(b.code));
   const shown=filtered.slice(0,30);
-  return {source:{title:'สต๊อกสินค้า',url:base+'/stock'+(input.query?'?q='+encodeURIComponent(input.query):''),readAt},data:{basis:'Physical remaining grams, not sellable quantity. No inventory projection.',cached:!live,sourceReadAt:live?.readAt.toISOString()??null,oldestCachedAt:cached.length?new Date(Math.min(...cached.map(p=>+p.updatedAt))).toISOString():null,filters:input,total:filtered.length,shownCount:shown.length,unknownBalanceCount:matching.filter(p=>p.remainingGrams===null).length,shown,truncated:filtered.length>30},table:{title:'สินค้าตรงเงื่อนไขสต๊อก',total:filtered.length,columns:['รหัสสินค้า','ชื่อ','คงเหลือ (กรัม)'],rows:shown.map(row=>({cells:[row.code,row.name||'ยังไม่ระบุชื่อ',row.remainingGrams===null?'ไม่ทราบ':String(row.remainingGrams)],url:base+'/stock?q='+encodeURIComponent(row.code)}))}};
+  return {source:{title:'สต๊อกสินค้า',url:base+'/stock'+(input.query?'?q='+encodeURIComponent(input.query):''),readAt},data:{basis:input.quantityBasis==='sellable'?'Sellable grams using the same stock page calculation after pending holds and safety reserve. Physical balance is separate.':'Physical remaining grams, not sellable quantity.',cached:!live,sourceReadAt:live?.readAt.toISOString()??null,oldestCachedAt:cached.length?new Date(Math.min(...cached.map(p=>+p.updatedAt))).toISOString():null,filters:input,total:filtered.length,shownCount:shown.length,unknownBalanceCount:matching.filter(p=>quantity(p)===null).length,shown,truncated:filtered.length>30},table:{title:'สินค้าตรงเงื่อนไขสต๊อก',total:filtered.length,columns:['รหัสสินค้า','ชื่อ',input.quantityBasis==='sellable'?'ขายได้ (กรัม)':'คงเหลือจริง (กรัม)'],rows:shown.map(row=>({cells:[row.code,row.name||'ยังไม่ระบุชื่อ',quantity(row)===null?'รอข้อมูล':String(quantity(row))],url:base+'/stock?q='+encodeURIComponent(row.code)}))}};
  }
- const range=chatRange.parse(args),query=new URLSearchParams(range).toString();
+ const range=chatRange.parse(name==='product_sales_ranking'?{from:(args as any)?.from,to:(args as any)?.to}:args),query=new URLSearchParams(range).toString();
+ if(name==='product_sales_ranking'){
+  const metric=z.object({from:z.string(),to:z.string(),metric:z.enum(['orders','grams'])}).strict().parse(args).metric;
+  const report=await salesReport(range),ids=report.summary.rows.map(row=>row.orderId);
+  const orders=await db.orderIntake.findMany({where:{id:{in:ids}},select:{id:true,rawText:true}});
+  const ranking=rankChatProductSales(orders,metric),shown=ranking.rows.slice(0,20);
+  const names=await db.stockProduct.findMany({where:{code:{in:shown.map(row=>row.code)}},select:{code:true,name:true}}),byCode=new Map(names.map(row=>[row.code,row.name]));
+  const rows=shown.map(row=>({...row,name:byCode.get(row.code)??null}));
+  return {source:{title:'สินค้าขายดีจากยอดขายที่ยืนยันแล้ว',url:slug?base+'/orders':'/admin/sales?'+query,readAt},data:{range,metric,basis:'Recognized sales by actual shipment date, excluding cancelled, returned and unpaid COD. Rank by orders or grams, never by estimated product revenue.',recognizedOrders:ids.length,unreadableOrders:ranking.unreadableOrders,totalProducts:ranking.rows.length,shown:rows,truncated:ranking.rows.length>20},table:{title:'อันดับสินค้าขายดี · '+(metric==='orders'?'จำนวนออเดอร์':'กรัมที่ขาย'),columns:['อันดับ','รหัสสินค้า','ชื่อ','ออเดอร์','กรัมที่ขาย'],total:ranking.rows.length,rows:rows.map((row,index)=>({cells:[String(index+1),row.code,row.name??'—',String(row.orders),String(row.grams)]}))}};
+ }
  if(name==='sales_summary'&&slug){
   const report=await bookedSalesReport(range);
   return {source:{title:'ยอดขายตามรอบออเดอร์ '+range.from+' ถึง '+range.to,url:base+'/sales?'+query,readAt},data:{range,moneyUnit:'satang',basis:'Booked sales by shop order close rounds, matching this shop sales page. Profit is gross, not net; null profit means incomplete data.',total:report.summary}};

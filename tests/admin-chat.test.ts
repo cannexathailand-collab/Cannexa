@@ -1,6 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {adminChatTools,chatInput,chatRange,customerChatInput,matchesStockThreshold,runAdminChat} from '../src/lib/admin-chat';
+import {rankChatProductSales} from '../src/lib/admin-chat-product-sales';
+import {stockSellableQuantity} from '../src/lib/stock-sales-limit';
 
 test('chat validates bounded history and denies roles without financial access',()=>{
  assert.equal(chatInput.safeParse({message:' '}).success,false);
@@ -22,6 +24,18 @@ test('stock threshold distinguishes less than from at most, including fractional
  assert.equal(matchesStockThreshold(100,{...input,comparison:'atMost'}),true);
  assert.equal(matchesStockThreshold(null,input),false);
  assert.equal(matchesStockThreshold(null,{...input,lowOnly:false}),true);
+});
+test('sellable stock uses pending orders and reserve instead of physical balance',()=>{
+ const balance={remainingQuantity:150,issuedQuantity:40,completedQuantity:0,precountedPendingQuantity:0};
+ assert.equal(stockSellableQuantity(balance,5000),85);
+ assert.equal(matchesStockThreshold(stockSellableQuantity(balance,5000),{lowOnly:true,thresholdGrams:100,comparison:'below'}),true);
+ assert.equal(matchesStockThreshold(balance.remainingQuantity,{lowOnly:true,thresholdGrams:100,comparison:'below'}),false);
+});
+test('product rankings deduplicate orders and distinguish grams from order count',()=>{
+ const orders=[{id:'one',rawText:'สินค้า\nAA1 x 10 G\nBB1 x 100 G'},{id:'two',rawText:'สินค้า\nAA1 x 20 G'},{id:'two',rawText:'สินค้า\nAA1 x 20 G'},{id:'bad',rawText:'unreadable'}];
+ const byOrders=rankChatProductSales(orders,'orders');
+ assert.equal(byOrders.rows[0].code,'AA1');assert.equal(byOrders.rows[0].orders,2);assert.equal(byOrders.rows[0].grams,30);assert.equal(byOrders.unreadableOrders,1);
+ assert.equal(rankChatProductSales(orders,'grams').rows[0].code,'BB1');
 });
 test('customer lists retain server-provided rows and detail links independently of model text',async()=>{
  let step=0;
