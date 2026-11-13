@@ -56,7 +56,7 @@ export function StockLineCardDraft(){
  }
  const prepared=draft&&!busy?previewSummary(draft.sets.flatMap(set=>set.products)):'';
  if(!selection?.enabled)return null;
- return <><OaJobList oaAccounts={oaAccounts} setOaAccounts={setOaAccounts} researchContext={researchContext} setResearchContext={setResearchContext}/>
+ return <div className="oa-workspace"><OaJobList oaAccounts={oaAccounts} setOaAccounts={setOaAccounts} researchContext={researchContext} setResearchContext={setResearchContext}/>
  <div className="actions" style={{marginBottom:16}}><button type="button" aria-expanded={previewOpen} aria-controls="oa-card-preview" disabled={busy||using||!!researching||selection.busy||!selection.selected.size||!oaAccounts.length} onClick={async()=>{
   if(draft&&!usedMessage){setPreviewOpen(open=>!open);return;}
   const token=++generation.current;setPreviewOpen(true);setBusy(true);setError('');setDraft(null);setUsedMessage('');useRequestKey.current=null;
@@ -74,10 +74,10 @@ export function StockLineCardDraft(){
   finally{if(token===generation.current){setBusy(false);setResearching(null);}}
  }}>{busy?'กำลังเตรียมข้อมูล…':draft&&!usedMessage?(previewOpen?'ซ่อนข้อมูลที่เตรียมไว้':'เปิดข้อมูลที่เตรียมไว้'):'สร้างข้อความและการ์ด LINE OA'}</button></div>
  {prepared&&<p role="status" className="notice">{prepared}</p>}{usedMessage&&<p role="status" className="notice">{usedMessage}</p>}{error&&<p role="alert" className="notice">{error}</p>}
- {previewOpen&&<section id="oa-card-preview" ref={previewSection} className="card" aria-label="ตัวอย่างชุดการ์ด LINE OA" style={{scrollMarginTop:20,marginTop:16}}><h2>ตัวอย่างชุดการ์ด LINE OA</h2><p>บัญชีปลายทาง: {draft?.account??'ยังไม่ได้เลือก LINE OA'}</p>
+ {previewOpen&&<section id="oa-card-preview" ref={previewSection} className="card oa-preview" aria-label="ตัวอย่างชุดการ์ด LINE OA" style={{scrollMarginTop:20,marginTop:16}}><h2>ตัวอย่างชุดการ์ด LINE OA</h2><p>บัญชีปลายทาง: {draft?.account??'ยังไม่ได้เลือก LINE OA'}</p>
  <p className="notice">กรอกคำอธิบายและลิงก์แยกตามสินค้า ระบบจะจำไว้เมื่อยืนยันข้อมูล ตรวจและยืนยันแต่ละรายการ แล้วกดใช้ข้อมูลชุดนี้เพื่อบันทึกข้อความและการ์ดใน LINE OA โดยไม่ค้นใหม่</p>{prepared&&<p role="status">{prepared}</p>}
  {draft&&!draft.aiConfigured&&<p>ยังไม่ได้เชื่อม OpenAI กรุณาไปที่หมวดการเชื่อมต่อ</p>}
- {draft?.sets.map(set=><section key={set.title}><h3>{set.title}</h3>{set.products.map(product=><article key={product.code} className="card" aria-label={'ตัวอย่าง '+product.code}>
+ {draft?.sets.map(set=><section key={set.title} className="oa-preview-set"><h3>{set.title}</h3>{set.products.map(product=><article key={product.code} className="card oa-preview-product" aria-label={'ตัวอย่าง '+product.code}>
   <strong>{product.code} · {product.name??'ยังไม่มีชื่อ'}</strong>
   <div className="actions">{product.images.map(image=>image.url?<img key={image.slot} src={image.url} alt={'รูป '+image.slot+' '+product.code} width={90} height={90} style={{objectFit:'contain'}}/>:<span key={image.slot} className="muted">ยังไม่มีรูป {image.slot}</span>)}</div>
   <p className="small">Show details → {product.keyword}</p>
@@ -99,5 +99,5 @@ export function StockLineCardDraft(){
  </article>)}</section>)}
  {busy&&<p role="status">{researching?`กำลังค้นข้อมูล ${researching}…`:'กำลังเตรียมรายการ…'}</p>}{error&&<p role="alert" className="notice">{error}</p>}
  <div className="actions"><button type="button" disabled={busy||using||!!researching||!!confirming||!oaAccounts.length||!!usedMessage||!draft?.sets.length||draft.sets.some(set=>set.products.some(product=>!product.confirmed||!canConfirmPreview(product)||product.images.some(image=>!image.url)))} onClick={()=>void usePreview()}>{using?'กำลังรับข้อมูล…':'ใช้ข้อมูลชุดนี้สร้างใน LINE OA'}</button>
- <button type="button" className="secondary" disabled={busy||using||!!researching||!!confirming} onClick={()=>setPreviewOpen(false)}>ซ่อนตัวอย่าง</button></div></section>}</>;
+ <button type="button" className="secondary" disabled={busy||using||!!researching||!!confirming} onClick={()=>setPreviewOpen(false)}>ซ่อนตัวอย่าง</button></div></section>}</div>;
 }

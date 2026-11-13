@@ -16,9 +16,9 @@ export function OaAccountSelector({value,onChange,onReady}:{value:string[];onCha
   else if(value.some(account=>!data.accounts.some(item=>item.account===account)))onChange(value.filter(account=>data.accounts.some(item=>item.account===account)));
   onReady(data.status==='READY'&&data.accounts.length>0);
  },[data,value,onChange,onReady]);
- return <fieldset style={{border:'1px solid #dce6df',borderRadius:10,padding:12}}><legend>LINE OA ปลายทาง · เลือกได้หลายร้าน</legend>
+ return <fieldset className="oa-account-selector"><legend>LINE OA ปลายทาง · เลือกได้หลายร้าน</legend>
   {!data?.accounts.length&&<p>ยังไม่มีรายชื่อ OA</p>}
-  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(230px,1fr))',gap:8,maxHeight:260,overflowY:'auto'}}>
+  <div className="oa-account-grid">
    {data?.accounts.map(account=><label key={account.account} style={{display:'flex',alignItems:'center',gap:8,margin:0}}><input type="checkbox" checked={value.includes(account.account)} disabled={data.status!=='READY'||busy} onChange={event=>onChange(event.target.checked?[...value,account.account]:value.filter(item=>item!==account.account))}/><span>{account.name} ({account.account})</span></label>)}
   </div>
   <p className="small">เลือกแล้ว {value.length} ร้าน · ระบบจัดคิวทำงานทีละร้าน</p>
