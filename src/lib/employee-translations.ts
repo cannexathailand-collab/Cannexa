@@ -171,6 +171,7 @@ export const employeeEnglish:Record<string,string>={
   "กำลังสร้างลิงก์…": "Creating link…",
   "คัดลอกลิงก์ผูก LINE": "Copy LINE linking link",
   "สร้างลิงก์ผูก LINE": "Create LINE linking link",
+  "ลิงก์ผูก LINE": "Link LINE account",
   "ตรวจสถานะอีกครั้ง": "Check status again",
   "ลิงก์ส่วนตัวของลูกค้ารายนี้": "Private link for this customer",
   "ไม่มีวันหมดอายุ ใช้ผูกได้ครั้งเดียว ระบบจะตรวจสถานะให้ขณะเปิดหน้านี้": "No expiry. Can be used once. Status updates while this page is open.",

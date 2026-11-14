@@ -17,6 +17,7 @@ import {quotedTotal} from '@/lib/shipment-matching';
 import {loadDuplicateOrderReviews} from '@/lib/order-duplicates';
 import {DuplicateOrderNotice} from '@/app/duplicate-order-notice';
 import {EmployeeNav} from '../../employee-nav';
+import {OrderCustomerLineLink} from '../../order-customer-line-link';
 
 export default async function SharedOrder({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{from?:string;scope?:string;range?:string;page?:string;q?:string;status?:string}>}){
  const {t,locale,language}=await employeeLanguage();
@@ -32,7 +33,7 @@ export default async function SharedOrder({params,searchParams}:{params:Promise<
  }
  const order=await db.orderIntake.findUnique({
   where:{id},
-  select:{id:true,orderNumber:true,groupKey:true,recipient:true,phone:true,address:true,payment:true,rawText:true,sellerUsername:true,eventAt:true,createdAt:true,status:true},
+  select:{id:true,orderNumber:true,groupKey:true,customerCode:true,recipient:true,phone:true,address:true,payment:true,rawText:true,sellerUsername:true,eventAt:true,createdAt:true,status:true},
  });
  if(!order)notFound();
  const teamName=(await loadOrderTeamNames([order.groupKey])).get(order.groupKey);
@@ -55,7 +56,7 @@ export default async function SharedOrder({params,searchParams}:{params:Promise<
    <p>{t("รับออเดอร์ ")}{order.eventAt.toLocaleString(locale,{timeZone:'Asia/Bangkok'})}</p>
    <p>{t("สถานะ ")}{status}</p>
    <OrderCommissionStatus language={language} visible={order.sellerUsername===actor.username} payment={order.payment} codReceived={!!receipt&&receipt.amountSatang===shipment?.codSatang} rows={commissions.rows.filter(row=>row.reference===order.orderNumber)}/>
-   <OrderShippingDetails language={language} orderId={id} documentActions={<OrderDocumentButtons orderId={id}/>} teamName={teamName} copyDetails={{orderNumber:order.orderNumber,seller:order.sellerUsername,createdAt:order.createdAt,status,extraLines:orderCommissionCopyLines({visible:order.sellerUsername===actor.username,payment:order.payment,codReceived:!!receipt&&receipt.amountSatang===shipment?.codSatang,rows:commissions.rows.filter(row=>row.reference===order.orderNumber)})}} data={{recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:amount,items:items.items}} tracking={shipment?.tracking}>{!closed&&order.status!=='RETURNED'&&shipment?.fulfillmentStatus!=='DISPATCHED'&&!shipment?.dispatchedAt&&(actor.role==='owner'||order.sellerUsername===actor.username)&&<CancelOwnOrderButton id={id} version={orderEditVersion(order)} orderNumber={order.orderNumber}/>}</OrderShippingDetails>
+   <OrderShippingDetails language={language} orderId={id} documentActions={<OrderDocumentButtons orderId={id}/>} teamName={teamName} copyDetails={{orderNumber:order.orderNumber,seller:order.sellerUsername,createdAt:order.createdAt,status,extraLines:orderCommissionCopyLines({visible:order.sellerUsername===actor.username,payment:order.payment,codReceived:!!receipt&&receipt.amountSatang===shipment?.codSatang,rows:commissions.rows.filter(row=>row.reference===order.orderNumber)})}} data={{recipient:order.recipient,phone:order.phone,address:order.address,payment:order.payment,amountSatang:amount,items:items.items}} tracking={shipment?.tracking}><OrderCustomerLineLink code={order.customerCode??null}/>{!closed&&order.status!=='RETURNED'&&shipment?.fulfillmentStatus!=='DISPATCHED'&&!shipment?.dispatchedAt&&(actor.role==='owner'||order.sellerUsername===actor.username)&&<CancelOwnOrderButton id={id} version={orderEditVersion(order)} orderNumber={order.orderNumber}/>}</OrderShippingDetails>
    <DuplicateOrderNotice matches={duplicates.get(id)??[]} currentOrder={order} baseHref="/my-performance/orders/"/>
   </section>
  </main>;

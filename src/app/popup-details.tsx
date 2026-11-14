@@ -5,6 +5,7 @@ import {useEffect, useId, useRef, type CSSProperties, type ReactNode} from 'reac
 type Props = {
   children: ReactNode;
   onOpen?: () => void;
+  onClose?: () => void;
   summary: ReactNode;
   title?: ReactNode;
   summaryClassName?: string;
@@ -17,7 +18,7 @@ type Props = {
   'aria-label'?: string;
 };
 
-export function PopupDetails({children, onOpen, summary, title = summary, summaryClassName = '', className = '', style, id, open, closeOnLink = false, closeLabel = 'ปิด', 'aria-label': ariaLabel}: Props) {
+export function PopupDetails({children, onOpen, onClose, summary, title = summary, summaryClassName = '', className = '', style, id, open, closeOnLink = false, closeLabel = 'ปิด', 'aria-label': ariaLabel}: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -30,7 +31,7 @@ export function PopupDetails({children, onOpen, summary, title = summary, summar
       aria-haspopup="dialog" onClick={() => {onOpen?.();dialog.current?.showModal();}}>
       <span>{summary}</span><svg className="popup-trigger-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="m9 5 7 7-7 7"/></svg>
     </button>
-    <dialog ref={dialog} className="stock-modal popup-details-dialog" aria-labelledby={titleId}>
+    <dialog ref={dialog} className="stock-modal popup-details-dialog" aria-labelledby={titleId} onClose={onClose}>
       <header className="popup-details-header">
         <div id={titleId} role="heading" aria-level={2}>{title}</div>
         <button type="button" className="secondary popup-close" onClick={() => dialog.current?.close()}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="m6 6 12 12M18 6 6 18"/></svg><span>{closeLabel}</span></button>

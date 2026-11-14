@@ -16,7 +16,7 @@ export async function employeeOrderDashboard(input:{q?:string;page?:string;scope
  const allRows=report.rows.map(row=>({
   version:orderEditVersion(row.order),canCancel:!row.shipped&&!['CANCELLED','WITHDRAWN','EXPIRED','RETURNED'].includes(row.order.status),id:row.order.id,orderNumber:row.order.orderNumber,recipient:row.order.recipient,
   eventAt:row.order.eventAt,createdAt:row.order.createdAt,day:orderRoundClosingDay(row.order.eventAt,report.roundSettings.closeMinutes),
-  sellerUsername:row.order.sellerUsername,teamName:row.teamName,payment:row.order.payment,phone:row.order.phone,address:row.order.address,rawText:row.order.rawText,
+  sellerUsername:row.order.sellerUsername,customerCode:row.order.customerCode,teamName:row.teamName,payment:row.order.payment,phone:row.order.phone,address:row.order.address,rawText:row.order.rawText,
   codReceived:!!row.receipt&&row.receipt.amountSatang===(row.shipment?.codSatang??row.amountSatang),revenueSatang:row.amountSatang,tracking:row.shipment?.tracking??null,hasTracking:!!row.shipment?.tracking,
   state:row.state,confirmationReview:row.confirmationReview,codReview:row.codReview,shipped:row.shipped,
   awaitingShipment:row.awaitingShipment,
